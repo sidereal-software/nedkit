@@ -84,7 +84,11 @@ def unescape(literal):
         if nxt == "x":
             digits = ""
             j = i + 2
-            while j < len(literal) and len(digits) < 2 and literal[j] in "0123456789abcdefABCDEF":
+            while (
+                j < len(literal)
+                and len(digits) < 2
+                and literal[j] in "0123456789abcdefABCDEF"
+            ):
                 digits += literal[j]
                 j += 1
             out.append(int(digits, 16))
@@ -162,7 +166,9 @@ def fence(body, language=""):
 
 def collapsed(summary, body, language=""):
     """A pymdownx.details block, so long macro bodies start folded away."""
-    indented = "\n".join(("    " + l).rstrip() for l in fence(body, language).split("\n"))
+    indented = "\n".join(
+        ("    " + line).rstrip() for line in fence(body, language).split("\n")
+    )
     return '??? example "%s"\n\n%s' % (summary, indented)
 
 
@@ -177,8 +183,9 @@ def as_prose(text: str) -> str:
     Indented lines are left alone. Four spaces already makes them a code
     block, where a hash is only ever a hash.
     """
-    return "\n".join("\\" + line if line.startswith("#") else line
-                     for line in text.split("\n"))
+    return "\n".join(
+        "\\" + line if line.startswith("#") else line for line in text.split("\n")
+    )
 
 
 def source_link(macro: MacroFile) -> str:
@@ -195,9 +202,13 @@ def gen_commands():
         out.append("| Setting | Value |")
         out.append("| --- | --- |")
         out.append("| Menu entry | `%s` |" % macro.menu_entry)
-        out.append("| Accelerator | %s |" % (macro.fields.get("Accelerator") or "(none)"))
-        out.append("| Requires a selection | %s |"
-                   % ("yes" if macro.requires_selection else "no"))
+        out.append(
+            "| Accelerator | %s |" % (macro.fields.get("Accelerator") or "(none)")
+        )
+        out.append(
+            "| Requires a selection | %s |"
+            % ("yes" if macro.requires_selection else "no")
+        )
         out.append("| Source | %s |" % source_link(macro))
         out.append("")
         out.append(as_prose(macro.prose))
@@ -230,7 +241,9 @@ def describe(replacement):
 
 
 def gen_character_table():
-    groups, names = parse_character_table(read("macros/commands/normalize-characters.nm"))
+    groups, names = parse_character_table(
+        read("macros/commands/normalize-characters.nm")
+    )
     total = sum(len(entries) for _, entries in groups)
     out = ["%d characters, every one of them replaced by plain ASCII." % total, ""]
     for title, entries in groups:
@@ -244,8 +257,10 @@ def gen_character_table():
                 shown = "`%s`" % char
             label = names.get(char, "")
             label = re.sub(r"^U\+[0-9A-F]{4,6}\s+", "", label)
-            out.append("| %s | U+%04X | %s | %s |"
-                       % (shown, ord(char), label, describe(replacement)))
+            out.append(
+                "| %s | U+%04X | %s | %s |"
+                % (shown, ord(char), label, describe(replacement))
+            )
         out.append("")
     return "\n".join(out).strip("\n")
 
@@ -270,8 +285,9 @@ def splice(page, marker, generated):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true",
-                        help="fail if a committed page is out of date")
+    parser.add_argument(
+        "--check", action="store_true", help="fail if a committed page is out of date"
+    )
     args = parser.parse_args()
 
     stale = []
@@ -284,9 +300,13 @@ def main():
             continue
         if args.check:
             stale.append(page)
-            diff = difflib.unified_diff(current.split("\n"), updated.split("\n"),
-                                        fromfile="%s (committed)" % page,
-                                        tofile="%s (regenerated)" % page, lineterm="")
+            diff = difflib.unified_diff(
+                current.split("\n"),
+                updated.split("\n"),
+                fromfile="%s (committed)" % page,
+                tofile="%s (regenerated)" % page,
+                lineterm="",
+            )
             sys.stderr.write("\n".join(list(diff)[:40]) + "\n")
         else:
             (REPO / page).write_text(updated, encoding="utf-8", newline="\n")
@@ -295,7 +315,8 @@ def main():
     if stale:
         sys.stderr.write(
             "\n%d page(s) out of date with the macros. Run:\n\n"
-            "    uv run python tools/gen_docs.py\n\n" % len(stale))
+            "    uv run python tools/gen_docs.py\n\n" % len(stale)
+        )
         return 1
     if args.check:
         sys.stderr.write("docs are in step with the macros\n")

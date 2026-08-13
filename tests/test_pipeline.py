@@ -52,9 +52,7 @@ def fields(data: bytes) -> list[int]:
     return [len(line.split(b"|")) for line in data.split(b"\n") if b"|" in line]
 
 
-def test_pasted_table_becomes_a_ned_table(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
+def test_pasted_table_becomes_a_ned_table(runner: XNEditRunner, tmp_path: Path) -> None:
     """The full run over the real SDSS paste in samples/."""
     result = apply(
         runner, PIPELINE, (SAMPLES / "A13L.mod.before").read_bytes(), tmp_path

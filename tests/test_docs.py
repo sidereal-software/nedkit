@@ -70,10 +70,13 @@ def test_a_hash_in_prose_does_not_become_a_heading() -> None:
 def test_generated_headings_are_only_the_ones_the_generator_writes() -> None:
     """Any other heading came from prose and is a rendering accident."""
     page = gen_docs.read("docs/commands.md")
-    body = page.split(gen_docs.BEGIN % "commands")[1].split(gen_docs.END % "commands")[0]
+    body = page.split(gen_docs.BEGIN % "commands")[1].split(gen_docs.END % "commands")[
+        0
+    ]
     expected = {"## %s" % parse(p).title for p in command_files(REPO_ROOT)}
     headings = {
-        line for line in body.split("\n")
+        line
+        for line in body.split("\n")
         if line.startswith("#") and not line.startswith("<!--")
     }
     assert headings == expected, "unexpected heading in the generated command reference"

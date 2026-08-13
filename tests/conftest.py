@@ -41,7 +41,9 @@ def xnedit_binary() -> Path:
 
 
 @pytest.fixture(scope="session")
-def runner(xnedit_binary: Path, tmp_path_factory: pytest.TempPathFactory) -> XNEditRunner:
+def runner(
+    xnedit_binary: Path, tmp_path_factory: pytest.TempPathFactory
+) -> XNEditRunner:
     """XNEdit with an empty configuration and no macro libraries loaded."""
     root = tmp_path_factory.mktemp("xnedit-plain")
     instance = XNEditRunner(xnedit_binary, root / "home")

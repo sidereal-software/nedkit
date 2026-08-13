@@ -219,8 +219,8 @@ def check_replace_in_string_copy(macro: MacroFile) -> list[Finding]:
                     macro.path,
                     macro.body_offset + call.line - 1,
                     "replace_in_string() called with "
-                    f"{len(call.args)} arguments; pass \"copy\" as the fifth or it "
-                    "returns \"\" when the pattern doesn't match",
+                    f'{len(call.args)} arguments; pass "copy" as the fifth or it '
+                    'returns "" when the pattern doesn\'t match',
                 )
             )
     return findings

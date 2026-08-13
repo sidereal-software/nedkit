@@ -153,7 +153,16 @@ class XNEditRunner:
 
     @property
     def env(self) -> dict[str, str]:
-        return {**os.environ, "XNEDIT_HOME": str(self.home)}
+        # NEDIT_HOME as well as XNEDIT_HOME. XNEdit renamed the variable and
+        # ignores the old one, so setting both costs nothing there and is what
+        # lets NEDKIT_XNEDIT point at a classic NEdit 5.7 instead: same macro
+        # language, same ~/.nedit layout, different variable. CI runs the suite
+        # through both.
+        return {
+            **os.environ,
+            "XNEDIT_HOME": str(self.home),
+            "NEDIT_HOME": str(self.home),
+        }
 
     def run_on_file(self, macro: str, path: Path, *, save: bool = True) -> MacroRun:
         """Run ``macro`` against ``path``, saving afterwards unless told not to.
@@ -216,9 +225,7 @@ class XNEditRunner:
         Used for exercising subroutine libraries, where the assertion is about
         a return value rather than about a file. Nothing is saved.
         """
-        run = self.run_on_bytes(
-            macro, b"", workdir, name="evaluate.txt", save=False
-        )
+        run = self.run_on_bytes(macro, b"", workdir, name="evaluate.txt", save=False)
         if not run.ok:
             raise AssertionError(f"macro did not complete: {run.describe()}")
         return run.messages.strip("\n")
@@ -230,7 +237,9 @@ class XNEditRunner:
                 't_print("")', b"", workdir, name="smoke.txt", save=False
             )
         except OSError as error:
-            raise XNEditUnavailable(f"could not start {self.binary}: {error}") from error
+            raise XNEditUnavailable(
+                f"could not start {self.binary}: {error}"
+            ) from error
 
         if run.timed_out:
             raise XNEditUnavailable(

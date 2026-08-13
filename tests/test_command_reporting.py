@@ -55,9 +55,7 @@ def test_align_columns_does_not_count_header_lines_as_rows(
 def test_align_columns_says_so_when_there_is_nothing_to_align(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
-    run = runner.run_on_bytes(
-        body("align-columns"), b"##refcode only\n", tmp_path
-    )
+    run = runner.run_on_bytes(body("align-columns"), b"##refcode only\n", tmp_path)
     assert run.ok, run.describe()
     assert "no data rows" in run.messages
 
@@ -68,9 +66,7 @@ def test_align_columns_reports_ragged_rows(
     """A short row means a value went missing upstream, so it must not pass quietly."""
     run = runner.run_on_bytes(
         body("align-columns"),
-        b"NGC 4472\tz=0.003326\tSy2\n"
-        b"NGC 4486\tz=0.004283\n"
-        b"IC 3583\tz=0.001155\tHII\n",
+        b"NGC 4472\tz=0.003326\tSy2\nNGC 4486\tz=0.004283\nIC 3583\tz=0.001155\tHII\n",
         tmp_path,
     )
     assert run.ok, run.describe()

@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 dependencies = []
 
 [dependency-groups]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "ruff>=0.16"]
 docs = [
     "mkdocs-material>=9.5",
     # MkDocs 2.0 drops the plugin and theming systems with no migration path,
@@ -31,3 +31,16 @@ testpaths = ["tests"]
 markers = [
     "xnedit: needs a real XNEdit binary and an X display (see tests/conftest.py)",
 ]
+
+[tool.ruff]
+# The NED team's ceiling, not the harness's. Ruff applies one target version to
+# the whole tree, and the low one is the safe direction: it stops the pyupgrade
+# rules rewriting a team-facing script into syntax 3.9 does not have.
+# tests/test_python_version.py is what actually enforces the split.
+target-version = "py39"
+
+[tool.ruff.lint]
+# Ruff's default set, plus imports and the bug-prone patterns from flake8-bugbear.
+# Deliberately not the whole catalogue: a rule that fires on style nobody agreed
+# to only teaches people to skim the output.
+select = ["E4", "E7", "E9", "F", "I", "B"]

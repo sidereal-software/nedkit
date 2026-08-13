@@ -49,9 +49,9 @@ def test_split_args_of_nothing() -> None:
 
 
 def test_find_calls_skips_comments_and_strings() -> None:
-    body = '\n'.join(
+    body = "\n".join(
         [
-            '# replace_in_string(a, b, c) in a comment',
+            "# replace_in_string(a, b, c) in a comment",
             'msg = "replace_in_string(a, b, c)"',
             'x = replace_in_string(t, "p", "", "regex", "copy")',
         ]
