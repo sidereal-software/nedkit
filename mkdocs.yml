@@ -1,0 +1,69 @@
+site_name: nedkit
+site_description: >-
+  XNEdit macros and Python utilities for the NED team at IPAC: cleaning up
+  text pasted out of PDFs and reshaping it into NED's table format.
+site_url: https://nedkit.sidereal.software/
+repo_url: https://github.com/sidereal-software/nedkit
+repo_name: nedkit
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep orange
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep orange
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  icon:
+    logo: material/table-edit
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - toc.follow
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  # Collapsible blocks. tools/gen_docs.py folds each macro body into one.
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Guides:
+      - Cleaning up a pasted table: cleaning-pdf-tables.md
+      - Installing macros: installing-macros.md
+  - Reference:
+      - Commands: commands.md
+      - Subroutines: subroutines.md
+      - Character replacements: character-replacements.md
+      - Macro language: xnedit-macro-reference.md
+
+# Every page has to be reachable from the nav; the docs workflow builds with
+# --strict, so a page left out of the nav fails the build rather than going
+# quietly missing from the site.
+strict: true
