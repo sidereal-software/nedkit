@@ -1,0 +1,51 @@
+name: docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9.0.0
+
+      # Fails when a macro has changed without the reference pages being
+      # regenerated, which is what keeps the docs honest. uv run pytest covers
+      # this too; repeating it here keeps the failure legible when the docs
+      # build is the thing that broke.
+      - name: Check the generated pages are in step with the macros
+        run: uv run python tools/gen_docs.py --check
+
+      # --strict turns broken links and pages missing from the nav into errors.
+      - name: Build the site
+        run: uv run --group docs mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    # Pull requests build the site to catch breakage but must not publish it.
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
