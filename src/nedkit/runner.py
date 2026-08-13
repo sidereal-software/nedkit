@@ -30,6 +30,9 @@ SENTINEL = "__NEDKIT_MACRO_OK__"
 #: Prefixes a line of stdout standing in for a dialog the macro raised.
 DIALOG_MARK = "__NEDKIT_DIALOG__"
 
+#: Separates whatever the editor printed on startup from the macro's output.
+OUTPUT_MARK = "__NEDKIT_OUTPUT__"
+
 #: A user-defined subroutine shadows the built-in of the same name, so a macro
 #: that reports through dialog() can be run without a human to click OK. The
 #: message is flattened onto one line and handed back through stdout instead.
@@ -224,11 +227,26 @@ class XNEditRunner:
 
         Used for exercising subroutine libraries, where the assertion is about
         a return value rather than about a file. Nothing is saved.
+
+        The editor gets to stdout first: classic NEdit announces that it is
+        converting old preferences, and anything else it has to say arrives
+        before the macro runs. Only what follows the marker below is the
+        macro's own output.
         """
-        run = self.run_on_bytes(macro, b"", workdir, name="evaluate.txt", save=False)
+        run = self.run_on_bytes(
+            f't_print("{OUTPUT_MARK}\\n")\n{macro}',
+            b"",
+            workdir,
+            name="evaluate.txt",
+            save=False,
+        )
         if not run.ok:
             raise AssertionError(f"macro did not complete: {run.describe()}")
-        return run.messages.strip("\n")
+
+        lines = run.messages.split("\n")
+        if OUTPUT_MARK in lines:
+            lines = lines[lines.index(OUTPUT_MARK) + 1 :]
+        return "\n".join(lines).strip("\n")
 
     def smoke_test(self, workdir: Path) -> None:
         """Prove XNEdit actually runs here, or explain why it doesn't."""

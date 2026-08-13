@@ -112,3 +112,30 @@ def test_command_is_idempotent(
             f"{command.name} changed {expected_file.parent.name} on a second run, "
             "so it is not idempotent"
         )
+
+
+@pytest.mark.xnedit
+@pytest.mark.parametrize("command", command_files(REPO_ROOT), ids=lambda p: p.stem)
+def test_command_does_not_corrupt_a_non_utf8_file(
+    command: Path, runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """Whatever a command does to a latin-1 file, the bytes have to survive.
+
+    NED's data files are not reliably UTF-8, and the damage worth guarding
+    against is a character quietly re-encoded or dropped on save.
+
+    Whether the buffer locks first is a different question, and a
+    locale-dependent one: a file that is entirely latin-1 decodes cleanly under
+    a latin-1 locale and is an error under a UTF-8 one. The
+    unconvertible-byte-locks-the-file fixture pins the lock with a file that is
+    an error either way. This test drops that question and keeps the invariant
+    that holds everywhere, classic NEdit included.
+    """
+    source = "NGC 4151 café   \nsecond   \n".encode("latin-1")
+    run = runner.run_on_bytes(parse(command).body, source, tmp_path, name="latin1.txt")
+
+    assert run.ok, f"{command.name}: {run.describe()}"
+    assert run.output is not None
+    assert b"\xe9" in run.output, (
+        f"{command.name} lost the latin-1 byte: {run.output!r}"
+    )

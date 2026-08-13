@@ -49,17 +49,19 @@ Just pasted a table out of a paper and want to know what to run?
 commands on a real file. To get them installed in the first place, start with
 [getting started](getting-started.md).
 
-## The editor is XNEdit, not NEdit
+## Which editor
 
-nedkit targets [XNEdit](https://github.com/unixwork/xnedit), the Motif fork of
-NEdit 5.7. It keeps its configuration in `~/.xnedit/`, where classic NEdit uses
-`~/.nedit/`. The two share a macro language and a settings format, so NEdit
-settings transfer apart from font configuration, but the directories are
-separate. When a macro misbehaves, check which editor is actually running
-before debugging the macro.
+These are written for [XNEdit](https://github.com/unixwork/xnedit) and tested
+against it on every release. They are ordinary NEdit macros, though, and CI
+also runs the suite through classic NEdit 5.7 to see how far they carry. The
+answer is: nearly all the way. The one command that depends on the fork is
+Normalize Characters, which works in UTF-8, and NEdit 5.7 predates it.
 
-XNEdit runs locally on the Macs under XQuartz rather than being forwarded from
-a Linux host, which explains some behavior that otherwise looks like a bug: the
-menu bar sits inside the window, copy and paste go through the X selection
-rather than the macOS clipboard, and `t_print()` output lands in the terminal
-that launched `xnedit`.
+The two editors keep their settings in different places, `~/.xnedit/` against
+`~/.nedit/`, so instructions written for one will send you to the wrong
+directory. That is the difference worth remembering.
+
+XNEdit runs under XQuartz on the Macs, which explains some behavior that
+otherwise looks like a bug: the menu bar sits inside the window, copy and paste
+go through the X selection rather than the macOS clipboard, and `t_print()`
+output lands in the terminal that launched `xnedit`.

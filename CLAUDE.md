@@ -169,10 +169,22 @@ least gets mentioned somewhere in `tests/`. `tests/test_pipeline.py` runs the
 commands in sequence over the real paste in `samples/`, which is the only place
 their interaction shows up.
 
-Two XNEdit behaviours the fixtures pin, because both are silent: a file that
-is not valid UTF-8 gets locked rather than re-encoded, so a macro runs and
-changes nothing, and a leading BOM lives outside the buffer, so a macro never
-sees it and saving puts it back.
+Encoding behaviour needs care, because it depends on the locale as much as on
+the editor. A file that is *entirely* latin-1 decodes cleanly under a latin-1
+locale and is an error under a UTF-8 one, so a fixture built on one is not
+portable. Two tests cover it from opposite ends:
+
+- `unconvertible-byte-locks-the-file` pins the lock, using a file that is valid
+  UTF-8 apart from one stray byte. That is an error under any locale, and the
+  workflows pin `LANG` so the answer cannot drift.
+- `test_command_does_not_corrupt_a_non_utf8_file` drops the question of whether
+  the buffer locks and asserts only that the bytes survive. That holds on every
+  editor and locale the suite runs under, including classic NEdit, which has no
+  encoding handling at all.
+
+The leading BOM is pinned too: XNEdit lifts it out of the buffer and puts it
+back on save. That is real XNEdit behaviour worth keeping, and classic NEdit
+predates it, which is where the NEdit job diverges.
 
 One macro bug is pinned as a `strict=True` xfail rather than quietly tolerated:
 **Align Columns pads by bytes, not characters**, so any non-ASCII value in a
