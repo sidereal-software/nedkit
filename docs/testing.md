@@ -62,6 +62,43 @@ something. If `xnedit` is already on your `$PATH`, `NEDKIT_XNEDIT` is optional.
 You do not need to start XQuartz first. `$DISPLAY` points at a socket that
 starts the server on demand the moment the first test connects.
 
+## What CI runs
+
+The two halves of the suite are also the two workflows.
+
+`ci.yml` runs on every push and every pull request, and covers the half that
+needs no editor: ruff, the macro conventions, the generated pages, and a real
+3.9 parse of anything the NED team is expected to run. It takes about a minute.
+It deselects the macro tests rather than letting them skip, so the count at the
+bottom of the log is the truth about what ran.
+
+`macros.yml` runs the other half, at 08:17 on Monday morning in California. It
+builds XNEdit v1.6.3 on a Linux runner, caches the binary until either the
+version or the runner image changes, and runs the whole suite under Xvfb with
+`NEDKIT_REQUIRE_XNEDIT=1`. Start one by hand from the Actions tab, or:
+
+```sh
+gh workflow run macros.yml
+```
+
+Linux rather than macOS, for the one thing macOS cannot do. The macros do not
+care which X server they are running on, and Xvfb gives Linux one that needs no
+screen.
+
+Two more jobs go with it. The first installs Ubuntu's packaged NEdit 5.7 and
+puts the same suite through that, which is how far the macros carry outside the
+editor they were written for. It cannot fail the run: NEdit 5.7 predates
+Unicode support, so the fixtures pinning XNEdit's encoding behaviour describe
+something classic NEdit does not do, and that divergence is expected rather
+than a bug. Anything failing there for another reason is worth reading. The
+second builds XNEdit on macOS the way this page tells you to, without XQuartz,
+which is only needed to run the thing. That one is watching Homebrew and the
+macOS toolchain rather than the macros.
+
+Weekly, because what it catches is rarely a bad commit. It is drift underneath
+the macros: a new XNEdit release, a change in a packaged Motif, a Homebrew
+formula that moves.
+
 ## Adding a test for a new command
 
 A command with no tests fails the suite, by design. Each case is a directory

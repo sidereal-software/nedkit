@@ -1,0 +1,128 @@
+name: macros
+
+# The half of the suite ci.yml cannot run: every command driven through a real
+# editor, on a real file, and the resulting bytes compared.
+#
+# Weekly rather than per-push. Nothing here depends on a commit landing, and
+# what it catches is drift underneath the macros: a new XNEdit release, a
+# distribution's Motif, a Homebrew change that breaks the build the docs tell
+# the team to run. A week is a reasonable time to hear about any of that.
+
+on:
+  schedule:
+    # Monday morning in California: 15:17 UTC is 08:17 PDT in summer and 07:17
+    # PST in winter. Off the hour on purpose, since GitHub delays scheduled
+    # runs most at the top of one.
+    - cron: "17 15 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macros
+  cancel-in-progress: false
+
+env:
+  # The version the docs and CLAUDE.md tell people to build. Bump all three
+  # together.
+  XNEDIT_VERSION: v1.6.3
+
+jobs:
+  xnedit:
+    name: XNEdit on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      # xvfb is why this job is on Linux and not macOS. The macros are the same
+      # everywhere; what differs is the X server, and Linux has one that runs
+      # without a screen. On macOS the tests can only open real windows.
+      - name: Install Motif and a virtual X server
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc make pkgconf libmotif-dev xvfb
+
+      # There are no prebuilt XNEdit binaries, so it gets built from source
+      # once and cached until the pinned version or the runner image changes.
+      - name: Restore the XNEdit build
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: xnedit-bin
+          key: xnedit-${{ env.XNEDIT_VERSION }}-${{ env.ImageOS }}-${{ runner.arch }}
+
+      - name: Build XNEdit ${{ env.XNEDIT_VERSION }}
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch "$XNEDIT_VERSION" \
+            https://github.com/unixwork/xnedit.git xnedit-src
+          make -C xnedit-src linux
+          mkdir -p xnedit-bin
+          cp xnedit-src/source/xnedit xnedit-bin/
+
+      # NEDKIT_REQUIRE_XNEDIT turns "no editor, skipping" into a failure. The
+      # whole point of this job is the tests that need one, and without it a
+      # broken build would come back green having run nothing.
+      - name: Run the full suite
+        env:
+          NEDKIT_XNEDIT: ${{ github.workspace }}/xnedit-bin/xnedit
+          NEDKIT_REQUIRE_XNEDIT: "1"
+        run: xvfb-run -a uv run pytest -q
+
+  nedit:
+    name: Classic NEdit 5.7
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # A signal, not a gate. XNEdit is what the team runs and what the macros
+    # target; classic NEdit is here to show how far they carry, since the two
+    # share a macro language. Some divergence is expected and is not a bug:
+    # NEdit 5.7 predates Unicode support, so the fixtures pinning XNEdit's
+    # encoding behaviour (a non-UTF-8 file getting locked, a BOM living outside
+    # the buffer) describe something classic NEdit does not do. A failure
+    # anywhere else is worth reading.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      # Packaged, so nothing to build. Ubuntu ships NEdit 5.7 in universe.
+      - name: Install NEdit and a virtual X server
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends nedit xvfb
+
+      - name: Run the full suite
+        env:
+          NEDKIT_XNEDIT: /usr/bin/nedit
+          NEDKIT_REQUIRE_XNEDIT: "1"
+        run: xvfb-run -a uv run pytest -q
+
+  macos-build:
+    name: The documented macOS build
+    runs-on: macos-latest
+    timeout-minutes: 30
+    # docs/testing.md hands the team two commands and tells them to build their
+    # own XNEdit, because there is no binary to download. This checks those
+    # commands still work on a current macOS. It stops at the binary: running
+    # the suite here would need XQuartz and real windows, and the xnedit job
+    # above already covers what the macros do.
+    steps:
+      - name: Install Motif
+        run: brew install openmotif
+
+      - name: Build XNEdit ${{ env.XNEDIT_VERSION }}
+        run: |
+          git clone --depth 1 --branch "$XNEDIT_VERSION" \
+            https://github.com/unixwork/xnedit.git xnedit-src
+          make -C xnedit-src macos
+          ls -l xnedit-src/source/xnedit

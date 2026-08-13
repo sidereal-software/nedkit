@@ -1,0 +1,68 @@
+name: ci
+
+# Everything here runs without an editor. The half of the suite that drives a
+# real XNEdit lives in macros.yml, on a weekly schedule, because it needs Motif
+# built from source and an X server to open windows on.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to the same branch makes the run in progress pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      # A lockfile that no longer matches pyproject.toml means everyone is
+      # resolving something different, including this workflow.
+      - name: Check uv.lock is in step with pyproject.toml
+        run: uv lock --check
+
+      - name: Lint the Python
+        run: uv run ruff check --output-format github
+
+      - name: Check the Python formatting
+        run: uv run ruff format --check
+
+      # Catches the mistakes YAML is happy with and Actions is not: a typo in a
+      # context expression, an action input that does not exist, a shell script
+      # with an unquoted variable. The image bundles shellcheck, so the run:
+      # blocks in these workflows get checked too.
+      - name: Lint the workflows
+        uses: docker://rhysd/actionlint:1.7.12
+        with:
+          args: -color
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      # -m "not xnedit" deselects the macro execution tests rather than letting
+      # them skip, so the count in the log is the truth about what ran. What is
+      # left is the static side: macro header conventions, the
+      # replace_in_string() trap, the generated docs, and a real Python 3.9
+      # parse of everything the NED team is expected to run.
+      - name: Run the checks that need no editor
+        run: uv run pytest -m "not xnedit" -q
