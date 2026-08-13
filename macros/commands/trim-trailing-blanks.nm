@@ -1,0 +1,31 @@
+# Trim Trailing Blanks
+#
+# Removes trailing spaces and tabs from every line in the buffer. Leaves the
+# file and the undo history alone when there is nothing to trim.
+#
+#   Menu Entry:         NED>Trim Trailing Blanks
+#   Accelerator:        (none)
+#   Mnemonic:           (none)
+#   Requires Selection: no
+#
+# Install the body below (everything under this comment) through
+# Preferences > Default Settings > Customize Menus > Macro Menu, then
+# Preferences > Save Defaults. See docs/installing-macros.md.
+
+original = get_range(0, $text_length)
+
+# The "copy" argument is doing real work here. Without it replace_in_string()
+# returns an empty string when the pattern matches nothing, and the
+# replace_range() below would then erase the entire file.
+trimmed = replace_in_string(original, "[ \t]+$", "", "regex", "copy")
+
+if (trimmed != original) {
+    saved_cursor = $cursor
+    replace_range(0, $text_length, trimmed)
+
+    # The buffer just got shorter, so the old offset may now be past the end.
+    if (saved_cursor > $text_length) {
+        saved_cursor = $text_length
+    }
+    set_cursor_pos(saved_cursor)
+}

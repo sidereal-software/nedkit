@@ -1,0 +1,55 @@
+# text.nm - shared text-handling subroutines
+#
+# Install by appending to your autoload macro file:
+#
+#     cat macros/lib/text.nm >> "${NEDIT_HOME:-$HOME/.xnedit}/autoload.nm"
+#
+# Restart XNEdit afterwards. These define subroutines only; they add nothing
+# to any menu. See docs/installing-macros.md.
+#
+# Everything here is prefixed ned_ so it can't collide with a built-in or with
+# somebody's personal macros.
+
+# Strip leading and trailing spaces and tabs.
+#
+# Note that ^ and $ anchor to line boundaries rather than string boundaries,
+# so passing a multi-line string trims every line in it. That is usually what
+# you want; if it isn't, split first.
+define ned_trim {
+    if ($n_args < 1) {
+        return ""
+    }
+    # The "copy" argument is required. Without it replace_in_string() hands
+    # back an empty string whenever the pattern doesn't match.
+    stripped = replace_in_string($1, "^[ \t]+", "", "regex", "copy")
+    return replace_in_string(stripped, "[ \t]+$", "", "regex", "copy")
+}
+
+# Return the Nth whitespace-separated field of a string, counting from 1.
+# Returns "" when the field doesn't exist.
+#
+#     ned_field("NGC  4151   Sy1.5", 2)   ->  "4151"
+define ned_field {
+    if ($n_args < 2) {
+        return ""
+    }
+    fields = split(ned_trim($1), "[ \t]+", "regex")
+    index = $2 - 1
+    if (index < 0 || index >= fields[]) {
+        return ""
+    }
+    return fields[index]
+}
+
+# Return the text of the line the cursor is on, without its newline.
+define ned_current_line {
+    start = $cursor
+    while (start > 0 && get_character(start - 1) != "\n") {
+        start--
+    }
+    end = $cursor
+    while (end < $text_length && get_character(end) != "\n") {
+        end++
+    }
+    return get_range(start, end)
+}
