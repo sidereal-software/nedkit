@@ -32,7 +32,7 @@ becomes
     SDSS004054|00:40:54.33|15:34:09.66 |0.2832
 
 Blank lines and lines starting with "#" are left exactly as they are, so the
-##refcode / ##type1 header block at the top of a NED file passes through
+\##refcode / ##type1 header block at the top of a NED file passes through
 untouched and does not get counted when measuring column widths.
 
 How a line gets split into fields, first match wins:

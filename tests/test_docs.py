@@ -59,3 +59,21 @@ def test_prose_keeps_indentation_so_examples_stay_code_blocks() -> None:
     macro = parse(REPO_ROOT / "macros" / "commands" / "align-columns.nm")
     indented = [line for line in macro.prose.split("\n") if line.startswith("    ")]
     assert indented, "the worked example in the header lost its indentation"
+
+
+def test_a_hash_in_prose_does_not_become_a_heading() -> None:
+    """``# ##refcode ...`` in a header loses its marker and reads as a heading."""
+    assert gen_docs.as_prose("##refcode is kept") == "\\##refcode is kept"
+    assert gen_docs.as_prose("    # inside a code block") == "    # inside a code block"
+
+
+def test_generated_headings_are_only_the_ones_the_generator_writes() -> None:
+    """Any other heading came from prose and is a rendering accident."""
+    page = gen_docs.read("docs/commands.md")
+    body = page.split(gen_docs.BEGIN % "commands")[1].split(gen_docs.END % "commands")[0]
+    expected = {"## %s" % parse(p).title for p in command_files(REPO_ROOT)}
+    headings = {
+        line for line in body.split("\n")
+        if line.startswith("#") and not line.startswith("<!--")
+    }
+    assert headings == expected, "unexpected heading in the generated command reference"

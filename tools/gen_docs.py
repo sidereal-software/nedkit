@@ -166,6 +166,21 @@ def collapsed(summary, body, language=""):
     return '??? example "%s"\n\n%s' % (summary, indented)
 
 
+def as_prose(text: str) -> str:
+    r"""Make a macro's header comment safe to drop into a Markdown page.
+
+    Stripping the comment marker off ``# ##refcode is left alone`` leaves
+    ``##refcode is left alone``, which Markdown reads as a heading: a banner
+    mid-paragraph and a phantom entry in the table of contents. A backslash in
+    the first column keeps it as text.
+
+    Indented lines are left alone. Four spaces already makes them a code
+    block, where a hash is only ever a hash.
+    """
+    return "\n".join("\\" + line if line.startswith("#") else line
+                     for line in text.split("\n"))
+
+
 def source_link(macro: MacroFile) -> str:
     path = rel(macro.path)
     return "[`%s`](%s/%s)" % (path, REPO_URL_BLOB, path)
@@ -185,7 +200,7 @@ def gen_commands():
                    % ("yes" if macro.requires_selection else "no"))
         out.append("| Source | %s |" % source_link(macro))
         out.append("")
-        out.append(macro.prose)
+        out.append(as_prose(macro.prose))
         out.append("")
         out.append(collapsed("The macro body, ready to paste", macro.body))
         out.append("")
@@ -202,7 +217,7 @@ def gen_subroutines():
         for subroutine, comment in parse_subroutines(path.read_text(encoding="utf-8")):
             out.append("### `%s()`" % subroutine)
             out.append("")
-            out.append(comment)
+            out.append(as_prose(comment))
             out.append("")
     return "\n".join(out).strip("\n")
 
