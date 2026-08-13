@@ -9,23 +9,30 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  # nedkit is medkit: the first-aid red and the clinical teal are the whole
+  # joke, so they carry through both schemes rather than only the light one.
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: deep orange
+      primary: red
       accent: teal
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: deep orange
+      primary: red
       accent: teal
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
   icon:
-    logo: material/table-edit
+    logo: material/medical-bag
+    repo: material/github
+  # Hand-drawn from the same Material glyph as the logo. The bundled .icons
+  # are template includes and never reach the built site, so a favicon has to
+  # be a real file.
+  favicon: assets/favicon.svg
   features:
     - navigation.tabs
     - navigation.sections
@@ -44,12 +51,20 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.highlight
   - pymdownx.inlinehilite
+  # Inline icons, as in :material-bandage:. Same Material Design Icons set the
+  # logo comes from, so the pictures on a page match the one in the header.
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - tables
   - toc:
       permalink: true
 
 plugins:
   - search
+
+extra_css:
+  - stylesheets/nedkit.css
 
 nav:
   - Home: index.md
@@ -62,6 +77,8 @@ nav:
       - Subroutines: subroutines.md
       - Character replacements: character-replacements.md
       - Macro language: xnedit-macro-reference.md
+  - Contributing:
+      - Running the tests: testing.md
 
 # Every page has to be reachable from the nav; the docs workflow builds with
 # --strict, so a page left out of the nav fails the build rather than going

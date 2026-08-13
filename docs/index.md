@@ -1,23 +1,59 @@
 # nedkit
 
-Tools for the NED team at IPAC. Most of the work here is reading and reshaping
-text files by hand, so most of what nedkit contains is XNEdit macros, with
-Python utilities for jobs too large to run inside the editor.
+<p class="nedkit-strapline" markdown>
+A first-aid kit for NED data. The name is <em>medkit</em> with the M swapped
+out, because the NED team spends its days patching up text that arrived
+injured, and doing it by hand hurts.
+</p>
 
-## What is here
+Most of nedkit is XNEdit macros. Reshaping a data file by hand is slow and
+easy to get subtly wrong, and a macro does the same edit the same way every
+time. Python utilities live here too, for the jobs too big to run inside the
+editor.
 
-Three macro commands, installed through XNEdit's Macro menu:
+## What is in the kit
 
-- [Align Columns](commands.md#align-columns) joins whitespace-separated fields
-  with `|` and pads each column to its widest value.
-- [Normalize Characters](commands.md#normalize-characters) rewrites the
-  characters that come along with text pasted out of a PDF, the dashes and
-  quotes and spaces that look like ASCII and are not.
-- [Trim Trailing Blanks](commands.md#trim-trailing-blanks) removes trailing
-  spaces and tabs.
+<div class="nedkit-kit" markdown>
 
-If you have just pasted a table out of a paper and want to know what to run,
-start with [cleaning up a pasted table](cleaning-pdf-tables.md).
+<div markdown>
+:material-format-columns:
+
+### [Align Columns](commands.md#align-columns)
+
+**Treats:** columns that do not line up.
+
+Joins fields with `|` and pads each column to its widest value. Run it first
+to fix the field boundaries, then again once the file is finished.
+</div>
+
+<div markdown>
+:material-bandage:
+
+### [Normalize Characters](commands.md#normalize-characters)
+
+**Treats:** characters that look like ASCII and are not.
+
+Rewrites the dashes, quotes and ligatures a PDF brings with it, and reports
+whatever it could not safely translate.
+</div>
+
+<div markdown>
+:material-content-cut:
+
+### [Trim Trailing Blanks](commands.md#trim-trailing-blanks)
+
+**Treats:** invisible whitespace at the ends of lines.
+
+Removes trailing spaces and tabs, and leaves the buffer alone when there is
+nothing to remove.
+</div>
+
+</div>
+
+Just pasted a table out of a paper and want to know what to run?
+[Cleaning up a pasted table](cleaning-pdf-tables.md) walks through both
+commands on a real file. To get them installed in the first place, start with
+[getting started](getting-started.md).
 
 ## The editor is XNEdit, not NEdit
 

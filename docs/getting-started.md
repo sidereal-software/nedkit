@@ -48,3 +48,10 @@ Open a file, then look under **Macro** in the menu bar. The commands appear in
 a `NED` submenu. If the submenu is missing, the usual cause is that the macro
 went into `autoload.nm` instead of the macro menu, or that **Save Defaults**
 was never run.
+
+!!! treats "Before you run one on something you care about"
+
+    A macro writes straight to the buffer with no confirmation step, so a
+    pattern that matches more than you meant takes the file with it. Try each
+    one on a copy first. Undo works, and every command here leaves the buffer
+    alone when it finds nothing to do, but a copy costs nothing.
