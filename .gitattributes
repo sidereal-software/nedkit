@@ -1,0 +1,18 @@
+# Normalize to LF. XNEdit is a Unix program and its macro and resource files
+# have to be LF; a stray carriage return in nedit.rc breaks the resource
+# parsing in ways that are tedious to spot.
+* text=auto eol=lf
+
+*.nm    text eol=lf
+*.rc    text eol=lf
+*.sh    text eol=lf
+
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.pdf   binary
+
+# Test fixtures are the bytes under test: trailing blanks, missing final
+# newlines, and files that aren't UTF-8 at all. Normalising any of that would
+# quietly rewrite the thing the test exists to check.
+tests/fixtures/** -text

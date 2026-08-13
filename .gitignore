@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# XNEdit backup files (-autosave writes ~filename)
+~*
+*.bck
+
+# MkDocs local build output
+/site/
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Editors
+*.swp
+*.swo
+*~
+.idea/
+
+# Local overrides. Shared VS Code settings in .vscode/ are committed; anything
+# personal goes here and stays out of git.
+.vscode/settings.local.json
+*.local

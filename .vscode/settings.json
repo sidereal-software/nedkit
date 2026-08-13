@@ -1,0 +1,35 @@
+{
+  // These are project settings, shared deliberately. Anything machine-specific
+  // (interpreter paths, themes, font sizes) belongs in your own user settings
+  // or in .vscode/settings.local.json, which is gitignored.
+
+  // XNEdit is a Unix program and needs LF in its macro and resource files.
+  // Pinned here as well as in .gitattributes.
+  "files.eol": "\n",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+
+  // XNEdit's macro language has no VS Code grammar. Perl is the closest
+  // built-in match: # comments, $globals, C-style braces and control flow,
+  // double-quoted strings with backslash escapes. It is an approximation, so
+  // expect the occasional wrong color.
+  "files.associations": {
+    "*.nm": "perl",
+    "nedit.rc": "properties",
+    "*.rc": "properties"
+  },
+
+  "[markdown]": {
+    // Two trailing spaces mean a line break in Markdown.
+    "files.trimTrailingWhitespace": false
+  },
+
+  "[python]": {
+    "editor.rulers": [88]
+  },
+
+  "search.exclude": {
+    "**/__pycache__": true,
+    "**/.venv": true
+  }
+}

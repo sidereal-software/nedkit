@@ -1,0 +1,7 @@
+{
+  // Suggested when someone opens this folder. Nothing here is required.
+  "recommendations": [
+    "editorconfig.editorconfig",
+    "ms-python.python"
+  ]
+}
