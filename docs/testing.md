@@ -91,13 +91,14 @@ editor they were written for. It cannot fail the run: NEdit 5.7 predates
 Unicode support, so the fixtures pinning XNEdit's encoding behaviour describe
 something classic NEdit does not do, and that divergence is expected rather
 than a bug. Anything failing there for another reason is worth reading. The
-second builds XNEdit on macOS the way this page tells you to, without XQuartz,
-which is only needed to run the thing. That one is watching Homebrew and the
-macOS toolchain rather than the macros.
+second builds XNEdit on macOS exactly as this page tells you to, XQuartz
+included: its headers are part of the build, not just the X server the editor
+later runs on. That job is watching Homebrew and the macOS toolchain rather
+than the macros.
 
 Weekly, because what it catches is rarely a bad commit. It is drift underneath
-the macros: a new XNEdit release, a change in a packaged Motif, a Homebrew
-formula that moves.
+the macros: Ubuntu's Motif changing, a Homebrew formula moving, a runner image
+turning over beneath a binary that used to build.
 
 ## Adding a test for a new command
 

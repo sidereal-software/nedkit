@@ -72,6 +72,13 @@ jobs:
       # broken build would come back green having run nothing.
       - name: Run the full suite
         env:
+          # A runner starts with no locale set, and XNEdit reads the locale to
+          # decide what a file's bytes mean. Under the C locale nothing is an
+          # encoding error, so a latin-1 file opens as ordinary bytes and gets
+          # edited, and the fixture pinning "a file that isn't UTF-8 is locked,
+          # so the macro changes nothing" fails. The team's Macs are UTF-8;
+          # this is the runner catching up with them.
+          LANG: C.UTF-8
           NEDKIT_XNEDIT: ${{ github.workspace }}/xnedit-bin/xnedit
           NEDKIT_REQUIRE_XNEDIT: "1"
         run: xvfb-run -a uv run pytest -q
@@ -103,6 +110,9 @@ jobs:
 
       - name: Run the full suite
         env:
+          # Same locale as the XNEdit job, so the two runs differ by the editor
+          # and nothing else.
+          LANG: C.UTF-8
           NEDKIT_XNEDIT: /usr/bin/nedit
           NEDKIT_REQUIRE_XNEDIT: "1"
         run: xvfb-run -a uv run pytest -q
@@ -111,14 +121,19 @@ jobs:
     name: The documented macOS build
     runs-on: macos-latest
     timeout-minutes: 30
-    # docs/testing.md hands the team two commands and tells them to build their
-    # own XNEdit, because there is no binary to download. This checks those
-    # commands still work on a current macOS. It stops at the binary: running
-    # the suite here would need XQuartz and real windows, and the xnedit job
-    # above already covers what the macros do.
+    # docs/testing.md tells the team to build their own XNEdit, because there is
+    # no binary to download. This checks that recipe still works on a current
+    # macOS. It stops at the binary: running the suite here would mean real
+    # windows, and the xnedit job above already covers what the macros do.
     steps:
-      - name: Install Motif
-        run: brew install openmotif
+      # XQuartz is not only the X server the editor runs on. Its headers are
+      # part of the build: Makefile.macos points the compiler at
+      # /usr/X11/include/freetype2, and without it Homebrew's Xft.h cannot find
+      # ft2build.h. Installing it here is what the docs tell the team to do.
+      - name: Install XQuartz and Motif
+        run: |
+          brew install --cask xquartz
+          brew install openmotif
 
       - name: Build XNEdit ${{ env.XNEDIT_VERSION }}
         run: |
