@@ -72,12 +72,13 @@ jobs:
       # broken build would come back green having run nothing.
       - name: Run the full suite
         env:
-          # A runner starts with no locale set, and XNEdit reads the locale to
-          # decide what a file's bytes mean. Under the C locale nothing is an
-          # encoding error, so a latin-1 file opens as ordinary bytes and gets
-          # edited, and the fixture pinning "a file that isn't UTF-8 is locked,
-          # so the macro changes nothing" fails. The team's Macs are UTF-8;
-          # this is the runner catching up with them.
+          # XNEdit reads the locale twice over when it opens a file: once for
+          # the buffer encoding, through nl_langinfo(CODESET), and again for
+          # the fallback charset it drops to when the content is not valid
+          # UTF-8, through a locale-to-charset table in source/file.c. A runner
+          # starts with no locale set at all, so leaving this out would let the
+          # encoding fixtures answer to whatever the image happens to default
+          # to. Pinned, not fixed: the answer is the same either way today.
           LANG: C.UTF-8
           NEDKIT_XNEDIT: ${{ github.workspace }}/xnedit-bin/xnedit
           NEDKIT_REQUIRE_XNEDIT: "1"
