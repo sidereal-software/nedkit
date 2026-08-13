@@ -13,6 +13,10 @@ env/
 .coverage
 htmlcov/
 
+# Built documentation site. mkdocs build writes it; the workflow deploys from
+# a fresh build, so a local copy is never worth committing.
+site/
+
 # XNEdit backup files (-autosave writes ~filename)
 ~*
 *.bck

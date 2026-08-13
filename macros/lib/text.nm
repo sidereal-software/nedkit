@@ -2,10 +2,10 @@
 #
 # Install by appending to your autoload macro file:
 #
-#     cat macros/lib/text.nm >> "${NEDIT_HOME:-$HOME/.xnedit}/autoload.nm"
+#     cat macros/lib/text.nm >> "${XNEDIT_HOME:-$HOME/.xnedit}/autoload.nm"
 #
 # Restart XNEdit afterwards. These define subroutines only; they add nothing
-# to any menu. See docs/installing-macros.md.
+# to any menu. See https://nedkit.sidereal.software/installing-macros/
 #
 # Everything here is prefixed ned_ so it can't collide with a built-in or with
 # somebody's personal macros.

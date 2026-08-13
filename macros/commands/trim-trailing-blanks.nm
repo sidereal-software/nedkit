@@ -10,7 +10,7 @@
 #
 # Install the body below (everything under this comment) through
 # Preferences > Default Settings > Customize Menus > Macro Menu, then
-# Preferences > Save Defaults. See docs/installing-macros.md.
+# Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
 
 original = get_range(0, $text_length)
 

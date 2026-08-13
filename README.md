@@ -17,6 +17,7 @@ editor.
 | `macros/commands/` | One file per XNEdit **Macro** menu command |
 | `macros/lib/` | Shared subroutines, loaded at startup through `autoload.nm` |
 | `docs/` | Sources for the documentation site |
+| `samples/` | A real job, before and after, and the list of what is still done by hand |
 | `tools/` | `gen_docs.py`, which regenerates the reference pages from the macros |
 | `src/nedkit/`, `tests/` | The test harness, which nobody on the team runs |
 
@@ -35,13 +36,13 @@ preferences file rather than as loose files on disk. Open a `.nm` file from
 **Preferences → Default Settings → Customize Menus → Macro Menu**, then
 **Preferences → Save Defaults**.
 
-[docs/installing-macros.md](docs/installing-macros.md) covers both paths
+[Installing macros](https://nedkit.sidereal.software/installing-macros/) covers both paths
 properly, including where the config directory actually lives and how to
 distribute a whole menu at once instead of pasting commands one by one.
 
 ## Writing macros
 
-[docs/xnedit-macro-reference.md](docs/xnedit-macro-reference.md) is a condensed
+[The macro language reference](https://nedkit.sidereal.software/xnedit-macro-reference/) is a condensed
 reference for the macro language: the built-in subroutines and variables, the
 action routines you can call, and the handful of behaviors that will waste an
 afternoon if you don't know about them. Read the gotchas section before you
@@ -53,25 +54,30 @@ their shape.
 
 ## Cleaning up a table pasted from a PDF
 
-Two commands, run in this order:
+Two commands, and **Align Columns runs twice**:
 
 1. **Align Columns** (`macros/commands/align-columns.nm`) joins whitespace- or
-   tab-separated fields with `|` and pads each column to its widest value, so
-   the file reads as a table and every row is the same length. Blank lines and
-   the `##refcode` header block pass through untouched. Run it again after
-   editing a value and the columns tidy back up.
+   tab-separated fields with `|` and pads each column to its widest value.
+   Blank lines and the `##refcode` header block pass through untouched.
 2. **Normalize Characters** (`macros/commands/normalize-characters.nm`) rewrites
    the dashes, quotes, spaces and ligatures that only look like their ASCII
    counterparts, turns tabs into spaces, and reports whatever non-ASCII it
    deliberately left alone rather than guessing at it.
+3. Read the file through and fix whatever needs fixing by hand.
+4. **Align Columns** again, as the last thing that touches the file.
 
-[docs/character-replacements.md](docs/character-replacements.md) lists every
-character the second one touches, what it becomes, and what it leaves alone and
-why.
+Aligning first is what fixes the field boundaries: Normalize turns every tab
+into a single space, and once the tabs are gone Align Columns has no delimiter
+and falls back to splitting on whitespace, which cuts a field like `NGC 4472`
+in half. Getting the pipes in early stops that.
 
-Either order works, but aligning first is safer on a tab-separated file:
-Normalize turns each tab into a single space, and after that an empty field
-between two tabs can no longer be told apart from ordinary spacing.
+Aligning last is what makes the widths right. Every edit changes the width of
+a column, so the alignment has to come after the edits, not before.
+
+[Cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
+works through all four steps on a real file, and
+[Character replacements](https://nedkit.sidereal.software/character-replacements/)
+lists every character the second command touches.
 
 ## Requirements
 
@@ -124,6 +130,8 @@ drift away from the macros it describes.
 Tests that drive the editor need XNEdit on `$PATH`, or `NEDKIT_XNEDIT` pointing
 at the binary, and an X display. Without either they skip, so set
 `NEDKIT_REQUIRE_XNEDIT=1` when a green run has to mean something.
+[Running the tests](https://nedkit.sidereal.software/testing/) covers building
+an XNEdit to test against, and why the run flickers windows on screen.
 
 A new command needs at least one case under
 `tests/fixtures/<command>/<case>/`, holding `input.txt` and the `expected.txt`
