@@ -9,8 +9,8 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
-  # nedkit is medkit: the first-aid red and the clinical teal are the whole
-  # joke, so they carry through both schemes rather than only the light one.
+  # The same red and teal carry through both schemes rather than only the
+  # light one.
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -84,3 +84,11 @@ nav:
 # --strict, so a page left out of the nav fails the build rather than going
 # quietly missing from the site.
 strict: true
+
+# --strict alone does not check the fragment on a link, so a rename that breaks
+# every deep link into the generated command reference would otherwise ship.
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn

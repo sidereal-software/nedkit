@@ -85,10 +85,9 @@ macOS is the only platform in scope, running XNEdit 1.6 or newer on XQuartz.
 
 This repo targets [unixwork/xnedit](https://github.com/unixwork/xnedit), a fork
 of NEdit 5.7 with Unicode support, antialiased text, and multi-cursor editing.
-It is a different program from classic NEdit and from
-[nedit-ng](https://github.com/eteran/nedit-ng), and the three keep their
-settings in different places. If a macro here misbehaves, check which editor is
-actually running before you start debugging the macro.
+It is a different program from classic NEdit and keeps its settings in
+`~/.xnedit/` rather than `~/.nedit/`. If a macro here misbehaves, check which
+editor is actually running before you start debugging the macro.
 
 There are no prebuilt macOS binaries, so XNEdit gets built from source. The
 dependencies are all in Homebrew:

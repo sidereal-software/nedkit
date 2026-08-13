@@ -1,6 +1,4 @@
-/* nedkit is medkit, so the site is dressed as a first-aid kit.
- *
- * Every colour here comes from a Material variable or is defined once per
+/* Every colour here comes from a Material variable or is defined once per
  * scheme below. Nothing is hardcoded in a rule, because each rule renders on
  * both a white page and a slate one and a literal hex can only ever suit one
  * of them. */
@@ -15,8 +13,8 @@
 }
 
 [data-md-color-scheme="slate"] {
-  /* The bright red reads as an alarm against a dark page. Lifted and
-   * desaturated it stays first-aid without shouting. */
+  /* The bright red reads as an alarm against a dark page, so it is lifted
+   * and desaturated for the slate scheme. */
   --nedkit-cross: #ff8a80;
   --nedkit-card-bg: var(--md-code-bg-color);
   --nedkit-card-border: var(--md-default-fg-color--lightest);
@@ -25,11 +23,10 @@
   --nedkit-tape: rgba(255, 138, 128, 0.1);
 }
 
-/* --- the kit, on the front page ---------------------------------------- */
+/* --- the command cards on the front page -------------------------------- */
 
-/* A row of cards, one per macro, each one an item in the kit. Falls back to a
- * single column on a phone without a media query, because auto-fit collapses
- * the tracks on its own. */
+/* A row of cards, one per command. Falls back to a single column on a phone
+ * without a media query, because auto-fit collapses the tracks on its own. */
 .nedkit-kit {
   display: grid;
   /* Material sets the root font size to 125%, so 1rem is 20px here, not 16.
@@ -85,43 +82,6 @@
 
 .nedkit-kit .twemoji svg {
   fill: var(--nedkit-cross);
-}
-
-/* --- the strapline under the page title -------------------------------- */
-
-.nedkit-strapline {
-  font-size: 1.05rem;
-  line-height: 1.6;
-  color: var(--md-default-fg-color--light);
-  border-left: 3px solid var(--nedkit-cross);
-  padding-left: 0.9rem;
-  margin: 0 0 1.5rem;
-}
-
-/* --- "what it treats" admonition --------------------------------------- */
-
-/* A custom admonition flavour. Material builds these from a mask image, so the
- * icon inherits the colour set alongside it and needs no per-scheme artwork.
- * The glyph is Material Design Icons "bandage", URL-encoded. */
-:root {
-  --md-admonition-icon--treats: url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%3E%3Cpath%20d=%22m17.73%2012%203.98-3.96c.39-.39.39-1.04%200-1.41l-4.34-4.34c-.37-.39-1.02-.39-1.41%200L12%206.27%208%202.29a1.001%201.001%200%200%200-1.41%200L2.25%206.63c-.39.37-.39%201.02%200%201.41L6.23%2012l-3.98%204c-.39.39-.39%201%200%201.41l4.34%204.34c.41.39%201.02.39%201.41%200l4-3.98%203.96%203.98c.2.2.45.29.71.29s.51-.1.71-.29l4.34-4.34c.39-.41.39-1.02%200-1.41zM12%209a1%201%200%200%201%201%201%201%201%200%200%201-1%201%201%201%200%200%201-1-1%201%201%200%200%201%201-1m-4.71%201.96L3.66%207.34l3.63-3.63%203.62%203.62zM10%2013a1%201%200%200%201-1-1%201%201%200%200%201%201-1%201%201%200%200%201%201%201%201%201%200%200%201-1%201m2%202a1%201%200%200%201-1-1%201%201%200%200%201%201-1%201%201%200%200%201%201%201%201%201%200%200%201-1%201m2-4a1%201%200%200%201%201%201%201%201%200%200%201-1%201%201%201%200%200%201-1-1%201%201%200%200%201%201-1m2.66%209.34-3.63-3.62%203.63-3.63%203.62%203.62z%22/%3E%3C/svg%3E');
-}
-
-.md-typeset .admonition.treats,
-.md-typeset details.treats {
-  border-color: var(--nedkit-cross);
-}
-
-.md-typeset .treats > .admonition-title,
-.md-typeset .treats > summary {
-  background-color: var(--nedkit-tape);
-}
-
-.md-typeset .treats > .admonition-title::before,
-.md-typeset .treats > summary::before {
-  background-color: var(--nedkit-cross);
-  -webkit-mask-image: var(--md-admonition-icon--treats);
-  mask-image: var(--md-admonition-icon--treats);
 }
 
 /* --- odds and ends ------------------------------------------------------ */

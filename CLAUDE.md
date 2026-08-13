@@ -12,22 +12,19 @@ is largely reading and reshaping text files by hand. Two kinds of deliverable:
 
 ## The editor is XNEdit, not NEdit
 
-This matters more than it sounds. Three editors share the same macro language
-and get confused for each other constantly:
+XNEdit and classic NEdit share a macro language and get confused for each
+other. They keep their settings in different directories:
 
-| Editor | Config directory | Notes |
-| --- | --- | --- |
-| **XNEdit** (this repo's target) | `~/.xnedit/` | Motif/X11 fork of NEdit 5.7 |
-| NEdit 5.7 (classic) | `~/.nedit/` | The original |
-| nedit-ng | Qt config dir, `config.ini` | Qt rewrite, unrelated file format |
+| Editor | Config directory |
+| --- | --- |
+| **XNEdit** (this repo's target) | `~/.xnedit/` |
+| NEdit 5.7 (classic) | `~/.nedit/` |
 
 XNEdit is <https://github.com/unixwork/xnedit>, latest tagged release 1.6.3
 (March 2025). It uses the same preferences format and the same `nedit` X
 resource app-name as NEdit 5.7, so NEdit settings are drop-in compatible except
 for font configuration.
 
-Do not cite nedit-ng documentation for anything file-location related. The
-macro language docs are close enough to be useful, the config layout is not.
 Prefer XNEdit's own docs at <https://www.unixwork.de/xnedit/doc/html/>.
 
 ### Files in `~/.xnedit/`

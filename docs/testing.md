@@ -1,10 +1,9 @@
 # Running the tests
 
-Every command in this repo is run through a real XNEdit and the resulting
-buffer compared, byte for byte, against a file saying what it should have been.
-That is the whole idea: a macro rewrites your file with no confirmation step
-and no undo you would trust, so the only convincing test is one that lets it
-loose on a file and looks at what came back.
+Every command is run through a real XNEdit and the resulting buffer compared,
+byte for byte, against a file saying what it should have been. A macro rewrites
+the buffer with no confirmation step, so the only convincing test is one that
+runs it on a file and checks what came back.
 
 ```sh
 uv run pytest
@@ -19,9 +18,8 @@ The suite splits in two, and only one half needs an editor.
 | Conventions | Header comments, filenames, the `replace_in_string()` trap, formatting | No |
 | Macros | What each command actually does to a file | Yes |
 
-Without XNEdit installed, the second half **skips**. The run goes green, which
-is worth being clear-eyed about: it has told you the macros are tidy, not that
-they work.
+Without XNEdit installed, the second half **skips** and the run still goes
+green. That result says the macros are tidy, not that they work.
 
 ```sh
 uv run pytest -m "not xnedit"   # just the conventions, deliberately
@@ -57,10 +55,9 @@ something. If `xnedit` is already on your `$PATH`, `NEDKIT_XNEDIT` is optional.
 
 !!! warning "The tests are not headless"
 
-    Each test opens a real XNEdit window for a second or two. A full run
-    flickers windows on and off the screen and takes focus while it goes.
-    Nothing is wrong; macOS has no hidden display to run them on. Start the run
-    and let it have the machine for its 45 seconds.
+    Each test opens a real XNEdit window for a second or two, so a full run
+    flickers windows on and off the screen and takes focus for about 45
+    seconds. macOS has no hidden display to run them on.
 
 You do not need to start XQuartz first. `$DISPLAY` points at a socket that
 starts the server on demand the moment the first test connects.
@@ -100,8 +97,8 @@ invisible.
 Two failures mean something other than a wrong answer:
 
 - **"XNEdit did not exit"** is a macro that raised an error. XNEdit puts errors
-  in a dialog and waits for a click that is never coming, so the harness times
-  out and kills it. Look for a syntax error first.
+  in a dialog and waits for a click that never comes, so the harness times out
+  and kills it. Look for a syntax error first.
 - **"the macro exited without reaching its last line"** is a macro that died
   part way through, which means the file it was working on is half-rewritten.
 
