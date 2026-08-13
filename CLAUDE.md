@@ -112,10 +112,46 @@ harness and that test tells you to update it.
 
 `uv run pytest`. Add `-m "not xnedit"` for the static checks alone.
 
+### Getting an XNEdit to test against
+
 The macro tests drive a real XNEdit through `xnedit -do '<macro>' file`, so
-they need the binary (on `$PATH` or in `NEDKIT_XNEDIT`) and an X display. They
-skip without one unless `NEDKIT_REQUIRE_XNEDIT=1` is set. Three things about
-that mechanism are worth knowing before writing a test:
+they need the binary and an X display. Without both they skip, and a run that
+skips them proves nothing about the macros. **Set `NEDKIT_REQUIRE_XNEDIT=1`
+when the result has to mean something**; the skips become errors.
+
+There are no prebuilt macOS binaries, so build one once:
+
+```sh
+brew install --cask xquartz          # only needed the first time
+brew install openmotif
+
+git clone https://github.com/unixwork/xnedit.git
+cd xnedit && git checkout v1.6.3 && make macos
+```
+
+That leaves the binary at `source/xnedit`. Point the suite at it:
+
+```sh
+export NEDKIT_XNEDIT=/path/to/xnedit/source/xnedit
+export NEDKIT_REQUIRE_XNEDIT=1
+uv run pytest
+```
+
+Anything on `$PATH` as `xnedit` is picked up without `NEDKIT_XNEDIT`.
+
+XQuartz does not need starting by hand. `$DISPLAY` points at a launchd socket,
+and connecting to it starts the server. What this does mean is that **the tests
+are not headless**: each one opens a real XNEdit window for a second or two, so
+a full run flickers windows on screen and steals focus. It is not a failure,
+but do not run the suite in the middle of something else. There is no Xvfb on
+macOS to hide behind.
+
+A run takes about 45 seconds, nearly all of it XNEdit starting up once per
+test.
+
+### Writing a test
+
+Three things about the mechanism are worth knowing first:
 
 - **A failing macro hangs.** The error goes into a modal dialog and waits
   forever, so every run has a timeout and the harness appends a sentinel to
@@ -130,10 +166,23 @@ that mechanism are worth knowing before writing a test:
   tree `-text` so git cannot normalise the whitespace under test. Every command
   needs at least one case; the suite fails on one that has none.
 
+Commands are covered by fixtures. Subroutines have none, so
+`test_every_subroutine_is_named_in_a_test` checks that each `define ned_*` at
+least gets mentioned somewhere in `tests/`. `tests/test_pipeline.py` runs the
+commands in sequence over the real paste in `samples/`, which is the only place
+their interaction shows up.
+
 Two XNEdit behaviours the fixtures pin, because both are silent: a file that
 is not valid UTF-8 gets locked rather than re-encoded, so a macro runs and
 changes nothing, and a leading BOM lives outside the buffer, so a macro never
 sees it and saving puts it back.
+
+One macro bug is pinned as a `strict=True` xfail rather than quietly tolerated:
+**Align Columns pads by bytes, not characters**, so any non-ASCII value in a
+column comes up short by one place per extra byte. Since Normalize Characters
+deliberately keeps accented names and Greek letters, they reach Align Columns
+intact. Fix the macro and the xfail turns into a failure telling you to delete
+it.
 
 ## Conventions
 
