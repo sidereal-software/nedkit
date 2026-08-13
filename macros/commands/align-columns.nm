@@ -22,11 +22,22 @@
 #   2. contains a tab  split on the tab
 #   3. otherwise       split on runs of spaces and tabs
 #
-# Rule 1 makes the macro re-runnable: widen one value by hand, run it again,
-# and the columns tidy back up. Rule 2 is why it is worth running this BEFORE
-# Normalize Characters on a tab-separated file - Normalize turns each tab into
-# a single space, and at that point an empty field between two tabs is no
-# longer distinguishable from ordinary spacing. Either order works otherwise.
+# Run this first, and then again as the very last thing you do to the file.
+#
+# First, because rule 2 needs the tabs. Normalize Characters turns every tab
+# into a single space, and once that has happened there is no delimiter left:
+# rule 3 takes over and cuts every field that contains a space into several,
+# while a field that was empty disappears into the gap. Running this first
+# turns the tabs into pipes, and rule 1 then holds those boundaries through
+# everything that comes after.
+#
+# Last, because the widths are only right until the next edit. Anything that
+# changes a value changes the width of its column, and that includes Normalize
+# Characters: length() counts bytes, so an en dash measures three where it
+# prints one, and rows containing one come out two characters too wide until
+# the dashes are gone and this is run again.
+#
+# So: align, clean up, read it through, align again.
 #
 # Every column is padded, including the last, so each row comes out the same
 # length. Run Trim Trailing Blanks afterwards if you would rather the lines
@@ -43,7 +54,7 @@
 #
 # Install the body below (everything under this comment) through
 # Preferences > Default Settings > Customize Menus > Macro Menu, then
-# Preferences > Save Defaults. See docs/installing-macros.md.
+# Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
 
 original = get_range(0, $text_length)
 
