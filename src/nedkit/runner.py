@@ -18,6 +18,7 @@ which launchd starts on demand the first time something connects.
 
 from __future__ import annotations
 
+import functools
 import os
 import shutil
 import subprocess
@@ -153,6 +154,35 @@ class XNEditRunner:
         (home / "autoload.nm").write_text(
             DIALOG_STUB + ("\n" + autoload if autoload else ""), encoding="utf-8"
         )
+
+    @functools.cached_property
+    def version(self) -> str:
+        """What the editor calls itself: ``XNEdit 1.6.3``, ``NEdit 5.7``.
+
+        ``-version`` prints and exits without opening a display, so this is
+        cheap and works before any X server is involved.
+        """
+        try:
+            result = subprocess.run(
+                [str(self.binary), "-version"],
+                capture_output=True,
+                text=True,
+                errors="replace",
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
+        return (result.stdout or result.stderr).strip().split("\n")[0].strip()
+
+    @property
+    def is_xnedit(self) -> bool:
+        """False for classic NEdit, which the suite also runs against.
+
+        The two share a macro language, so nearly every test applies to both.
+        The handful that depend on the fork are the ones about encoding: XNEdit
+        added Unicode support and NEdit 5.7 predates it.
+        """
+        return self.version.lower().startswith("xnedit")
 
     @property
     def env(self) -> dict[str, str]:

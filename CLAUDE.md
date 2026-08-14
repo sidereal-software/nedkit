@@ -182,9 +182,15 @@ portable. Two tests cover it from opposite ends:
   editor and locale the suite runs under, including classic NEdit, which has no
   encoding handling at all.
 
-The leading BOM is pinned too: XNEdit lifts it out of the buffer and puts it
-back on save. That is real XNEdit behaviour worth keeping, and classic NEdit
-predates it, which is where the NEdit job diverges.
+The leading BOM is pinned the same way: XNEdit lifts it out of the buffer and
+puts it back on save.
+
+Both of those are XNEdit behaviour that classic NEdit predates, so both cases
+carry an `xnedit-only` file naming the reason, and the suite skips them when
+`runner.is_xnedit` is false. That is decided from `<binary> -version`, not from
+the filename. Reach for the marker only when a case genuinely turns on the
+fork; every expected failure left unmarked is one more reason to stop reading
+the NEdit job.
 
 One macro bug is pinned as a `strict=True` xfail rather than quietly tolerated:
 **Align Columns pads by bytes, not characters**, so any non-ASCII value in a

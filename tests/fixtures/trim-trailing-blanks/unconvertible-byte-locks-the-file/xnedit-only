@@ -1,0 +1,2 @@
+the buffer only locks because XNEdit detects the encoding error; NEdit 5.7 has
+no encoding handling and trims the line like any other

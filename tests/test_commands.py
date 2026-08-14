@@ -7,10 +7,16 @@ A command in ``macros/commands/<name>.nm`` is tested by the directories under
         input.txt       the buffer before
         expected.txt    the buffer after, byte for byte
         setup.nm        optional macro run first, e.g. select(0, 12)
+        xnedit-only     optional; skip this case on classic NEdit, and say why
 
 Fixtures are compared as bytes, because NED's data files are not reliably
 UTF-8 and the difference between a stripped tab and a stripped space is the
 entire point of some of these commands.
+
+``xnedit-only`` exists because CI runs the same suite through NEdit 5.7 to see
+how far the macros carry. Almost all of them do. The exceptions are the cases
+about encoding, which XNEdit added and 5.7 predates, and marking those is what
+keeps a real regression on NEdit visible instead of lost among expected noise.
 """
 
 from __future__ import annotations
@@ -44,6 +50,18 @@ def _readable(raw: bytes) -> str:
     return raw.decode("utf-8", errors="replace").replace(" ", "·").replace("\t", "→")
 
 
+def _fork_specific(case: Path) -> str | None:
+    """Why this case only applies to XNEdit, if it is marked that way."""
+    marker = case / "xnedit-only"
+    return marker.read_text(encoding="utf-8").strip() if marker.is_file() else None
+
+
+def _skip_unless_xnedit(case: Path, runner: XNEditRunner) -> None:
+    reason = _fork_specific(case)
+    if reason and not runner.is_xnedit:
+        pytest.skip(f"{case.name} is XNEdit-only: {reason} (running {runner.version})")
+
+
 @pytest.mark.parametrize("command", command_files(REPO_ROOT), ids=lambda p: p.stem)
 def test_every_command_has_fixtures(command: Path) -> None:
     """A command with no fixtures is untested, which should be loud."""
@@ -66,6 +84,8 @@ def test_every_command_has_fixtures(command: Path) -> None:
 def test_command_against_fixture(
     command: Path, case: Path, runner: XNEditRunner, tmp_path: Path
 ) -> None:
+    _skip_unless_xnedit(case, runner)
+
     macro = parse(command)
     setup = case / "setup.nm"
     body = macro.body
@@ -98,8 +118,11 @@ def test_command_is_idempotent(
     """
     case_root = FIXTURE_ROOT / command.stem
     cases = sorted(case_root.glob("*/expected.txt")) if case_root.is_dir() else []
+    cases = [
+        case for case in cases if runner.is_xnedit or not _fork_specific(case.parent)
+    ]
     if not cases:
-        pytest.skip("no fixtures")
+        pytest.skip("no fixtures that apply to this editor")
 
     macro = parse(command)
     for expected_file in cases:

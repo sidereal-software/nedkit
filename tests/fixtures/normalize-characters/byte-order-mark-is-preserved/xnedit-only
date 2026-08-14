@@ -1,0 +1,2 @@
+only XNEdit lifts a BOM out of the buffer and writes it back; in NEdit 5.7 it
+is ordinary text and the macro strips it as a zero-width character

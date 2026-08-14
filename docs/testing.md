@@ -110,11 +110,18 @@ tests/fixtures/<command-name>/<case-name>/
     input.txt       what is in the buffer to begin with
     expected.txt    what the command should leave behind
     setup.nm        optional, runs first, e.g. select(0, 12)
+    xnedit-only     optional, skips the case on classic NEdit
 ```
 
 `<command-name>` is the `.nm` filename without its extension, so
 `macros/commands/align-columns.nm` reads its cases from
 `tests/fixtures/align-columns/`.
+
+Most cases need only the first two files. `xnedit-only` is for the handful that
+turn on something XNEdit added and NEdit 5.7 does not have, which in practice
+means encoding: a buffer locking on a byte it cannot convert, or a BOM living
+outside the buffer. Put the reason in the file and it appears in the skip
+message. Marking those is what keeps a real failure on NEdit worth reading.
 
 The two files are compared without being decoded, so trailing spaces, tabs and
 a missing final newline all count. That is deliberate. Write them with a

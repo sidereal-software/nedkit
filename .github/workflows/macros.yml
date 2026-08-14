@@ -133,6 +133,11 @@ jobs:
       # ft2build.h. Installing it here is what the docs tell the team to do.
       - name: Install XQuartz and Motif
         run: |
+          # The runner image ships with aws/tap tapped. Homebrew now refuses to
+          # read an untrusted third-party tap and says so, at length, on every
+          # command. Nothing here comes from it, so drop it rather than grant
+          # trust or set the escape hatch Homebrew is about to remove.
+          brew untap aws/tap || true
           brew install --cask xquartz
           brew install openmotif
 
