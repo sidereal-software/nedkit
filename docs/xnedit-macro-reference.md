@@ -113,10 +113,21 @@ for (i = 0, j = 20; i < 20; i++, j--) {
     t_print(i, j, "\n")
 }
 
-while (k > 0) { k-- }
+while (k > 0) {
+    k--
+}
 
-if (a) { } else { }
+if (a) {
+    x = 1
+} else {
+    x = 2
+}
 ```
+
+**A brace and the statement after it cannot share a line.** Statements end at a
+newline, so `while (k > 0) { k-- }` is a syntax error, and under `xnedit -do`
+that arrives as a modal dialog rather than a message. Every `{` gets a newline
+after it.
 
 `&&` and `||` short-circuit left to right. Evaluation order for other operators
 is undefined, so don't lean on side effects inside an expression.
@@ -338,6 +349,38 @@ whole buffer trims every line in one pass.
 Remember the double-escaping rule when writing these as macro strings. Details
 in [the regex
 docs](https://www.unixwork.de/xnedit/doc/html/basicSyntax.html).
+
+### A bare `.` counts characters, repeating it counts bytes
+
+`.` matches one whole UTF-8 character, however many bytes that takes. Repeat it
+and that stops being true: `.{n}`, `.*` and `.+` all go through the engine's
+`greedy()` path, which advances a byte at a time.
+
+So this looks like it puts a pipe at column 24, and does not:
+
+```
+# WRONG on any line holding a non-ASCII character.
+replace_in_string(line, "^(.{24})", "\\1|", "regex", "copy")
+```
+
+On an ASCII line the two counts agree and it is correct. On a line carrying an
+en dash, three bytes for one character, the pipe lands two places early and
+possibly inside the dash, so the bug shows up on real data and not on the file
+you tested with. Count the characters yourself instead: match runs of `[ -~]`,
+where a byte is a character, and step over everything else with a single bare
+`.`. `pipe-at-cursor-column.nm` does that.
+
+`$column` sits on the character side of this divide. It is the display column,
+counting a multi-byte character as one and expanding a tab to the next tab
+stop, and it is the same number the statistics line shows as `C:`. `length()`,
+`substring()` and `get_character()` sit on the byte side, and `get_character()`
+can hand you half of a character. Both sides are right about their own
+question; mixing them produces the off-by-two.
+
+Two more things about a bare `.`, both of which matter once you are stepping
+with it: it never matches a newline, and on a byte that is not valid UTF-8 it
+believes the lead byte anyway, so it can step clean past the end of a string
+that is not valid text.
 
 ## Developing and testing
 
