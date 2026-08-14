@@ -1,0 +1,2 @@
+the pipe lands at a character column; NEdit 5.7 counts bytes in both
+$column and the regex engine, so the same column is a different place there

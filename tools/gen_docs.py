@@ -202,6 +202,7 @@ def gen_commands():
         out.append("| Setting | Value |")
         out.append("| --- | --- |")
         out.append("| Menu entry | `%s` |" % macro.menu_entry)
+        out.append("| Installed in | %s |" % (", ".join(macro.menus) or "(nowhere)"))
         out.append(
             "| Accelerator | %s |" % (macro.fields.get("Accelerator") or "(none)")
         )

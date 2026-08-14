@@ -1,0 +1,286 @@
+# Pipe at Cursor Column
+#
+# Puts a "|" at the cursor's column on every line of the file, over the space
+# that is already there. Point at a boundary in a fixed-width table, run this,
+# and every line gets a delimiter at that column.
+#
+#     NGC 4472   12:29:46.7   0.003326
+#     IC 3583    12:36:44.0   0.001155
+#
+# with the cursor on the blank column in front of 12:29 becomes
+#
+#     NGC 4472  |12:29:46.7   0.003326
+#     IC 3583   |12:36:44.0   0.001155
+#
+# Run it once per boundary, then Align Columns to even up the widths.
+#
+# The column is the one the statistics line calls C:, counting from 0.
+# Preferences > Show Statistics Line puts that number on screen while you aim.
+# Right-clicking does not move the cursor, so left-click the column first when
+# you run this from the background menu.
+#
+# Four things it refuses rather than guesses at:
+#
+#   - Column 0. A pipe at the start of a line opens the table with an empty
+#     field, which is never what a fixed-width table wants.
+#   - A row holding anything but a space at that column. Overwriting there
+#     would destroy a character, and a column that is blank on most rows can
+#     land inside a name like NGC 4472 on one. Those rows are counted and the
+#     first is named.
+#   - A row that ends before that column. Padding it out would invent data.
+#   - A buffer with a tab anywhere in it, because a tab is one byte wide and
+#     any number of columns wide. Run Align Columns first, which turns tabs
+#     into pipes.
+#
+# So read the report before you align. A skipped row usually means the column
+# is a place or two off.
+#
+# Columns are counted as they are displayed, so an en dash counts as one column
+# though it takes three bytes. That holds for anything XNEdit can decode; on a
+# file it cannot, the count drifts, but XNEdit locks such a file against
+# editing anyway.
+#
+# For several columns at once, or to push the line right instead of writing
+# over the space, use Pipe at Columns.
+#
+#   Menu Entry:         NED>Pipe at Cursor Column
+#   Accelerator:        (none)
+#   Mnemonic:           (none)
+#   Requires Selection: no
+#   Install In:         Macro Menu, Window Background Menu
+#
+# Install the body below (everything under this comment) through
+# Preferences > Default Settings > Customize Menus, once under Macro Menu and
+# once under Window Background Menu, then Preferences > Save Defaults.
+# See https://nedkit.sidereal.software/installing-macros/
+
+# --- prologue: the single column the cursor is sitting in -------------------
+
+mode = "overwrite"
+cols = $empty_array
+ncols = 0
+ok = 1
+msg = ""
+
+# $column is the display column counting from 0, the same number the C: field
+# of the statistics line shows.
+if ($column == 0) {
+    ok = 0
+    msg = "The cursor is in column 0, at the very start of the line.\n\nA pipe "
+    msg = msg "there would open the table with an empty field. Put the cursor "
+    msg = msg "in the column you want the pipe to land in and run this again."
+} else {
+    cols[0] = $column
+    ncols = 1
+}
+
+# --- shared: column arithmetic ---
+#
+# Everything down to the end marker is byte-identical in
+# pipe-at-cursor-column.nm and pipe-at-columns.nm, and tests/test_conventions.py
+# keeps it that way. Change something here and paste the whole block into the
+# other file.
+#
+# The prologue above settles five things:
+#
+#   cols[0..ncols-1]  display columns to pipe, ascending, deduped, all >= 1
+#   ncols             how many
+#   mode              "overwrite" or "insert"
+#   ok                1 to go ahead, 0 if the prologue already refused
+#   msg               "" or the reason it refused
+
+n_rows = 0
+piped = 0
+occupied = 0
+first_occupied = 0
+too_short = 0
+first_too_short = 0
+
+if (ok == 1) {
+    original = get_range(0, $text_length)
+
+    # split() on "\n" yields one element per line plus a trailing empty element
+    # when the buffer ends in a newline, so joining the elements back with "\n"
+    # reproduces the buffer exactly. That is what lets the no-change case below
+    # be a plain string comparison.
+    lines = split(original, "\n", "case")
+    n_lines = lines[]
+
+    # A tab is one byte wide and any number of columns wide, so a buffer with
+    # one in it cannot be reasoned about a column at a time. Refusing here is
+    # what keeps tab stops out of every calculation that follows.
+    if (search_string(original, "\t", 0, "case") != -1) {
+        ok = 0
+        msg = $file_name " has a tab in it, so there is no telling which column "
+        msg = msg "anything is in: a tab is one character and however many "
+        msg = msg "columns it takes to reach the next tab stop.\n\nRun Align "
+        msg = msg "Columns first. It splits on the tabs and rewrites them as "
+        msg = msg "pipes, which is most likely what you were after anyway."
+    }
+}
+
+if (ok == 1) {
+    out = ""
+    chunk = ""
+
+    for (i = 0; i < n_lines; i++) {
+        line = lines[i]
+
+        stripped = replace_in_string(line, "^[ \t]+", "", "regex", "copy")
+        stripped = replace_in_string(stripped, "[ \t]+$", "", "regex", "copy")
+
+        # Blank lines and header lines are copied through verbatim, the same
+        # rule Align Columns uses, so the ##refcode block at the top of a NED
+        # file goes through untouched.
+        if (stripped != "" && substring(stripped, 0, 1) != "#") {
+            n_rows++
+
+            # Resolve every target column to a byte offset in one left-to-right
+            # walk, because byte offsets and display columns only agree while
+            # the line is ASCII. An en dash is three bytes and one column.
+            #
+            # "[ -~]+" is every printable ASCII character, so a run of them is
+            # as many characters as it is bytes and resolves in a single step.
+            # Anything else advances one character at a time through a bare
+            # ".", which is UTF-8 aware. Repetition is not: ".{n}", ".*" and
+            # ".+" all count bytes, so none of them can appear here.
+            off = $empty_array
+            p = 0
+            col = 0
+            j = 0
+
+            while (j < ncols && p < length(line)) {
+                s = search_string(line, "[ -~]+", p, "regex")
+                if (s == p) {
+                    run = $search_end - p
+                    while (j < ncols && cols[j] < col + run) {
+                        off[j] = p + (cols[j] - col)
+                        j++
+                    }
+                    col = col + run
+                    p = $search_end
+                } else {
+                    # "." matches everything except a newline, and split() has
+                    # already taken every newline out, so this always advances.
+                    search_string(line, ".", p, "regex")
+                    if (j < ncols && cols[j] == col) {
+                        off[j] = p
+                        j++
+                    }
+                    col++
+                    p = $search_end
+                }
+            }
+
+            # A column the walk never reached is one past the end of this line.
+            # Apply right to left, so inserting a pipe never shifts an offset
+            # that has not been used yet.
+            occupied_here = 0
+            short_here = 0
+
+            for (k = ncols - 1; k >= 0; k--) {
+                if (k in off) {
+                    o = off[k]
+                    here = substring(line, o, o + 1)
+
+                    # A pipe already in place is left alone, which is what
+                    # makes a second run over the same columns do nothing.
+                    if (here != "|") {
+                        if (mode == "insert") {
+                            line = replace_substring(line, o, o, "|")
+                            piped++
+                        } else if (here == " ") {
+                            # A space is one byte whatever else is on the line,
+                            # so writing over one never has to ask how wide the
+                            # character was.
+                            line = replace_substring(line, o, o + 1, "|")
+                            piped++
+                        } else {
+                            occupied_here = 1
+                        }
+                    }
+                } else {
+                    short_here = 1
+                }
+            }
+
+            if (occupied_here == 1) {
+                if (occupied == 0) {
+                    first_occupied = i + 1
+                }
+                occupied++
+            }
+            if (short_here == 1) {
+                if (too_short == 0) {
+                    first_too_short = i + 1
+                }
+                too_short++
+            }
+        }
+
+        chunk = chunk line
+        if (i < n_lines - 1) {
+            chunk = chunk "\n"
+        }
+
+        # Appending every line straight onto one growing string is quadratic:
+        # each append copies everything written so far. Flushing a chunk every
+        # 200 lines keeps a few thousand rows instant instead of a visible
+        # stall.
+        if (i % 200 == 199) {
+            out = out chunk
+            chunk = ""
+        }
+    }
+    out = out chunk
+
+    if (out != original) {
+        saved_cursor = $cursor
+        replace_range(0, $text_length, out)
+
+        # Inserting lengthens the buffer and overwriting leaves it the same
+        # length, but clamp rather than reason about which happened.
+        if (saved_cursor > $text_length) {
+            saved_cursor = $text_length
+        }
+        set_cursor_pos(saved_cursor)
+    }
+}
+
+# --- report ----------------------------------------------------------------
+
+if (ok == 0) {
+    t_print("pipe: " $file_name ": nothing changed\n")
+} else if (n_rows == 0) {
+    t_print("pipe: " $file_name ": no data rows, nothing to pipe\n")
+} else {
+    t_print("pipe: " $file_name ": " piped " pipe(s) into " n_rows " row(s)\n")
+}
+
+if (occupied > 0) {
+    if (msg != "") {
+        msg = msg "\n\n"
+    }
+    msg = msg $file_name " has " occupied " row(s) holding something other than "
+    msg = msg "a space at one of those columns, and they were left as they are. "
+    msg = msg "The first is on line " first_occupied ".\n\nOverwriting there "
+    msg = msg "would have destroyed a character. Either the column is a place "
+    msg = msg "or two off, or those rows are wider than the rest, so read them "
+    msg = msg "before this file goes any further."
+}
+
+if (too_short > 0) {
+    if (msg != "") {
+        msg = msg "\n\n"
+    }
+    msg = msg $file_name " has " too_short " row(s) that end before one of those "
+    msg = msg "columns, so no pipe went in at that column. The first is on line "
+    msg = msg first_too_short ".\n\nNothing was padded out to reach it, because a "
+    msg = msg "padded row invents data. If those rows should have carried a "
+    msg = msg "value there, it went missing upstream."
+}
+
+if (msg != "") {
+    dialog(msg, "OK")
+}
+# --- end shared ---

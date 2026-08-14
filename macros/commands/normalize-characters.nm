@@ -19,6 +19,7 @@
 #   Accelerator:        (none)
 #   Mnemonic:           (none)
 #   Requires Selection: no
+#   Install In:         Macro Menu
 #
 # Install the body below (everything under this comment) through
 # Preferences > Default Settings > Customize Menus > Macro Menu, then

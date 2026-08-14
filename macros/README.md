@@ -33,7 +33,13 @@ Customize Menus dialog:
 #   Accelerator:        Ctrl+Alt+K
 #   Mnemonic:           (none)
 #   Requires Selection: no
+#   Install In:         Macro Menu
 ```
+
+`Install In` is a comma-separated list of `Macro Menu` and
+`Window Background Menu`, and a command can name both. The background menu is
+the one a right-click opens, and it is a separate dialog rather than a tick box
+on the first one.
 
 The body below the header is what gets pasted into **Macro Command to
 Execute**. Keep it standalone, or state in the header which `lib/` subroutines

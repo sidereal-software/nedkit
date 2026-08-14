@@ -74,6 +74,13 @@ isn't showing up":
   **Preferences → Default Settings → Customize Menus → Macro Menu**, or ship an
   `.rc` fragment and load it with `xnedit -import file` followed by
   **Preferences → Save Defaults**.
+- **Background menu commands** are the same thing in a different resource,
+  `nedit.bgMenuCommands`, installed through **Customize Menus → Window
+  Background Menu** and posted by a right-click in the text. Same entry format,
+  merged with the built-in Undo/Redo/Cut/Copy/Paste. A command can live in both
+  menus, which is what the `Install In:` header field records, and it is then
+  pasted into both dialogs. Right-clicking does not move the insert cursor, so
+  a command that reads `$column` needs a left-click first.
 
 The `nedit.macroCommands` format is one entry per command:
 

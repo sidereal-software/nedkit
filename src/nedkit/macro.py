@@ -10,6 +10,7 @@ A menu command file is a header comment followed by the macro body:
     #   Accelerator:        (none)
     #   Mnemonic:           (none)
     #   Requires Selection: no
+    #   Install In:         Macro Menu
 
     original = get_range(0, $text_length)
     ...
@@ -27,7 +28,21 @@ from dataclasses import dataclass
 from pathlib import Path
 
 #: Header fields, as they are spelled in the dialog they get typed into.
-HEADER_FIELDS = ("Menu Entry", "Accelerator", "Mnemonic", "Requires Selection")
+#: No name here may be a prefix of another, or the alternation in ``_FIELD_RE``
+#: below stops being unambiguous.
+HEADER_FIELDS = (
+    "Menu Entry",
+    "Accelerator",
+    "Mnemonic",
+    "Requires Selection",
+    "Install In",
+)
+
+#: The menus a command can be installed into, spelled as the Customize Menus
+#: dialog spells them. Each is a separate resource in ``nedit.rc``:
+#: ``nedit.macroCommands`` and ``nedit.bgMenuCommands``. A command can be in
+#: both, which is why ``Install In`` is a list rather than a yes/no field.
+MENUS = ("Macro Menu", "Window Background Menu")
 
 #: A value meaning "this field is deliberately empty".
 NONE_VALUES = frozenset({"(none)", "none", "-", ""})
@@ -71,6 +86,26 @@ class MacroFile:
             "yes",
             "true",
         }
+
+    @property
+    def menus(self) -> tuple[str, ...]:
+        """The menus this command installs into, in the order written.
+
+        Whether the names are ones :data:`MENUS` knows about is
+        :func:`nedkit.checks.check_header`'s business, so a typo reaches the
+        reader as a test failure naming the file rather than as a command that
+        quietly stops appearing anywhere.
+        """
+        return tuple(
+            name.strip()
+            for name in self.fields.get("Install In", "").split(",")
+            if name.strip()
+        )
+
+    @property
+    def in_background_menu(self) -> bool:
+        """True for a command that also answers a right-click."""
+        return "Window Background Menu" in self.menus
 
     @property
     def command_name(self) -> str:

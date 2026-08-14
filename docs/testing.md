@@ -117,6 +117,20 @@ tests/fixtures/<command-name>/<case-name>/
 `macros/commands/align-columns.nm` reads its cases from
 `tests/fixtures/align-columns/`.
 
+`setup.nm` runs in the same interpreter as the command, so it is also where a
+case puts the cursor with `set_cursor_pos()` and where it answers a prompt the
+command is about to raise:
+
+```
+$ned_string_dialog_answer = "10, 23"
+$ned_string_dialog_button = 2
+```
+
+Those two globals are what the harness's stand-in `string_dialog()` hands back.
+They default to an empty answer and button 1, so a command that asks a question
+and gets no fixture answer has to do nothing. That default is what stops the
+blanket tests hanging on it.
+
 Most cases need only the first two files. `xnedit-only` is for the handful that
 turn on something XNEdit added and NEdit 5.7 does not have, which in practice
 means encoding: a buffer locking on a byte it cannot convert, or a BOM living
@@ -149,6 +163,7 @@ Two failures mean something other than a wrong answer:
 
 A command that needs to tell the person running it something puts that in a
 dialog, which would also wait forever. The harness defines its own `dialog()`
-that prints instead, so tests can check what a command would have said. Any
-other subroutine that stops and waits needs the same treatment before a test
-can get past it.
+and `string_dialog()` that print instead, so tests can check what a command
+would have said and choose what it hears back. Any other subroutine that stops
+and waits needs the same treatment before a test can get past it, and a return
+value some test can control before that treatment is worth anything.

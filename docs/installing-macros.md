@@ -5,7 +5,7 @@ wrong one is the usual reason a new macro never shows up.
 
 | Kind | Where it comes from | Where it ends up |
 | --- | --- | --- |
-| **Menu command** | `macros/commands/` | The **Macro** menu |
+| **Menu command** | `macros/commands/` | The **Macro** menu, and the right-click menu when the header asks for it |
 | **Subroutine library** | `macros/lib/` | `~/.xnedit/autoload.nm`, callable from other macros, invisible in every menu |
 
 Menu commands are the common case. Start there.
@@ -48,6 +48,10 @@ selected and the fields on the right are empty.*
 | **Requires Selection** | Tick only if the header comment says a selection is required. The command is then greyed out when nothing is selected. |
 | **Macro Command to Execute** | The body you copied. |
 
+The header carries one field this dialog has no box for: **Install In**, the
+list of menus the command belongs in. Anything naming `Window Background Menu`
+needs a second trip through Customize Menus, described below.
+
 **Check** compiles the macro and reports any syntax error without installing
 anything. Click it before you commit to the command. Then **OK**, which applies
 the command and closes the dialog.
@@ -67,6 +71,36 @@ until you do this. Save Defaults is what writes it to `~/.xnedit/nedit.rc`.
 
 Test it on a copy of a real file before you trust it on anything you care
 about. Macros write straight to the buffer with no confirmation step.
+
+## Install a background menu command
+
+Right-clicking in the text opens the window background menu, the short one
+holding Undo, Redo, Cut, Copy and Paste. A command whose header names
+`Window Background Menu` under **Install In** belongs there as well, which puts
+it one click from the text it acts on.
+
+It is a different dialog from the one above, which is the step people miss:
+
+**Preferences → Default Settings → Customize Menus → Window Background
+Menu...**
+
+The form is the one you have already filled in, minus the Requires Selection
+box. Paste the same body, click **Check**, then **OK**, then **Preferences →
+Save Defaults**. A command that belongs in both menus gets installed twice,
+once through each dialog, and the two copies are independent: editing one does
+not touch the other.
+
+What you add is merged with the built-in Undo/Redo/Cut/Copy/Paste rather than
+replacing them, so there is nothing to preserve by hand.
+
+### Right-clicking does not move the cursor
+
+Worth knowing before running Pipe at Cursor Column that way. Posting the
+background menu leaves the insert cursor wherever it already was, so left-click
+the column you mean first, then right-click.
+
+Which button opens the menu is set by `nedit.bgMenuButton`, which defaults to
+`~Shift~Ctrl~Meta~Alt<Btn3Down>`: a right-click with no modifier held down.
 
 ## Install a subroutine library
 
@@ -123,7 +157,20 @@ The format is unforgiving:
 - **Backslashes double.** A macro that contains `"[ \t]+$"` is written
   `"[ \\t]+$"` here, and `"\\w"` becomes `"\\\\w"`.
 
-Because of that last rule especially, don't hand-write these. Install the
+Background menu commands sit in a second resource, `nedit.bgMenuCommands`, with
+the identical format:
+
+```
+nedit.bgMenuCommands: \
+	NED>Pipe at Cursor Column:::: {\n\
+		mode = "overwrite"\n\
+	}\n
+```
+
+One `-import` reads both, so a file carrying both resources installs a command
+into both menus in one go.
+
+Because of that backslash rule especially, don't hand-write these. Install the
 command through the dialog, run Save Defaults, then copy the entry XNEdit
 generated out of `~/.xnedit/nedit.rc`.
 
@@ -164,6 +211,11 @@ antialiased text.
 
 **The command is not in the menu.** It went into `autoload.nm` instead of the
 Macro menu. `autoload.nm` defines subroutines; it does not create menu entries.
+
+**It's in the Macro menu but not on right-click.** Those are two dialogs, not
+one. Customize Menus → Macro Menu... fills the Macro menu; Customize Menus →
+Window Background Menu... fills the right-click menu. A command that belongs in
+both is pasted into both.
 
 **It was there yesterday and now it's gone.** Save Defaults was skipped.
 

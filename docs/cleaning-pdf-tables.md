@@ -13,6 +13,45 @@ Two commands handle this, and **Align Columns** runs twice:
 3. read the file through and fix what needs fixing by hand
 4. **Align Columns** again, as the last thing that touches the file
 
+## When there is no delimiter at all
+
+Some PDFs paste as fixed-width text: the columns line up on screen because
+every field is padded with spaces, and there is not a tab in the file. Align
+Columns falls back to splitting on runs of whitespace there, which cuts
+`NGC 4472` into two fields and loses any field that was blank.
+
+So put the delimiters in yourself, in one step ahead of the four above. After
+that step 1 has something to hold on to and the rest of the page reads as
+written.
+
+Two commands do that job, from opposite ends. Put the cursor on a blank column
+and run **Pipe at Cursor Column**, and every line in the file gets a `|` at that
+column; it is on the right-click menu, so you can do a boundary without leaving
+the text. **Pipe at Columns** asks for the numbers instead and does the lot at
+once.
+
+```
+NGC 4472   12:29:46.7   0.003326
+IC 3583    12:36:44.0   0.001155
+```
+
+Columns 10 and 23 are blank on both rows, so answering `10, 23` gives:
+
+```
+NGC 4472  |12:29:46.7  |0.003326
+IC 3583   |12:36:44.0  |0.001155
+```
+
+From here the rest of the page applies unchanged, because Align Columns' first
+rule is "contains `|`".
+
+Read the report before going on. Rows where the column held something other
+than a space, and rows that ended before it, are counted and left alone rather
+than mangled, and either usually means the column is a place or two off. Turn
+the statistics line on with **Preferences → Show Statistics Line** to see the
+column number under the cursor while you aim, and note that right-clicking does
+not move the cursor: left-click the column first.
+
 ## Why aligning comes first
 
 Normalize Characters turns every tab into a single space. Once it has run,

@@ -33,11 +33,26 @@ PIPELINE = ["align-columns", "normalize-characters", "align-columns"]
 pytestmark = pytest.mark.xnedit
 
 
-def apply(runner: XNEditRunner, names: list[str], data: bytes, workdir: Path) -> bytes:
+def apply(
+    runner: XNEditRunner,
+    names: list[str],
+    data: bytes,
+    workdir: Path,
+    setup: dict[str, str] | None = None,
+) -> bytes:
+    """Run each command in turn, feeding one command's output into the next.
+
+    ``setup`` maps a command name to a macro run ahead of its body, the way a
+    fixture's ``setup.nm`` does. A command that puts a question to the user
+    needs one, or it gets the harness's default empty answer and no-ops. See
+    ``nedkit.runner.PROMPT_STUB``.
+    """
+    setup = setup or {}
     for name in names:
-        run = runner.run_on_bytes(
-            parse(COMMANDS / f"{name}.nm").body, data, workdir, name="table.txt"
-        )
+        macro = parse(COMMANDS / f"{name}.nm").body
+        if name in setup:
+            macro = setup[name].rstrip() + "\n" + macro
+        run = runner.run_on_bytes(macro, data, workdir, name="table.txt")
         assert run.ok, f"{name}: {run.describe()}"
         data = run.output or b""
     return data
@@ -110,6 +125,50 @@ def test_aligning_first_is_what_saves_the_field_boundaries(
     assert fields(normalize_first) != [3, 3], (
         "if this passes, Normalize Characters stopped eating tabs and the "
         "align-first half of the rule can be reconsidered"
+    )
+
+
+def test_piping_the_columns_is_what_gives_a_fixed_width_paste_a_delimiter(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """Pipe at Columns, then Align Columns, on a paste with no delimiter at all.
+
+    A fixed-width table out of a PDF has neither a tab nor a pipe, so Align
+    Columns falls back to splitting on runs of whitespace and cuts a sexagesimal
+    position into three fields of its own. Piping the boundaries first gives it
+    the delimiter its first rule looks for, and the position survives as one
+    field.
+
+    Inline bytes rather than a file in ``samples/``: that directory is one real
+    job end to end, and this is a second shape of input rather than a second
+    job.
+    """
+    source = (
+        b"NGC 4472   12 29 46.7   0.003326\n"
+        b"IC 3583    12 36 44.0   0.001155\n"
+        b"NGC 4486   12 30 49.4   0.004283\n"
+    )
+    piped = apply(
+        runner,
+        ["pipe-at-columns", "align-columns"],
+        source,
+        tmp_path,
+        setup={
+            "pipe-at-columns": '$ned_string_dialog_answer = "10, 23"\n'
+            "$ned_string_dialog_button = 1\n"
+        },
+    )
+
+    assert fields(piped) == [3, 3, 3]
+    assert b"12 29 46.7" in piped, (
+        f"the position should have stayed one field: {piped!r}"
+    )
+    assert len(widths(piped)) == 1, "the columns should line up"
+
+    without_piping = apply(runner, ["align-columns"], source, tmp_path)
+    assert fields(without_piping) != [3, 3, 3], (
+        "if this passes, Align Columns learned to keep a space-separated field "
+        "together and a fixed-width paste no longer needs piping first"
     )
 
 

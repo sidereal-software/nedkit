@@ -21,6 +21,28 @@ to fix the field boundaries, then again once the file is finished.
 </div>
 
 <div markdown>
+:material-cursor-text:
+
+### [Pipe at Cursor Column](commands.md#pipe-at-cursor-column)
+
+For a fixed-width table with no delimiter in it.
+
+Writes a `|` down the column the cursor is in, on every line at once. It is on
+the right-click menu too, so you can do a boundary without leaving the text.
+</div>
+
+<div markdown>
+:material-table-column-plus-after:
+
+### [Pipe at Columns](commands.md#pipe-at-columns)
+
+For several boundaries in one pass.
+
+Asks which columns, and whether to write over the space there or push the rest
+of the line right, then does the whole file.
+</div>
+
+<div markdown>
 :material-bandage:
 
 ### [Normalize Characters](commands.md#normalize-characters)
@@ -45,9 +67,9 @@ nothing to remove.
 </div>
 
 Just pasted a table out of a paper and want to know what to run?
-[Cleaning up a pasted table](cleaning-pdf-tables.md) walks through both
-commands on a real file. To get them installed in the first place, start with
-[getting started](getting-started.md).
+[Cleaning up a pasted table](cleaning-pdf-tables.md) walks the whole sequence
+through on a real file. To get the commands installed in the first place, start
+with [getting started](getting-started.md).
 
 ## Which editor
 

@@ -1,0 +1,5 @@
+##refcode 2024ApJ...900...1X
+## Table 3 of Smith et al. (2024)
+
+NGC 4472   12:29:46.7
+IC 3583    12:36:44.0

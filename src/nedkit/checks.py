@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from nedkit.macro import HEADER_FIELDS, MacroFile, slug
+from nedkit.macro import HEADER_FIELDS, MENUS, MacroFile, slug
 
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -178,6 +178,27 @@ def check_header(macro: MacroFile) -> list[Finding]:
                 1,
                 f"'Requires Selection' should be yes or no, not {selection!r}",
             )
+        )
+
+    if "Install In" in macro.fields:
+        if not macro.menus:
+            findings.append(
+                Finding(
+                    macro.path,
+                    1,
+                    "'Install In' is empty; name at least one of "
+                    + ", ".join(repr(menu) for menu in MENUS),
+                )
+            )
+        findings.extend(
+            Finding(
+                macro.path,
+                1,
+                f"'Install In' names {menu!r}, which is not a menu. Use "
+                + " or ".join(repr(known) for known in MENUS),
+            )
+            for menu in macro.menus
+            if menu not in MENUS
         )
 
     if not macro.body.strip():
