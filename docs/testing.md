@@ -114,8 +114,8 @@ tests/fixtures/<command-name>/<case-name>/
 ```
 
 `<command-name>` is the `.nm` filename without its extension, so
-`macros/commands/align-columns.nm` reads its cases from
-`tests/fixtures/align-columns/`.
+`macros/commands/pipe-at-columns.nm` reads its cases from
+`tests/fixtures/pipe-at-columns/`.
 
 `setup.nm` runs in the same interpreter as the command, so it is also where a
 case puts the cursor with `set_cursor_pos()` and where it answers a prompt the

@@ -173,8 +173,9 @@ Three things about the mechanism are worth knowing first:
 Commands are covered by fixtures. Subroutines have none, so
 `test_every_subroutine_is_named_in_a_test` checks that each `define ned_*` at
 least gets mentioned somewhere in `tests/`. `tests/test_pipeline.py` runs the
-commands in sequence over the real paste in `samples/`, which is the only place
-their interaction shows up.
+commands in sequence, which is the only place their interaction shows up. It
+works from inline bytes rather than from `samples/`, because the sample paste
+is tab separated and the pipe commands refuse a buffer with a tab in it.
 
 Encoding behaviour needs care, because it depends on the locale as much as on
 the editor. A file that is *entirely* latin-1 decodes cleanly under a latin-1
@@ -198,13 +199,6 @@ carry an `xnedit-only` file naming the reason, and the suite skips them when
 the filename. Reach for the marker only when a case genuinely turns on the
 fork; every expected failure left unmarked is one more reason to stop reading
 the NEdit job.
-
-One macro bug is pinned as a `strict=True` xfail rather than quietly tolerated:
-**Align Columns pads by bytes, not characters**, so any non-ASCII value in a
-column comes up short by one place per extra byte. Since Normalize Characters
-deliberately keeps accented names and Greek letters, they reach Align Columns
-intact. Fix the macro and the xfail turns into a failure telling you to delete
-it.
 
 ## Conventions
 
@@ -282,7 +276,7 @@ Scopes in this repo are usually `macros`, `docs`, `tools` or `ci`, or the name
 of a single macro when a change is confined to one:
 
 ```
-feat(macros): add align-columns for pipe-delimited tables
+feat(macros): add pipe-at-columns for fixed-width tables
 fix(normalize-characters): use case-sensitive search for the table
 docs: describe the two-macro workflow for pasted tables
 ci: build the docs site on pull requests without deploying

@@ -15,203 +15,6 @@ cannot drift away from what the macros actually do.
 
 <!-- BEGIN GENERATED: commands -->
 
-## Align Columns
-
-| Setting | Value |
-| --- | --- |
-| Menu entry | `NED>Align Columns` |
-| Installed in | Macro Menu |
-| Accelerator | (none) |
-| Requires a selection | no |
-| Source | [`macros/commands/align-columns.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/align-columns.nm) |
-
-Turns whitespace-separated columns into NED's pipe-delimited table format:
-fields joined with "|", each one padded with spaces to the width of the
-widest value in its column, so the columns line up when you read the file.
-
-    SDSS001009<TAB>00:10:09.97<TAB>-00:46:03.66<TAB>0.2431
-    SDSS004054<TAB>00:40:54.33<TAB>15:34:09.66<TAB>0.2832
-
-becomes
-
-    SDSS001009|00:10:09.97|-00:46:03.66|0.2431
-    SDSS004054|00:40:54.33|15:34:09.66 |0.2832
-
-Blank lines and lines starting with "#" are left exactly as they are, so the
-\##refcode / ##type1 header block at the top of a NED file passes through
-untouched and does not get counted when measuring column widths.
-
-How a line gets split into fields, first match wins:
-
-  1. contains "|"   split on "|", then trim each field
-  2. contains a tab  split on the tab
-  3. otherwise       split on runs of spaces and tabs
-
-Run this first, and then again as the very last thing you do to the file.
-
-First, because rule 2 needs the tabs. Normalize Characters turns every tab
-into a single space, and once that has happened there is no delimiter left:
-rule 3 takes over and cuts every field that contains a space into several,
-while a field that was empty disappears into the gap. Running this first
-turns the tabs into pipes, and rule 1 then holds those boundaries through
-everything that comes after.
-
-Last, because the widths are only right until the next edit. Anything that
-changes a value changes the width of its column, and that includes Normalize
-Characters: length() counts bytes, so an en dash measures three where it
-prints one, and rows containing one come out two characters too wide until
-the dashes are gone and this is run again.
-
-So: align, clean up, read it through, align again.
-
-Every column is padded, including the last, so each row comes out the same
-length. Run Trim Trailing Blanks afterwards if you would rather the lines
-ended at the last real character.
-
-Rows whose field count differs from the first data row are still aligned as
-far as they go, but they get reported rather than quietly padded out - a
-short row usually means a value went missing upstream.
-
-??? example "The macro body, ready to paste"
-
-    ```
-    original = get_range(0, $text_length)
-
-    # split() on "\n" yields one element per line plus a trailing empty element
-    # when the buffer ends in a newline, so joining the elements back with "\n"
-    # reproduces the buffer exactly. That is what lets the no-change case below be
-    # a plain string comparison.
-    lines = split(original, "\n", "case")
-    n_lines = lines[]
-
-    # Arrays have to exist before "in" is used on them.
-    keep = $empty_array
-    cell = $empty_array
-    count = $empty_array
-    width = $empty_array
-
-    n_rows = 0
-    first_count = 0
-    ragged = 0
-    first_ragged = 0
-
-    # --- pass 1: split every line into fields and measure each column -----------
-
-    for (i = 0; i < n_lines; i++) {
-        body = replace_in_string(lines[i], "^[ \t]+", "", "regex", "copy")
-        body = replace_in_string(body, "[ \t]+$", "", "regex", "copy")
-
-        # Blank lines and header lines are copied through verbatim, indentation
-        # and all, and take no part in the column widths.
-        if (body == "" || substring(body, 0, 1) == "#") {
-            keep[i] = lines[i]
-            continue
-        }
-
-        if (search_string(body, "|", 0, "case") != -1) {
-            f = split(body, "|", "case")
-        } else if (search_string(body, "\t", 0, "case") != -1) {
-            f = split(body, "\t", "case")
-        } else {
-            f = split(body, "[ \t]+", "regex")
-        }
-
-        nf = f[]
-        for (j = 0; j < nf; j++) {
-            v = replace_in_string(f[j], "^[ \t]+", "", "regex", "copy")
-            v = replace_in_string(v, "[ \t]+$", "", "regex", "copy")
-            cell[i, j] = v
-            if (j in width) {
-                width[j] = max(width[j], length(v))
-            } else {
-                width[j] = length(v)
-            }
-        }
-        count[i] = nf
-
-        if (n_rows == 0) {
-            first_count = nf
-        } else if (nf != first_count) {
-            if (ragged == 0) {
-                first_ragged = i + 1
-            }
-            ragged++
-        }
-        n_rows++
-    }
-
-    # --- pass 2: rebuild the buffer --------------------------------------------
-
-    # One run of spaces, long enough to pad the widest column with a single
-    # substring() rather than a loop per field. Doubling gets there in a few steps.
-    max_width = 0
-    for (j in width) {
-        max_width = max(max_width, width[j])
-    }
-    pad = " "
-    while (length(pad) < max_width) {
-        pad = pad pad
-    }
-
-    out = ""
-    chunk = ""
-    for (i = 0; i < n_lines; i++) {
-        if (i in keep) {
-            chunk = chunk keep[i]
-        } else {
-            nf = count[i]
-            for (j = 0; j < nf; j++) {
-                if (j > 0) {
-                    chunk = chunk "|"
-                }
-                v = cell[i, j]
-                chunk = chunk v substring(pad, 0, width[j] - length(v))
-            }
-        }
-        if (i < n_lines - 1) {
-            chunk = chunk "\n"
-        }
-
-        # Appending every line straight onto one growing string is quadratic:
-        # each append copies everything written so far. Flushing a chunk every
-        # 200 lines keeps a few thousand rows instant instead of a visible stall.
-        if (i % 200 == 199) {
-            out = out chunk
-            chunk = ""
-        }
-    }
-    out = out chunk
-
-    if (out != original) {
-        saved_cursor = $cursor
-        replace_range(0, $text_length, out)
-
-        # Padding makes the buffer longer, but a re-align can shorten it.
-        if (saved_cursor > $text_length) {
-            saved_cursor = $text_length
-        }
-        set_cursor_pos(saved_cursor)
-    }
-
-    # --- report ----------------------------------------------------------------
-
-    if (n_rows == 0) {
-        t_print("align: " $file_name ": no data rows, nothing to align\n")
-    } else {
-        t_print("align: " $file_name ": " n_rows " row(s), " width[] " column(s)\n")
-    }
-
-    if (ragged > 0) {
-        msg = $file_name " has " ragged " row(s) whose field count differs from "
-        msg = msg "the first data row, which has " first_count ". The first one is "
-        msg = msg "on line " first_ragged ".\n\nThey were aligned as far as they "
-        msg = msg "go and no empty columns were invented. A short row usually "
-        msg = msg "means a value went missing upstream, so check those rows "
-        msg = msg "before this file goes anywhere."
-        dialog(msg, "OK")
-    }
-    ```
-
 ## Normalize Characters
 
 | Setting | Value |
@@ -439,7 +242,9 @@ modified flag untouched.
     }
 
     # Tabs. One tab becomes one space, which does not preserve column alignment.
-    # Use Edit > Untabify (Shift+Ctrl+Tab) instead when the columns matter.
+    # XNEdit has nothing that expands a tab to the spaces it stands for, so when the
+    # columns have to survive, select the file and run expand through
+    # Shell > Filter Selection instead of this.
     if (search_string(cleaned, "\t", 0, "case") != -1) {
         cleaned = replace_in_string(cleaned, "\t", " ", "case", "copy")
         fixed = fixed "  tab -> space\n"
@@ -544,7 +349,8 @@ Answering "10, 23" and choosing Overwrite gives
     NGC 4472  |12:29:46.7  |0.003326
     IC 3583   |12:36:44.0  |0.001155
 
-Then Align Columns to even up the widths.
+Nothing here pads the fields afterwards, so the file comes out delimited
+rather than squared up.
 
 Type the columns separated by spaces or commas, in any order; repeats are
 ignored. They count from 0, the numbering the C: field of the statistics line
@@ -576,10 +382,11 @@ Four things it refuses rather than guesses at:
   - A row that ends before one of those columns. Padding it out would invent
     data.
   - A buffer with a tab anywhere in it, because a tab is one byte wide and
-    any number of columns wide. Run Align Columns first, which turns tabs
-    into pipes.
+    any number of columns wide. Replace the tabs with the spaces they stand
+    for first: select the whole file and run expand through
+    Shell > Filter Selection.
 
-So read the report before you align. A skipped row usually means a column is
+So read the report before you go on. A skipped row usually means a column is
 a place or two off.
 
 Columns are counted as they are displayed, so an en dash counts as one column
@@ -712,9 +519,12 @@ For one column with no dialog in the way, use Pipe at Cursor Column.
             ok = 0
             msg = $file_name " has a tab in it, so there is no telling which column "
             msg = msg "anything is in: a tab is one character and however many "
-            msg = msg "columns it takes to reach the next tab stop.\n\nRun Align "
-            msg = msg "Columns first. It splits on the tabs and rewrites them as "
-            msg = msg "pipes, which is most likely what you were after anyway."
+            msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
+            msg = msg "tabs with the spaces they stand for first: select the whole "
+            msg = msg "file and run expand through Shell > Filter Selection, which "
+            msg = msg "leaves the columns where they sit on screen. Normalize "
+            msg = msg "Characters takes tabs out too, but it writes one space for "
+            msg = msg "each, which usually closes the columns up."
         }
     }
 
@@ -728,9 +538,8 @@ For one column with no dialog in the way, use Pipe at Cursor Column.
             stripped = replace_in_string(line, "^[ \t]+", "", "regex", "copy")
             stripped = replace_in_string(stripped, "[ \t]+$", "", "regex", "copy")
 
-            # Blank lines and header lines are copied through verbatim, the same
-            # rule Align Columns uses, so the ##refcode block at the top of a NED
-            # file goes through untouched.
+            # Blank lines and header lines are copied through verbatim, so the
+            # ##refcode block at the top of a NED file goes through untouched.
             if (stripped != "" && substring(stripped, 0, 1) != "#") {
                 n_rows++
 
@@ -907,10 +716,11 @@ with the cursor on the blank column in front of 12:29 becomes
     NGC 4472  |12:29:46.7   0.003326
     IC 3583   |12:36:44.0   0.001155
 
-Run it once per boundary, then Align Columns to even up the widths.
+Run it once per boundary. Nothing here pads the fields afterwards, so the
+file comes out delimited rather than squared up.
 
 The column is the one the statistics line calls C:, counting from 0.
-Preferences > Show Statistics Line puts that number on screen while you aim.
+Preferences > Statistics Line puts that number on screen while you aim.
 Right-clicking does not move the cursor, so left-click the column first when
 you run this from the background menu.
 
@@ -924,10 +734,11 @@ Four things it refuses rather than guesses at:
     first is named.
   - A row that ends before that column. Padding it out would invent data.
   - A buffer with a tab anywhere in it, because a tab is one byte wide and
-    any number of columns wide. Run Align Columns first, which turns tabs
-    into pipes.
+    any number of columns wide. Replace the tabs with the spaces they stand
+    for first: select the whole file and run expand through
+    Shell > Filter Selection.
 
-So read the report before you align. A skipped row usually means the column
+So read the report before you go on. A skipped row usually means the column
 is a place or two off.
 
 Columns are counted as they are displayed, so an en dash counts as one column
@@ -998,9 +809,12 @@ over the space, use Pipe at Columns.
             ok = 0
             msg = $file_name " has a tab in it, so there is no telling which column "
             msg = msg "anything is in: a tab is one character and however many "
-            msg = msg "columns it takes to reach the next tab stop.\n\nRun Align "
-            msg = msg "Columns first. It splits on the tabs and rewrites them as "
-            msg = msg "pipes, which is most likely what you were after anyway."
+            msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
+            msg = msg "tabs with the spaces they stand for first: select the whole "
+            msg = msg "file and run expand through Shell > Filter Selection, which "
+            msg = msg "leaves the columns where they sit on screen. Normalize "
+            msg = msg "Characters takes tabs out too, but it writes one space for "
+            msg = msg "each, which usually closes the columns up."
         }
     }
 
@@ -1014,9 +828,8 @@ over the space, use Pipe at Columns.
             stripped = replace_in_string(line, "^[ \t]+", "", "regex", "copy")
             stripped = replace_in_string(stripped, "[ \t]+$", "", "regex", "copy")
 
-            # Blank lines and header lines are copied through verbatim, the same
-            # rule Align Columns uses, so the ##refcode block at the top of a NED
-            # file goes through untouched.
+            # Blank lines and header lines are copied through verbatim, so the
+            # ##refcode block at the top of a NED file goes through untouched.
             if (stripped != "" && substring(stripped, 0, 1) != "#") {
                 n_rows++
 

@@ -8,22 +8,22 @@ come out the other end.
 | `A13L.mod.before` | An SDSS table pasted straight out of the paper, tab separated, with en dashes standing in for minus signs |
 | `A13L.mod.after` | The finished NED file for the same data |
 
-`A13L.mod.before` is the input for `tests/test_pipeline.py`, so it is a live
-test fixture rather than a file sitting here going stale. What the commands
-currently make of it is recorded in
-`tests/fixtures/pipeline/A13L.expected.txt`.
+Neither file is wired into a test. `tests/test_pipeline.py` works from inline
+bytes, so nothing fails if these two go stale. They are here to be read.
 
 ## What the commands already do
 
-**Align Columns**, then **Normalize Characters**, then **Align Columns** again
-gets from `A13L.mod.before` to a padded, pipe delimited table: en dashes become
-minus signs, the tabs go, and every column is as wide as its widest value.
+Not much of it, and none of it straight off the disk. `A13L.mod.before` is tab
+separated, and **Pipe at Cursor Column** and **Pipe at Columns** both refuse a
+buffer with a tab in it: a tab is one character and any number of columns, so
+there is no saying what column anything is in. Select the whole file and run it
+through `expand` first, using **Shell > Filter Selection**.
 
-Align Columns runs at both ends for two different reasons. First, because it
-needs the tabs: once Normalize Characters has turned them into spaces there is
-no delimiter left and fields get cut in the wrong places. Last, because the
-widths are only right until the next edit, and that includes the edits
-Normalize Characters makes.
+After that, piping the boundaries and then running **Normalize Characters**
+turns the en dashes into minus signs and gets to a pipe delimited table, which
+is still a long way from `A13L.mod.after`.
+[Cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
+works that through step by step, on exactly this file.
 
 ## What is still done by hand
 
@@ -39,6 +39,9 @@ Everything that makes it a NED file, none of which any command here attempts:
 - `ap_name1` and `name1` are built out of the coordinates:
   `SDSS J001009.97-004603.6`. Note that these are rounded to one decimal and
   are not simply `coordx1` and `coordy1` pasted together.
+- Every field in `A13L.mod.after` is padded out to the width of the widest
+  value in its column, and every row ends up the same length. Nothing in
+  `macros/commands/` pads anything.
 
 That list is the gap between the two files, so it is also the most concrete
 statement in this repo of what a NED job actually involves. Anything added to

@@ -224,7 +224,9 @@ if (search_string(cleaned, "\r", 0, "case") != -1) {
 }
 
 # Tabs. One tab becomes one space, which does not preserve column alignment.
-# Use Edit > Untabify (Shift+Ctrl+Tab) instead when the columns matter.
+# XNEdit has nothing that expands a tab to the spaces it stands for, so when the
+# columns have to survive, select the file and run expand through
+# Shell > Filter Selection instead of this.
 if (search_string(cleaned, "\t", 0, "case") != -1) {
     cleaned = replace_in_string(cleaned, "\t", " ", "case", "copy")
     fixed = fixed "  tab -> space\n"

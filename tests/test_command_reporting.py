@@ -44,56 +44,6 @@ def asked(columns: str, button: int) -> str:
     )
 
 
-def test_align_columns_reports_row_and_column_counts(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    run = runner.run_on_bytes(
-        body("align-columns"),
-        b"NGC 4472\tz=0.003326\nIC 3583\tz=0.001155\n",
-        tmp_path,
-    )
-    assert run.ok, run.describe()
-    assert "2 row(s), 2 column(s)" in run.messages
-    assert run.dialogs == []
-
-
-def test_align_columns_does_not_count_header_lines_as_rows(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    run = runner.run_on_bytes(
-        body("align-columns"),
-        b"##refcode 2024ApJ...900...1X\n\nNGC 4472\tz=0.003326\n",
-        tmp_path,
-    )
-    assert run.ok, run.describe()
-    assert "1 row(s)" in run.messages
-
-
-def test_align_columns_says_so_when_there_is_nothing_to_align(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    run = runner.run_on_bytes(body("align-columns"), b"##refcode only\n", tmp_path)
-    assert run.ok, run.describe()
-    assert "no data rows" in run.messages
-
-
-def test_align_columns_reports_ragged_rows(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    """A short row means a value went missing upstream, so it must not pass quietly."""
-    run = runner.run_on_bytes(
-        body("align-columns"),
-        b"NGC 4472\tz=0.003326\tSy2\nNGC 4486\tz=0.004283\nIC 3583\tz=0.001155\tHII\n",
-        tmp_path,
-    )
-    assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
-
-    message = run.dialogs[0]
-    assert "1 row(s) whose field count differs" in message
-    assert "on line 2" in message
-
-
 def test_normalize_characters_is_quiet_when_there_is_nothing_to_do(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
@@ -196,11 +146,16 @@ def test_pipe_at_cursor_column_refuses_column_zero_and_says_why(
     assert "column 0" in run.dialogs[0]
 
 
-def test_pipe_refuses_a_buffer_with_a_tab_and_points_at_align_columns(
+def test_pipe_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
     """A tab is one character and however many columns, so no column arithmetic
-    on the buffer means anything until Align Columns has taken the tabs out."""
+    on the buffer means anything until the tabs are gone.
+
+    XNEdit has no untabify of its own, so the message points at ``expand``
+    through Shell > Filter Selection, which is the only route that keeps the
+    columns where they are on screen.
+    """
     run = runner.run_on_bytes(
         with_setup("pipe-at-cursor-column", AT_COLUMN_10),
         b"NGC 4472\t12:29:46.7\nIC 3583\t12:36:44.0\n",
@@ -212,7 +167,7 @@ def test_pipe_refuses_a_buffer_with_a_tab_and_points_at_align_columns(
 
     message = run.dialogs[0]
     assert "has a tab in it" in message
-    assert "Run Align Columns first" in message
+    assert "Shell > Filter Selection" in message
 
 
 def test_pipe_reports_the_rows_it_could_not_overwrite(

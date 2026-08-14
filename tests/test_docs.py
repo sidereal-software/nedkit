@@ -49,14 +49,14 @@ def test_every_command_has_prose_for_the_docs(path: Path) -> None:
 
 
 def test_prose_excludes_the_title_and_the_install_boilerplate() -> None:
-    macro = parse(REPO_ROOT / "macros" / "commands" / "align-columns.nm")
+    macro = parse(REPO_ROOT / "macros" / "commands" / "pipe-at-cursor-column.nm")
     assert not macro.prose.startswith(macro.title)
     assert "Install the body below" not in macro.prose
     assert "Menu Entry" not in macro.prose
 
 
 def test_prose_keeps_indentation_so_examples_stay_code_blocks() -> None:
-    macro = parse(REPO_ROOT / "macros" / "commands" / "align-columns.nm")
+    macro = parse(REPO_ROOT / "macros" / "commands" / "pipe-at-cursor-column.nm")
     indented = [line for line in macro.prose.split("\n") if line.startswith("    ")]
     assert indented, "the worked example in the header lost its indentation"
 

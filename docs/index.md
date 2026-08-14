@@ -10,17 +10,6 @@ editor.
 <div class="nedkit-kit" markdown>
 
 <div markdown>
-:material-format-columns:
-
-### [Align Columns](commands.md#align-columns)
-
-For columns that do not line up.
-
-Joins fields with `|` and pads each column to its widest value. Run it first
-to fix the field boundaries, then again once the file is finished.
-</div>
-
-<div markdown>
 :material-cursor-text:
 
 ### [Pipe at Cursor Column](commands.md#pipe-at-cursor-column)

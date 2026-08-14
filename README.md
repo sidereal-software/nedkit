@@ -54,30 +54,37 @@ their shape.
 
 ## Cleaning up a table pasted from a PDF
 
-Two commands, and **Align Columns runs twice**:
-
-1. **Align Columns** (`macros/commands/align-columns.nm`) joins whitespace- or
-   tab-separated fields with `|` and pads each column to its widest value.
-   Blank lines and the `##refcode` header block pass through untouched.
+1. Put the field boundaries in. **Pipe at Cursor Column**
+   (`macros/commands/pipe-at-cursor-column.nm`) writes a `|` down the column
+   the cursor is in, on every line at once; **Pipe at Columns**
+   (`macros/commands/pipe-at-columns.nm`) asks for several column numbers and
+   does them in one pass. Blank lines and the `##refcode` header block pass
+   through untouched.
 2. **Normalize Characters** (`macros/commands/normalize-characters.nm`) rewrites
    the dashes, quotes, spaces and ligatures that only look like their ASCII
    counterparts, turns tabs into spaces, and reports whatever non-ASCII it
    deliberately left alone rather than guessing at it.
 3. Read the file through and fix whatever needs fixing by hand.
-4. **Align Columns** again, as the last thing that touches the file.
+4. **Trim Trailing Blanks** (`macros/commands/trim-trailing-blanks.nm`), as the
+   last thing that touches the file.
 
-Aligning first is what fixes the field boundaries: Normalize turns every tab
-into a single space, and once the tabs are gone Align Columns has no delimiter
-and falls back to splitting on whitespace, which cuts a field like `NGC 4472`
-in half. Getting the pipes in early stops that.
+You name the columns yourself, because nothing here works them out for you. The
+two pipe commands also refuse a buffer with a tab in it, since a tab is one
+character and any number of columns. Run the file through `expand` first, using
+**Shell > Filter Selection**.
 
-Aligning last is what makes the widths right. Every edit changes the width of
-a column, so the alignment has to come after the edits, not before.
+The piping comes first because the boundaries have to be settled while the
+layout is still there, and Normalize turns every tab into a single space.
+Trimming comes last because it is the only one of these that cannot move a
+boundary.
+
+Nothing pads a column to a common width, so a finished file is pipe delimited
+and ragged.
 
 [Cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
-works through all four steps on a real file, and
+works through the whole sequence on a real file, and
 [Character replacements](https://nedkit.sidereal.software/character-replacements/)
-lists every character the second command touches.
+lists every character Normalize Characters touches.
 
 ## Requirements
 

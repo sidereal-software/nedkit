@@ -6,139 +6,220 @@ not the ASCII characters they look like. A declination that reads
 `-00:46:03.66` on screen often starts with U+2013 EN DASH, and nothing
 downstream that expects a minus sign will match it.
 
-Two commands handle this, and **Align Columns** runs twice:
+The order to work in:
 
-1. **Align Columns**, to fix the field boundaries
-2. **Normalize Characters**, and any other tidying up
+1. put the field boundaries in with **Pipe at Cursor Column** or **Pipe at
+   Columns**
+2. **Normalize Characters**
 3. read the file through and fix what needs fixing by hand
-4. **Align Columns** again, as the last thing that touches the file
+4. **Trim Trailing Blanks**, last
 
-## When there is no delimiter at all
+Nothing in that list pads a column. The file comes out pipe delimited and no
+more square than it went in, and squaring it up is still done by hand or
+somewhere outside the editor.
 
-Some PDFs paste as fixed-width text: the columns line up on screen because
-every field is padded with spaces, and there is not a tab in the file. Align
-Columns falls back to splitting on runs of whitespace there, which cuts
-`NGC 4472` into two fields and loses any field that was blank.
+## Where the pipes go
 
-So put the delimiters in yourself, in one step ahead of the four above. After
-that step 1 has something to hold on to and the rest of the page reads as
-written.
+You say where the fields begin, because nothing here can work it out. Turn on
+**Preferences > Statistics Line**: the `C:` field is the column the cursor is
+in, counting from 0, and that is the number both commands take.
 
-Two commands do that job, from opposite ends. Put the cursor on a blank column
-and run **Pipe at Cursor Column**, and every line in the file gets a `|` at that
-column; it is on the right-click menu, so you can do a boundary without leaving
-the text. **Pipe at Columns** asks for the numbers instead and does the lot at
-once.
+Put the cursor on a blank column and run **Pipe at Cursor Column** to do that
+one boundary on every line at once:
 
 ```
-NGC 4472   12:29:46.7   0.003326
-IC 3583    12:36:44.0   0.001155
+SDSS001009      00:10:09.97
+SDSS004054      00:40:54.33
 ```
 
-Columns 10 and 23 are blank on both rows, so answering `10, 23` gives:
+with the cursor in column 15 becomes
 
 ```
-NGC 4472  |12:29:46.7  |0.003326
-IC 3583   |12:36:44.0  |0.001155
+SDSS001009     |00:10:09.97
+SDSS004054     |00:40:54.33
 ```
 
-From here the rest of the page applies unchanged, because Align Columns' first
-rule is "contains `|`".
+It is on the right-click menu as well as the Macro menu, so a boundary costs
+nothing but a click and a menu pick. Right-clicking does not move the cursor,
+though, so left-click the column first.
 
-Read the report before going on. Rows where the column held something other
-than a space, and rows that ended before it, are counted and left alone rather
-than mangled, and either usually means the column is a place or two off. Turn
-the statistics line on with **Preferences → Show Statistics Line** to see the
-column number under the cursor while you aim, and note that right-clicking does
-not move the cursor: left-click the column first.
+**Pipe at Columns** asks for the numbers instead, in any order and separated by
+spaces or commas, and does the lot in one pass. Its prompt tells you which
+column the cursor is in, so you can read one off the screen without the
+statistics line.
 
-## Why aligning comes first
+### Overwrite or insert
 
-Normalize Characters turns every tab into a single space. Once it has run,
-`a<TAB><TAB>c` and `a<SPACE><SPACE>c` are the same text, so Align Columns has
-no delimiter left to work with. It falls back to splitting on runs of
-whitespace, which cuts every field containing a space into several and loses
-any field that was empty:
+Pipe at Columns offers both. Overwrite writes the pipe over the character at
+that column and only where that character is a space, so every row stays the
+width it was. A second run finds the pipe already there and leaves it, which
+makes overwriting safe to repeat. Pipe at Cursor Column always overwrites.
 
-| Order | `NGC 4472<TAB>12 29 46.76<TAB><TAB>0.0033` becomes |
-| --- | --- |
-| Align first | `NGC 4472\|12 29 46.76\| \|0.0033` |
-| Normalize first | `NGC\|4472\|12\|29\|46.76\|0.0033` |
+Insert puts the pipe in and pushes the rest of the line right. Nothing is lost,
+so it reaches a row with no blank column to spare:
 
-The second row is not a table any more. Aligning first turns the tabs into
-pipes, and a pipe is the first delimiter Align Columns looks for, so the
-boundaries hold through everything that follows.
+```
+NGC4472 12:29:46.7
+IC3583  12:36:44.0
+```
 
-## Why aligning comes last
+Answering `7` and choosing Insert gives
 
-The widths are only right until the next edit. Change a value and its column
-no longer fits, and that includes the changes Normalize Characters makes: an
-en dash measures three where it prints one, so rows containing one come out
-two characters too wide until the dashes are gone and the file is aligned
-again.
+```
+NGC4472| 12:29:46.7
+IC3583 | 12:36:44.0
+```
 
-The same goes for anything you fix by hand. **Align last, after the file is
-finished**, or the columns will be right for the version you had rather than
-the version you are shipping.
+The price is a character of width on every row it touches, and a second run
+adds a second set of pipes.
+
+### Read the report
+
+Both commands print a line per run in the terminal that launched `xnedit`, and
+raise a dialog when some rows did not get their pipe. Two cases are counted and
+left as they are rather than guessed at: a row holding something other than a
+space at that column, because overwriting there would destroy a character, and
+a row that ends before the column, because padding it out would invent data.
+The dialog gives a count and the line number of the first one. Either case
+usually means the column is a place or two off.
+
+The first case is the one to watch. A column that is blank on almost every row
+can land inside a name like `NGC 4472` on the one row where it isn't, and the
+command has no way to tell that apart from a column you meant.
+
+## Tabs have to go first
+
+Both commands refuse a buffer with a tab anywhere in it. A tab is one character
+and however many columns it takes to reach the next tab stop, so on a line that
+contains one there is no answer to the question of what is in column 15.
+
+XNEdit has nothing that expands a tab to the spaces it stands for, so this goes
+through the shell. Select the whole file and run `expand` through
+**Shell > Filter Selection**, which replaces each tab with the spaces it was
+already displaying and leaves the columns where they sit on screen.
+
+Normalize Characters takes tabs out too, but it writes one space for each,
+which closes the columns up and destroys the layout you were about to point at.
+
+!!! warning "`expand` needs a UTF-8 locale"
+
+    Under `LANG=C` it does not count a character like an en dash at all, and
+    pads as though it were not there. Everything to the right of one on that
+    line then lands a column too far over, once per non-ASCII character.
+
+## Why the pipes go in first
+
+The boundaries have to be nailed down while the layout is still on screen,
+which means before Normalize Characters turns the tabs into single spaces.
+
+Piping first is also the more forgiving order when a replacement changes a
+character count. Most of them do not: an en dash becomes a minus sign, one
+character for one, and nothing moves. A ligature becomes two letters and an
+ellipsis becomes three dots, and those push the rest of their row right.
+
+```
+Griﬀin         |12:29:46.7
+Smith          |12:36:44.0
+```
+
+After Normalize Characters:
+
+```
+Griffin         |12:29:46.7
+Smith          |12:36:44.0
+```
+
+The pipe still separates the same two fields, so the table is intact. That row
+is simply a character wider than the one below it now, and nothing puts it
+back. Look at the file again after normalizing, before you pipe the next
+boundary off a column number you read earlier.
+
+## Why trimming comes last
+
+Trim Trailing Blanks only ever takes spaces and tabs off the end of a line, so
+it is the one command that cannot move a boundary. Anything else you do to the
+file can, which is why it goes at the end and gets run again after any later
+edit.
+
+Nothing in the sequence creates trailing whitespace. What it removes is
+whatever came in with the paste.
 
 ## A worked example
 
-Starting from a table pasted out of a paper, tab separated, with an en dash
-standing in for the minus sign on the southern declinations:
+`samples/A13L.mod.before` is a real paste, tab separated, with an en dash
+standing in for the minus sign on the southern declinations. It is 14 rows
+long, and the blocks below show the first three of them.
 
 ```
-##refcode = 2026A&A...707A..13L
+##refcode = 2026A+A...707A..13L
 
 SDSS001009	00:10:09.97	–00:46:03.66	0.2431
 SDSS004054	00:40:54.33	15:34:09.66	0.2832
 SDSS005527	00:55:27.46	–00:21:48.71	0.1674
 ```
 
-**Align Columns** joins the fields with `|` and pads each column to its widest
-value:
+Pipe at Columns will not touch it while those tabs are in it:
+
+> A13L.mod.before has a tab in it, so there is no telling which column anything
+> is in: a tab is one character and however many columns it takes to reach the
+> next tab stop.
+
+So select the whole file and filter it through `expand`:
 
 ```
-##refcode = 2026A&A...707A..13L
+##refcode = 2026A+A...707A..13L
 
-SDSS001009|00:10:09.97|–00:46:03.66|0.2431
-SDSS004054|00:40:54.33|15:34:09.66   |0.2832
-SDSS005527|00:55:27.46|–00:21:48.71|0.1674
+SDSS001009      00:10:09.97     –00:46:03.66    0.2431
+SDSS004054      00:40:54.33     15:34:09.66     0.2832
+SDSS005527      00:55:27.46     –00:21:48.71    0.1674
 ```
 
-The blank line and the `##refcode` header pass through untouched and take no
-part in the column widths.
-
-Column three has come out crooked, and that is expected at this stage. An en
-dash is three bytes long where a minus sign is one, and the padding is measured
-in bytes, so the middle row has been given two spaces more than it needs.
-
-**Normalize Characters** replaces the en dashes:
+The fields now start at columns 0, 16, 32 and 48, and columns 15, 31 and 47 are
+blank on every row. Answering `15, 31, 47` and choosing Overwrite:
 
 ```
-SDSS001009|00:10:09.97|-00:46:03.66|0.2431
-SDSS004054|00:40:54.33|15:34:09.66   |0.2832
-SDSS005527|00:55:27.46|-00:21:48.71|0.1674
+##refcode = 2026A+A...707A..13L
+
+SDSS001009     |00:10:09.97    |–00:46:03.66   |0.2431
+SDSS004054     |00:40:54.33    |15:34:09.66    |0.2832
+SDSS005527     |00:55:27.46    |–00:21:48.71   |0.1674
 ```
 
-The characters are right now and the columns are still crooked, because
-nothing has re-measured them. **Align Columns** a second time does that:
+with a line in the terminal to say what it did:
 
 ```
-SDSS001009|00:10:09.97|-00:46:03.66|0.2431
-SDSS004054|00:40:54.33|15:34:09.66 |0.2832
-SDSS005527|00:55:27.46|-00:21:48.71|0.1674
+pipe: A13L.mod.before: 42 pipe(s) into 14 row(s)
 ```
 
-## Fixing a value afterwards
+The blank line and the `##refcode` header pass through untouched, and neither
+counts as a row.
 
-Align Columns re-splits a line that already contains `|`, so it can be run as
-often as you like. Widen a value by hand, run the command, and the whole column
-re-pads around it. Narrow it again and the columns close back up. Every row
-comes out the same length either way.
+**Normalize Characters** replaces the en dashes and names what it did:
 
-This is why the last step is the alignment and not the editing. Fix everything
-first, then align once at the end, and the file you hand on is the file whose
-columns were measured.
+```
+##refcode = 2026A+A...707A..13L
+
+SDSS001009     |00:10:09.97    |-00:46:03.66   |0.2431
+SDSS004054     |00:40:54.33    |15:34:09.66    |0.2832
+SDSS005527     |00:55:27.46    |-00:21:48.71   |0.1674
+```
+
+and in the terminal:
+
+```
+normalize: A13L.mod.before:
+  U+2013 EN DASH
+```
+
+An en dash and a minus sign are one column each, so the pipes have not moved.
+
+**Trim Trailing Blanks** has nothing to do on this paste and leaves the buffer
+alone. It is the one command here with no report at all, so a run that does
+something and a run that does nothing look the same from the terminal.
+
+The columns line up here because `expand` lined them up and nothing since has
+changed a display width. No command measured them, so widen a value by hand and
+its row stays out of true.
 
 ## What Normalize Characters will not do
 
@@ -147,11 +228,10 @@ rest alone. Degree signs, Greek letters and accented names have no safe
 substitute, and guessing at one would corrupt the data quietly, which is worse
 than leaving a character that at least looks wrong.
 
-One consequence is worth watching for. A character that survives Normalize
-Characters is still there for the final Align Columns, which measures it in
-bytes, so a column containing `Balázs` or `α` comes out a space short for every
-non-ASCII character in it. The file is correct; the columns are not quite
-straight. If a column has to line up exactly, check that one by eye.
+That is not a problem for the pipe commands, which count columns as they are
+displayed: `Balázs` is six columns wide to them, whatever it takes in bytes.
+The count holds for anything XNEdit can decode, and a file it cannot decode is
+locked against editing anyway.
 
 Rather than fail silently, the command counts what it left, puts the cursor on
 the first one and lists them in a dialog with a count per character.
@@ -162,15 +242,3 @@ One case worth knowing about: a `##refcode` of `2026A+A...707A..13L` should
 read `2026A&A...707A..13L`. That is a plain ASCII `+` standing in for `&`,
 not an encoding problem, and it is deliberately not automated. A blanket `+`
 to `&` replacement would destroy every positive declination in the file.
-
-## Trailing spaces
-
-Align Columns pads the last column too, so each row ends with spaces when its
-value is shorter than the column. Run **Trim Trailing Blanks** afterwards if
-you would rather lines ended at the last real character. Doing so gives up the
-property that every row is the same length, which matters if anything reads
-the file by byte offset.
-
-This is the one command that can follow the final alignment. It only removes
-spaces from the end of a line, so no column boundary moves and nothing needs
-re-aligning. Anything else that edits the file puts you back to step 4.

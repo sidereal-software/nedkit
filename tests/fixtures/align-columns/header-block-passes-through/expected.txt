@@ -1,5 +1,0 @@
-##refcode 2024ApJ...900...1X
-  ## indented header
-
-NGC 4472|z=0.003326
-IC 3583 |z=0.001155

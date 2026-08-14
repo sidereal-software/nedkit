@@ -17,7 +17,7 @@ Handled outside the character table.
 
 | What | Becomes | Note |
 | --- | --- | --- |
-| Tab | One space | Not tab-stop aware. Use **Edit > Untabify** when the columns have to survive, or run [Align Columns](commands.md#align-columns) first. |
+| Tab | One space | Not tab-stop aware, so the columns close up. XNEdit has no command that expands a tab: when the layout has to survive, select the whole file and run `expand` through **Shell > Filter Selection** instead. See [cleaning up a pasted table](cleaning-pdf-tables.md#tabs-have-to-go-first). |
 | CR LF | LF | A DOS-format file never shows these, because XNEdit strips carriage returns on open and restores them on save. A pasted block can still carry them into a Unix-format buffer. |
 | Lone CR | LF | Same reason. |
 

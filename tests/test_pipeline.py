@@ -1,17 +1,21 @@
-"""The commands run together, on a real file.
+"""The commands run together.
 
 ``tests/fixtures/`` exercises one command at a time on input written to isolate
-a single behaviour. This runs the actual sequence over the actual paste in
-``samples/``, which is where the two interact and where the order turns out to
-matter a great deal.
+a single behaviour. This runs them in sequence, which is where they interact.
 
-The rule the tests below pin:
+The sequence:
 
-    Align Columns, then everything else, then Align Columns again.
+    pipe the columns, then Normalize Characters, then Trim Trailing Blanks.
 
-Aligning first fixes the field boundaries while the tabs that mark them are
-still there. Aligning last is what makes the widths right, and it has to be
-last because every later edit changes them.
+Piping puts the delimiters in, Normalize fixes the characters, and Trim tidies
+the ends. Trim goes last because it is the only one that cannot move a
+boundary: it removes spaces from the end of a line and nothing else.
+
+Nothing here pads the fields to a common width, so a finished file comes out
+pipe delimited and ragged rather than pipe delimited and square.
+
+Inline bytes throughout. ``samples/`` holds one real job, and that job arrives
+tab separated, which none of these commands will touch.
 """
 
 from __future__ import annotations
@@ -24,11 +28,19 @@ from nedkit import XNEditRunner, parse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 COMMANDS = REPO_ROOT / "macros" / "commands"
-SAMPLES = REPO_ROOT / "samples"
-EXPECTED = Path(__file__).parent / "fixtures" / "pipeline" / "A13L.expected.txt"
 
-#: Align, format, align. See the module docstring.
-PIPELINE = ["align-columns", "normalize-characters", "align-columns"]
+#: Pipe, format, tidy. See the module docstring.
+PIPELINE = ["pipe-at-columns", "normalize-characters", "trim-trailing-blanks"]
+
+#: The columns of the fixed-width paste below that are blank on every row.
+COLUMNS = '$ned_string_dialog_answer = "10, 23"\n$ned_string_dialog_button = 1\n'
+
+#: A paste with no delimiter in it and an en dash standing in for a minus sign.
+PASTE = (
+    "NGC 4472   12 29 46.7   –0.003326\n"
+    "IC 3583    12 36 44.0   –0.001155\n"
+    "NGC 4486   12 30 49.4   –0.004283\n"
+).encode()
 
 pytestmark = pytest.mark.xnedit
 
@@ -58,133 +70,82 @@ def apply(
     return data
 
 
-def widths(data: bytes) -> set[int]:
-    """Line lengths of the table rows. One value means the columns line up."""
-    return {len(line) for line in data.split(b"\n") if b"|" in line}
-
-
 def fields(data: bytes) -> list[int]:
     return [len(line.split(b"|")) for line in data.split(b"\n") if b"|" in line]
 
 
-def test_pasted_table_becomes_a_ned_table(runner: XNEditRunner, tmp_path: Path) -> None:
-    """The full run over the real SDSS paste in samples/."""
+def pipe_columns(data: bytes) -> list[list[int]]:
+    """Where the pipes sit on each row, so a shift shows up as a changed list."""
+    return [
+        [index for index, byte in enumerate(line) if byte == ord("|")]
+        for line in data.split(b"\n")
+        if b"|" in line
+    ]
+
+
+def test_a_fixed_width_paste_becomes_a_pipe_delimited_table(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The whole sequence, on a paste with neither a tab nor a pipe in it."""
     result = apply(
-        runner, PIPELINE, (SAMPLES / "A13L.mod.before").read_bytes(), tmp_path
+        runner, PIPELINE, PASTE, tmp_path, setup={"pipe-at-columns": COLUMNS}
     )
-    assert result == EXPECTED.read_bytes()
-    assert len(widths(result)) == 1, "the columns should line up"
+
+    assert fields(result) == [3, 3, 3]
+    assert b"12 29 46.7" in result, (
+        f"the position should have stayed one field: {result!r}"
+    )
+    assert "–".encode() not in result, "the en dashes should be gone"
+    assert b"|-0.003326" in result, f"en dash should be a minus sign: {result!r}"
 
 
-def test_running_the_pipeline_again_changes_nothing(
+def test_normalize_does_not_move_the_pipes(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
-    settled = EXPECTED.read_bytes()
-    assert apply(runner, PIPELINE, settled, tmp_path) == settled
+    """An en dash is one character before and after, so no boundary shifts.
 
-
-def test_aligning_last_is_what_makes_the_widths_right(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    """Stopping before the final align leaves the columns ragged.
-
-    Align Columns measures fields with ``length()``, which counts bytes. An en
-    dash is three bytes and one column, so widths measured before Normalize
-    Characters shrinks those dashes are two too wide afterwards. Any edit at
-    all has the same effect, which is the general reason aligning goes last.
+    This is the property that lets the piping happen first. It holds for the
+    replacements a NED file actually needs, and not for every replacement in
+    the table: a ligature becomes two letters and an ellipsis becomes three
+    dots, and either one moves everything to its right. Fix those by hand and
+    look at the file again before choosing columns.
     """
-    source = (SAMPLES / "A13L.mod.before").read_bytes()
-
-    stopped_early = apply(runner, PIPELINE[:-1], source, tmp_path)
-    assert len(widths(stopped_early)) > 1, "expected ragged columns"
-
-    finished = apply(runner, PIPELINE, source, tmp_path)
-    assert len(widths(finished)) == 1
-
-
-def test_aligning_first_is_what_saves_the_field_boundaries(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    """Normalising before the first align destroys the table.
-
-    Normalize Characters turns every tab into a single space. After that,
-    Align Columns has no delimiter left and falls back to splitting on runs of
-    whitespace, which cuts each field that contains a space into several and
-    swallows any field that was empty. Aligning first turns the tabs into
-    pipes, and a pipe is the delimiter Align Columns looks for first, so the
-    boundaries survive everything that follows.
-    """
-    # A name with a space in it, and a row with no measured redshift.
-    source = b"NGC 4472\t12 29 46.76\t0.003326\nNGC 4486\t\t0.004283\n"
-
-    assert fields(apply(runner, PIPELINE, source, tmp_path)) == [3, 3]
-
-    normalize_first = apply(
-        runner, ["normalize-characters", "align-columns"], source, tmp_path
-    )
-    assert fields(normalize_first) != [3, 3], (
-        "if this passes, Normalize Characters stopped eating tabs and the "
-        "align-first half of the rule can be reconsidered"
-    )
-
-
-def test_piping_the_columns_is_what_gives_a_fixed_width_paste_a_delimiter(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    """Pipe at Columns, then Align Columns, on a paste with no delimiter at all.
-
-    A fixed-width table out of a PDF has neither a tab nor a pipe, so Align
-    Columns falls back to splitting on runs of whitespace and cuts a sexagesimal
-    position into three fields of its own. Piping the boundaries first gives it
-    the delimiter its first rule looks for, and the position survives as one
-    field.
-
-    Inline bytes rather than a file in ``samples/``: that directory is one real
-    job end to end, and this is a second shape of input rather than a second
-    job.
-    """
-    source = (
-        b"NGC 4472   12 29 46.7   0.003326\n"
-        b"IC 3583    12 36 44.0   0.001155\n"
-        b"NGC 4486   12 30 49.4   0.004283\n"
-    )
     piped = apply(
+        runner, ["pipe-at-columns"], PASTE, tmp_path, setup={"pipe-at-columns": COLUMNS}
+    )
+    normalized = apply(runner, ["normalize-characters"], piped, tmp_path)
+
+    assert pipe_columns(normalized) == pipe_columns(piped)
+
+
+def test_trimming_last_moves_no_boundary(runner: XNEditRunner, tmp_path: Path) -> None:
+    """Trim Trailing Blanks only ever takes from the end, so the pipes stay put."""
+    ragged = apply(
         runner,
-        ["pipe-at-columns", "align-columns"],
-        source,
+        ["pipe-at-columns", "normalize-characters"],
+        PASTE,
         tmp_path,
-        setup={
-            "pipe-at-columns": '$ned_string_dialog_answer = "10, 23"\n'
-            "$ned_string_dialog_button = 1\n"
-        },
+        setup={"pipe-at-columns": COLUMNS},
     )
+    trimmed = apply(runner, ["trim-trailing-blanks"], ragged, tmp_path)
 
-    assert fields(piped) == [3, 3, 3]
-    assert b"12 29 46.7" in piped, (
-        f"the position should have stayed one field: {piped!r}"
-    )
-    assert len(widths(piped)) == 1, "the columns should line up"
-
-    without_piping = apply(runner, ["align-columns"], source, tmp_path)
-    assert fields(without_piping) != [3, 3, 3], (
-        "if this passes, Align Columns learned to keep a space-separated field "
-        "together and a fixed-width paste no longer needs piping first"
-    )
+    assert pipe_columns(trimmed) == pipe_columns(ragged)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="align-columns pads by bytes, so a non-ASCII value comes up short "
-    "by one column per extra byte. Normalize Characters deliberately keeps "
-    "accented names and Greek letters, so they reach the final align intact.",
-)
-def test_align_columns_measures_characters_not_bytes(
+def test_running_the_sequence_again_changes_nothing(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
-    result = apply(
-        runner, ["align-columns"], "Balázs\tz=0.1\nSmith\tz=0.2\n".encode(), tmp_path
+    """Every command in it is re-runnable, so the sequence is too.
+
+    Overwrite is the mode that makes this true. It writes a "|" over a space
+    and nothing shifts, so a second pass finds the pipe already there and
+    leaves it. Insert would add a second set.
+    """
+    settled = apply(
+        runner, PIPELINE, PASTE, tmp_path, setup={"pipe-at-columns": COLUMNS}
     )
-    columns = {
-        len(line.split("|")[0]) for line in result.decode().splitlines() if "|" in line
-    }
-    assert len(columns) == 1, f"first column came out at {columns} characters wide"
+    again = apply(
+        runner, PIPELINE, settled, tmp_path, setup={"pipe-at-columns": COLUMNS}
+    )
+
+    assert again == settled

@@ -12,10 +12,11 @@
 #     NGC 4472  |12:29:46.7   0.003326
 #     IC 3583   |12:36:44.0   0.001155
 #
-# Run it once per boundary, then Align Columns to even up the widths.
+# Run it once per boundary. Nothing here pads the fields afterwards, so the
+# file comes out delimited rather than squared up.
 #
 # The column is the one the statistics line calls C:, counting from 0.
-# Preferences > Show Statistics Line puts that number on screen while you aim.
+# Preferences > Statistics Line puts that number on screen while you aim.
 # Right-clicking does not move the cursor, so left-click the column first when
 # you run this from the background menu.
 #
@@ -29,10 +30,11 @@
 #     first is named.
 #   - A row that ends before that column. Padding it out would invent data.
 #   - A buffer with a tab anywhere in it, because a tab is one byte wide and
-#     any number of columns wide. Run Align Columns first, which turns tabs
-#     into pipes.
+#     any number of columns wide. Replace the tabs with the spaces they stand
+#     for first: select the whole file and run expand through
+#     Shell > Filter Selection.
 #
-# So read the report before you align. A skipped row usually means the column
+# So read the report before you go on. A skipped row usually means the column
 # is a place or two off.
 #
 # Columns are counted as they are displayed, so an en dash counts as one column
@@ -113,9 +115,12 @@ if (ok == 1) {
         ok = 0
         msg = $file_name " has a tab in it, so there is no telling which column "
         msg = msg "anything is in: a tab is one character and however many "
-        msg = msg "columns it takes to reach the next tab stop.\n\nRun Align "
-        msg = msg "Columns first. It splits on the tabs and rewrites them as "
-        msg = msg "pipes, which is most likely what you were after anyway."
+        msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
+        msg = msg "tabs with the spaces they stand for first: select the whole "
+        msg = msg "file and run expand through Shell > Filter Selection, which "
+        msg = msg "leaves the columns where they sit on screen. Normalize "
+        msg = msg "Characters takes tabs out too, but it writes one space for "
+        msg = msg "each, which usually closes the columns up."
     }
 }
 
@@ -129,9 +134,8 @@ if (ok == 1) {
         stripped = replace_in_string(line, "^[ \t]+", "", "regex", "copy")
         stripped = replace_in_string(stripped, "[ \t]+$", "", "regex", "copy")
 
-        # Blank lines and header lines are copied through verbatim, the same
-        # rule Align Columns uses, so the ##refcode block at the top of a NED
-        # file goes through untouched.
+        # Blank lines and header lines are copied through verbatim, so the
+        # ##refcode block at the top of a NED file goes through untouched.
         if (stripped != "" && substring(stripped, 0, 1) != "#") {
             n_rows++
 
