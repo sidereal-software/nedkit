@@ -88,14 +88,13 @@ jobs:
     name: Classic NEdit 5.7
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # A signal, not a gate. XNEdit is what the team runs and what the macros
-    # target; classic NEdit is here to show how far they carry, since the two
-    # share a macro language. Some divergence is expected and is not a bug:
-    # NEdit 5.7 predates Unicode support, so the fixtures pinning XNEdit's
-    # encoding behaviour (a non-UTF-8 file getting locked, a BOM living outside
-    # the buffer) describe something classic NEdit does not do. A failure
-    # anywhere else is worth reading.
-    continue-on-error: true
+    # XNEdit is what the team runs and what the macros target; classic NEdit is
+    # here to show how far they carry, since the two share a macro language.
+    # The answer is 98 of 100: the two that do not are the encoding cases XNEdit
+    # added and 5.7 predates, and they carry an xnedit-only file so they skip
+    # here rather than fail. That is why this job has no continue-on-error. Now
+    # that the expected divergence is marked, a red run means something, and
+    # tolerating it would only teach people to stop looking.
     steps:
       - uses: actions/checkout@v7
 
