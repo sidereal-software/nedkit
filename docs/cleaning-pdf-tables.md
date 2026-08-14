@@ -11,8 +11,9 @@ The order to work in:
 1. put the field boundaries in with **Pipe at Cursor Column** or **Pipe at
    Columns**
 2. **Normalize Characters**
-3. read the file through and fix what needs fixing by hand
-4. **Trim Trailing Blanks**, last
+3. **Fold Letters to ASCII**, if the accented and Greek letters should go too
+4. read the file through and fix what needs fixing by hand
+5. **Trim Trailing Blanks**, last
 
 Nothing in that list pads a column. The file comes out pipe delimited and no
 more square than it went in, and squaring it up is still done by hand or
@@ -114,8 +115,10 @@ which means before Normalize Characters turns the tabs into single spaces.
 
 Piping first is also the more forgiving order when a replacement changes a
 character count. Most of them do not: an en dash becomes a minus sign, one
-character for one, and nothing moves. A ligature becomes two letters and an
-ellipsis becomes three dots, and those push the rest of their row right.
+character for one, and nothing moves. Greek is deliberately one letter for one
+so that it cannot move anything either. A ligature becomes two letters, an
+ellipsis becomes three dots, and `ß` becomes `ss`, and those push the rest of
+their row right.
 
 ```
 Griﬀin         |12:29:46.7
@@ -224,9 +227,9 @@ its row stays out of true.
 ## What Normalize Characters will not do
 
 It replaces characters that have an unambiguous ASCII spelling and leaves the
-rest alone. Degree signs, Greek letters and accented names have no safe
-substitute, and guessing at one would corrupt the data quietly, which is worse
-than leaving a character that at least looks wrong.
+rest alone. Degree signs, Greek letters and accented names have no substitute
+it can pick on its own, and guessing at one would corrupt the data quietly,
+which is worse than leaving a character that at least looks wrong.
 
 That is not a problem for the pipe commands, which count columns as they are
 displayed: `Balázs` is six columns wide to them, whatever it takes in bytes.
@@ -242,3 +245,27 @@ One case worth knowing about: a `##refcode` of `2026A+A...707A..13L` should
 read `2026A&A...707A..13L`. That is a plain ASCII `+` standing in for `&`,
 not an encoding problem, and it is deliberately not automated. A blanket `+`
 to `&` replacement would destroy every positive declination in the file.
+
+## Flattening the letters
+
+The dialog above is also where you find out whether you want the next command.
+If it lists accented or Greek letters and you would rather have plain ASCII,
+run **Fold Letters to ASCII**.
+
+`Balázs` becomes `Balazs` and `α` becomes `a`, keeping upper and lower case.
+Ten letters have no one-letter answer and widen the line instead, so `Weiß`
+becomes `Weiss` and `Æ` becomes `AE`; those move a boundary the same way a
+ligature does, and nothing else in the command changes a width.
+
+The Greek fold is the one to read the report on. Several letters share an
+answer, `ε` and `η` both giving `e` among them, so once it has run nothing can
+tell which letter was there. The command lists every one it replaced with the
+line and column it was on and parks the cursor on the first.
+
+An accent fold gets no dialog, only a line in the terminal. It is still
+irreversible, and `Balazs` is not a name anyone can put the accent back into,
+so decide before you run it rather than after.
+
+It is a separate command partly because flattening a name is a decision about
+your data rather than a typographic cleanup, and partly because a macro
+compiles into 4096 instructions and the two tables do not fit in one.

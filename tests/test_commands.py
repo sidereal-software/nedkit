@@ -152,13 +152,22 @@ def test_command_does_not_corrupt_a_non_utf8_file(
     a latin-1 locale and is an error under a UTF-8 one. The
     unconvertible-byte-locks-the-file fixture pins the lock with a file that is
     an error either way. This test drops that question and keeps the invariant
-    that holds everywhere, classic NEdit included.
+    that holds under either, on classic NEdit as well.
+
+    That only works because the sample byte is one no command maps, and a
+    degree sign is left alone on purpose by both of the commands that carry a
+    character table. ``test_the_degree_sign_is_in_neither_table`` is what keeps
+    that true. An accented letter would not do: under a UTF-8 locale the lone
+    ``\\xe9`` of a latin-1 ``café`` is invalid, so the buffer locks, nothing is
+    written, and the byte survives for the wrong reason; under a latin-1 locale
+    the editor decodes it and Fold Letters to ASCII turns it into ``e``. Keep
+    the sample outside every table.
     """
-    source = "NGC 4151 café   \nsecond   \n".encode("latin-1")
+    source = "NGC 4151 25° C   \nsecond   \n".encode("latin-1")
     run = runner.run_on_bytes(parse(command).body, source, tmp_path, name="latin1.txt")
 
     assert run.ok, f"{command.name}: {run.describe()}"
     assert run.output is not None
-    assert b"\xe9" in run.output, (
+    assert b"\xb0" in run.output, (
         f"{command.name} lost the latin-1 byte: {run.output!r}"
     )

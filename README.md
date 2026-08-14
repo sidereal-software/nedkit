@@ -64,8 +64,15 @@ their shape.
    the dashes, quotes, spaces and ligatures that only look like their ASCII
    counterparts, turns tabs into spaces, and reports whatever non-ASCII it
    deliberately left alone rather than guessing at it.
-3. Read the file through and fix whatever needs fixing by hand.
-4. **Trim Trailing Blanks** (`macros/commands/trim-trailing-blanks.nm`), as the
+3. **Fold Letters to ASCII** (`macros/commands/fold-letters-to-ascii.nm`), if
+   the letters that report names should go too. `Balázs` becomes `Balazs` and
+   `α` becomes `a`, keeping case. Both folds are irreversible, and the Greek one
+   collides several letters onto the same answer, so it lists every one it
+   replaced with the line and column. Read
+   [Character replacements](https://nedkit.sidereal.software/character-replacements/)
+   before running it over author names.
+4. Read the file through and fix whatever needs fixing by hand.
+5. **Trim Trailing Blanks** (`macros/commands/trim-trailing-blanks.nm`), as the
    last thing that touches the file.
 
 You name the columns yourself, because nothing here works them out for you. The

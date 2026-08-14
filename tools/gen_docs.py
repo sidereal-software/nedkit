@@ -7,7 +7,7 @@ touched:
 
     docs/commands.md                 one section per macros/commands/*.nm
     docs/subroutines.md              one section per subroutine in macros/lib/*.nm
-    docs/character-replacements.md   the table inside normalize-characters.nm
+    docs/character-replacements.md   the table inside every command that has one
 
 Run it after changing a macro:
 
@@ -16,9 +16,9 @@ Run it after changing a macro:
 CI runs ``--check``, which regenerates into memory and fails if the committed
 pages have drifted.
 
-Header parsing lives in :mod:`nedkit.macro`, which the test suite also uses, so
-there is one definition of what a macro header is rather than two that can
-disagree.
+Header parsing lives in :mod:`nedkit.macro` and character-table parsing in
+:mod:`nedkit.chartable`, both of which the test suite also uses, so there is one
+definition of each rather than two that can disagree.
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ import sys
 import unicodedata
 from pathlib import Path
 
+from nedkit.chartable import character_tables
 from nedkit.macro import MacroFile, command_files, library_files, parse
 
 REPO = Path(__file__).resolve().parents[1]
@@ -48,8 +49,6 @@ NAMED_REPLACEMENTS = {
     "\n": "a newline",
 }
 
-FIX_RE = re.compile(r'^fix\["([^"]*)"\]\s*=\s*"(.*)"\s*$')
-NAM_RE = re.compile(r'^nam\["([^"]*)"\]\s*=\s*"(.*)"\s*$')
 COMMENT_RE = re.compile(r"^#\s?(.*)$")
 DEFINE_RE = re.compile(r"^define\s+(\w+)\s*\{")
 
@@ -64,45 +63,6 @@ def read(path):
 
 def rel(path: Path) -> str:
     return path.relative_to(REPO).as_posix()
-
-
-def unescape(literal):
-    r"""Decode a macro string literal's escapes, as parse.y's lexer does.
-
-    Only the escapes the macros actually use are handled: ``\xNN`` (at most two
-    hex digits, the same limit the lexer applies), ``\n``, ``\"`` and ``\\``.
-    """
-    out = bytearray()
-    i = 0
-    while i < len(literal):
-        char = literal[i]
-        if char != "\\" or i + 1 >= len(literal):
-            out.extend(char.encode("utf-8"))
-            i += 1
-            continue
-        nxt = literal[i + 1]
-        if nxt == "x":
-            digits = ""
-            j = i + 2
-            while (
-                j < len(literal)
-                and len(digits) < 2
-                and literal[j] in "0123456789abcdefABCDEF"
-            ):
-                digits += literal[j]
-                j += 1
-            out.append(int(digits, 16))
-            i = j
-        elif nxt == "n":
-            out.append(0x0A)
-            i += 2
-        elif nxt in ('"', "\\"):
-            out.extend(nxt.encode("utf-8"))
-            i += 2
-        else:
-            out.extend(nxt.encode("utf-8"))
-            i += 2
-    return out.decode("utf-8")
 
 
 def parse_subroutines(text):
@@ -120,40 +80,6 @@ def parse_subroutines(text):
             found.append((define.group(1), "\n".join(comment).strip("\n")))
         comment = []
     return found
-
-
-def parse_character_table(text):
-    """Read the fix/nam table out of normalize-characters.nm.
-
-    A group starts at the comment line directly above a ``fix[...]`` line, with
-    no blank line between the two. That is the only thing separating a group
-    heading from ordinary prose earlier in the header, so keep the table
-    formatted the way it already is.
-    """
-    groups = []
-    pending = None
-    names = {}
-    for line in text.split("\n"):
-        stripped = line.strip()
-        if stripped == "":
-            pending = None
-            continue
-        comment = COMMENT_RE.match(line)
-        if comment is not None:
-            pending = comment.group(1).strip()
-            continue
-        fix = FIX_RE.match(line)
-        if fix is not None:
-            if pending is not None or not groups:
-                groups.append((pending or "", []))
-                pending = None
-            groups[-1][1].append((unescape(fix.group(1)), unescape(fix.group(2))))
-            continue
-        nam = NAM_RE.match(line)
-        if nam is not None:
-            names[unescape(nam.group(1))] = unescape(nam.group(2))
-            pending = None
-    return groups, names
 
 
 # --------------------------------------------------------------------------
@@ -242,27 +168,37 @@ def describe(replacement):
 
 
 def gen_character_table():
-    groups, names = parse_character_table(
-        read("macros/commands/normalize-characters.nm")
-    )
-    total = sum(len(entries) for _, entries in groups)
-    out = ["%d characters, every one of them replaced by plain ASCII." % total, ""]
-    for title, entries in groups:
-        out.append("### %s" % (title[0].upper() + title[1:] if title else "Other"))
+    """One section per command that carries a table, groups nested inside.
+
+    The command has to be named, because a reader looking a character up needs
+    to know which command to run to get it replaced.
+    """
+    out = []
+    for path, groups, names in character_tables(REPO):
+        macro = parse(path)
+        total = sum(len(entries) for _, entries in groups)
+        out.append("### %s" % macro.title)
         out.append("")
-        out.append("| Character | Code point | Name | Becomes |")
-        out.append("| --- | --- | --- | --- |")
-        for char, replacement in entries:
-            shown = "(not printable)"
-            if unicodedata.category(char) not in UNPRINTABLE:
-                shown = "`%s`" % char
-            label = names.get(char, "")
-            label = re.sub(r"^U\+[0-9A-F]{4,6}\s+", "", label)
-            out.append(
-                "| %s | U+%04X | %s | %s |"
-                % (shown, ord(char), label, describe(replacement))
-            )
+        out.append(
+            "%d characters, every one of them replaced by plain ASCII. From %s."
+            % (total, source_link(macro))
+        )
         out.append("")
+        for title, entries in groups:
+            out.append("#### %s" % (title[0].upper() + title[1:] if title else "Other"))
+            out.append("")
+            out.append("| Character | Code point | Name | Becomes |")
+            out.append("| --- | --- | --- | --- |")
+            for char, replacement in entries:
+                shown = "(not printable)"
+                if unicodedata.category(char) not in UNPRINTABLE:
+                    shown = "`%s`" % char
+                label = re.sub(r"^U\+[0-9A-F]{4,6}\s+", "", names.get(char, ""))
+                out.append(
+                    "| %s | U+%04X | %s | %s |"
+                    % (shown, ord(char), label, describe(replacement))
+                )
+            out.append("")
     return "\n".join(out).strip("\n")
 
 

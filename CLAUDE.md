@@ -60,6 +60,26 @@ real bugs:
 - `^` and `$` anchor to line boundaries, not string boundaries, so multi-line
   buffer rewrites with `[ \t]+$` work as expected.
 - Array element count is `arr[]` with no index. Iterate with `for (k in arr)`.
+- **A macro compiles into 4096 instructions and no more.** `PROGRAM_SIZE` in
+  `interpret.c:63` sizes `static Inst Prog[PROGRAM_SIZE]` at `:182`, one fixed
+  array, and every route into the editor goes through the same `ParseMacro()`:
+  `-do`, a menu command out of `nedit.rc`, `autoload.nm`, Load Macro File. Over
+  the limit you get `macro too large` at parse time, naming whichever line it
+  stopped on. Measured against XNEdit 1.6.3:
+  - An `arr["k"] = "v"` assignment costs **9 instructions**, so a body with no
+    logic in it holds about **450** of them.
+  - `normalize-characters.nm` uses 45% of its budget and `fold-letters-to-ascii.nm`
+    69%, leaving room for about 248 and 139 more assignments.
+  - Each `define` is compiled separately and gets its own fresh 4096. 800
+    assignments split over two subroutines load fine, so a table too big for a
+    menu command could live in `macros/lib/` and fill a `$global` array. That
+    costs a command its self-contained install, which is why the character
+    tables were split across two commands instead.
+
+  This is what a table has to be budgeted against. Measure with a throwaway
+  bisect rather than guessing, and give the run the full timeout: XNEdit
+  buffers stdout, so a run killed early loses its output and a slow-but-fine
+  macro looks exactly like a rejected one.
 
 ## Distributing macros
 
@@ -186,9 +206,20 @@ portable. Two tests cover it from opposite ends:
   UTF-8 apart from one stray byte. That is an error under any locale, and the
   workflows pin `LANG` so the answer cannot drift.
 - `test_command_does_not_corrupt_a_non_utf8_file` drops the question of whether
-  the buffer locks and asserts only that the bytes survive. That holds on every
-  editor and locale the suite runs under, including classic NEdit, which has no
-  encoding handling at all.
+  the buffer locks and asserts only that the bytes survive. That is
+  editor-independent, classic NEdit included, and it is locale-independent
+  **only when the sample byte is one no command's table maps**. That condition
+  is the whole invariant, so hold it deliberately:
+
+    Fold Letters to ASCII maps every accented letter. A latin-1 `café` survives
+    under `LANG=C.UTF-8` because the lone `\xe9` is invalid there, so XNEdit
+    locks the buffer and nothing is written. Under a latin-1 locale the editor
+    decodes it, the macro folds it to `e`, and the byte is gone. Same test,
+    same editor, opposite results, and the failure names nothing that would
+    point at the locale.
+
+  So pick a byte outside every table, such as `\xb0`, which nothing maps. CI
+  pins `LANG`, but a team member running `uv run pytest` does not.
 
 The leading BOM is pinned the same way: XNEdit lifts it out of the buffer and
 puts it back on save.
@@ -226,14 +257,21 @@ Hand-copying anything out of a macro into a page is how the two drift apart.
 `tools/gen_docs.py` reads the macros and rewrites the regions marked
 `<!-- BEGIN GENERATED: name -->` ... `<!-- END GENERATED: name -->` in three
 pages. Prose outside the markers is hand-written and never touched. It parses
-headers with `nedkit.macro.parse`, the same function the tests use, so there is
-one definition of what a macro header is rather than two that can disagree.
+headers with `nedkit.macro.parse` and the character tables with
+`nedkit.chartable.character_tables`, both of which the tests use too, so there
+is one definition of each rather than two that can disagree.
 
 | Page | Generated from |
 | --- | --- |
 | `docs/commands.md` | the header comment and body of every `macros/commands/*.nm` |
 | `docs/subroutines.md` | the comment above every `define` in `macros/lib/*.nm` |
-| `docs/character-replacements.md` | the `fix[]` / `nam[]` table inside `normalize-characters.nm` |
+| `docs/character-replacements.md` | the `fix[]` / `grk[]` / `nam[]` tables in every command that has one |
+
+`nam[]` is optional. `fold-letters-to-ascii.nm` ships without labels because a
+second line per entry would not fit in 4096 instructions, and
+`nedkit.chartable.label_for` derives the same `U+XXXX NAME` string from the key
+with `unicodedata.name()`. A label written in the macro wins, which is what
+keeps hand-written text like the `(BOM)` suffix.
 
 So: **change a macro, then run `uv run python tools/gen_docs.py` and commit the
 regenerated pages in the same commit.** Both `uv run pytest` and CI fail when a
@@ -248,8 +286,8 @@ silently produces wrong docs, so keep them:
   repeat. Write the prose so it reads as documentation, because it becomes the
   documentation.
 - In the character table, a group heading is the comment line directly above a
-  `fix[...]` line with no blank line between them. That is the only thing
-  separating a heading from ordinary prose earlier in the file.
+  `fix[...]` or `grk[...]` line with no blank line between them. That is the
+  only thing separating a heading from ordinary prose earlier in the file.
 
 When Python utilities land, document them with numpydoc docstrings and render
 the API reference with `mkdocstrings`, rather than describing the functions

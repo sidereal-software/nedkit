@@ -43,6 +43,17 @@ whatever it could not safely translate.
 </div>
 
 <div markdown>
+:material-format-letter-case:
+
+### [Fold Letters to ASCII](commands.md#fold-letters-to-ascii)
+
+For accented names and Greek symbols.
+
+Turns `Balázs` into `Balazs` and `α` into `a`, keeping case. Lists every Greek
+letter it replaced, since those readings collide.
+</div>
+
+<div markdown>
 :material-content-cut:
 
 ### [Trim Trailing Blanks](commands.md#trim-trailing-blanks)
@@ -65,8 +76,10 @@ with [getting started](getting-started.md).
 These are written for [XNEdit](https://github.com/unixwork/xnedit) and tested
 against it on every release. They are ordinary NEdit macros, though, and CI
 also runs the suite through classic NEdit 5.7 to see how far they carry. The
-answer is: nearly all the way. The one command that depends on the fork is
-Normalize Characters, which works in UTF-8, and NEdit 5.7 predates it.
+answer is: nearly all the way. The commands that depend on the fork are
+Normalize Characters and Fold Letters to ASCII, both of which work in UTF-8,
+and NEdit 5.7 predates it. Fold Letters also reports a Greek letter's column,
+which XNEdit counts as it is displayed and NEdit 5.7 counts in bytes.
 
 The two editors keep their settings in different places, `~/.xnedit/` against
 `~/.nedit/`, so instructions written for one will send you to the wrong

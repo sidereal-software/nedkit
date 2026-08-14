@@ -1,0 +1,477 @@
+# Fold Letters to ASCII
+#
+# Turns accented Latin letters and Greek letters into the plain ASCII letters
+# nearest to them, keeping upper and lower case as they were. Run it after
+# Normalize Characters, which handles the dashes, quotes and spaces and then
+# names the letters it left behind.
+#
+# Accented letters lose the accent, so Balázs becomes Balazs and Ångström
+# becomes Angstrom. Ten letters have no one-letter answer and get longer
+# instead: Weiß becomes Weiss, Ærø becomes AEro. Those are the only ones that
+# change a line's width.
+#
+# Greek letters become a single Latin letter, so α becomes a and Δ becomes D.
+# Five readings collide. Both ε and η give e, both ο and ω give o, both σ and ς
+# give s, both τ and θ give t, and both υ and μ give u, and afterwards nothing
+# can tell a pair apart. So every Greek letter gets listed in a dialog with the
+# line and column it was on, and the cursor lands on the first one. Read that
+# list before the file goes any further.
+#
+# μ, Μ and the micro sign µ give u rather than m, so that 24 µm stays a
+# wavelength instead of turning into 24 mm.
+#
+# An accent fold is not reported that way. It goes in the terminal summary and
+# nowhere else, because there is nothing ambiguous to decide. It is still data
+# loss: nothing in the file records that the accent was ever there, so keep the
+# original if the spelling of a name matters.
+#
+# Anything else non-ASCII is left exactly as it was, accented Greek and the
+# degree sign included. Run Normalize Characters to get those counted.
+#
+# A run that finds nothing leaves the buffer, the undo history and the modified
+# flag untouched.
+#
+# A buffer with any accented letter in it gets scanned once per accented entry
+# in the table, so a file of several megabytes stalls. That size of job belongs
+# in Python rather than in the editor.
+#
+#   Menu Entry:         NED>Fold Letters to ASCII
+#   Accelerator:        (none)
+#   Mnemonic:           (none)
+#   Requires Selection: no
+#   Install In:         Macro Menu
+#
+# Install the body below (everything under this comment) through
+# Preferences > Default Settings > Customize Menus > Macro Menu, then
+# Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
+
+original = get_range(0, $text_length)
+cleaned = original
+fixed = ""
+
+# Any byte with the high bit set, i.e. any part of any non-ASCII character.
+# The buffer holds UTF-8 and macro positions are byte offsets, so this is a
+# byte test, not a character test.
+high_byte = "[\\x80-\\xff]"
+
+# Every two-byte character whose lead byte could start a Greek one. A prefilter
+# and not the table: each hit is looked up in grk[] and anything that misses is
+# left alone, which is how accented Greek such as ά survives untouched. Only
+# genuine lead bytes are in the class, so it cannot match inside a three- or
+# four-byte character.
+greek_char = "[\\xc2\\xce\\xcf][\\x80-\\xbf]"
+
+# The fold table, keyed on the UTF-8 bytes of each letter. Keys are spelled as
+# \xNN escapes rather than as literal characters so the macro survives being
+# pasted through the Customize Menus dialog.
+#
+# There are no nam[] labels here, unlike normalize-characters.nm. Every entry
+# costs instructions and a macro compiles into 4096 of them, which a second
+# line per letter would blow through. tools/gen_docs.py derives each character's
+# Unicode name from the key bytes instead, so the documentation still names
+# them one by one.
+#
+# Greek sits in a table of its own because it is scanned for its positions
+# before it is replaced, and that scan is what the warning at the end reports.
+# The arithmetic behind it assumes every grk[] replacement is exactly one
+# character, so anything that replaces to more or fewer belongs in fix[] and
+# never in grk[]. fix[] carries no such rule, because it runs first and nothing
+# measures it.
+#
+# Order does not matter inside either table: every replacement is ASCII, so no
+# entry can feed another.
+
+# accented capitals, Latin-1 Supplement
+fix["\xc3\x80"] = "A"
+fix["\xc3\x81"] = "A"
+fix["\xc3\x82"] = "A"
+fix["\xc3\x83"] = "A"
+fix["\xc3\x84"] = "A"
+fix["\xc3\x85"] = "A"
+fix["\xc3\x87"] = "C"
+fix["\xc3\x88"] = "E"
+fix["\xc3\x89"] = "E"
+fix["\xc3\x8a"] = "E"
+fix["\xc3\x8b"] = "E"
+fix["\xc3\x8c"] = "I"
+fix["\xc3\x8d"] = "I"
+fix["\xc3\x8e"] = "I"
+fix["\xc3\x8f"] = "I"
+fix["\xc3\x90"] = "D"
+fix["\xc3\x91"] = "N"
+fix["\xc3\x92"] = "O"
+fix["\xc3\x93"] = "O"
+fix["\xc3\x94"] = "O"
+fix["\xc3\x95"] = "O"
+fix["\xc3\x96"] = "O"
+fix["\xc3\x98"] = "O"
+fix["\xc3\x99"] = "U"
+fix["\xc3\x9a"] = "U"
+fix["\xc3\x9b"] = "U"
+fix["\xc3\x9c"] = "U"
+fix["\xc3\x9d"] = "Y"
+
+# accented small letters, Latin-1 Supplement
+fix["\xc3\xa0"] = "a"
+fix["\xc3\xa1"] = "a"
+fix["\xc3\xa2"] = "a"
+fix["\xc3\xa3"] = "a"
+fix["\xc3\xa4"] = "a"
+fix["\xc3\xa5"] = "a"
+fix["\xc3\xa7"] = "c"
+fix["\xc3\xa8"] = "e"
+fix["\xc3\xa9"] = "e"
+fix["\xc3\xaa"] = "e"
+fix["\xc3\xab"] = "e"
+fix["\xc3\xac"] = "i"
+fix["\xc3\xad"] = "i"
+fix["\xc3\xae"] = "i"
+fix["\xc3\xaf"] = "i"
+fix["\xc3\xb0"] = "d"
+fix["\xc3\xb1"] = "n"
+fix["\xc3\xb2"] = "o"
+fix["\xc3\xb3"] = "o"
+fix["\xc3\xb4"] = "o"
+fix["\xc3\xb5"] = "o"
+fix["\xc3\xb6"] = "o"
+fix["\xc3\xb8"] = "o"
+fix["\xc3\xb9"] = "u"
+fix["\xc3\xba"] = "u"
+fix["\xc3\xbb"] = "u"
+fix["\xc3\xbc"] = "u"
+fix["\xc3\xbd"] = "y"
+fix["\xc3\xbf"] = "y"
+
+# Latin Extended-A
+fix["\xc4\x80"] = "A"
+fix["\xc4\x81"] = "a"
+fix["\xc4\x82"] = "A"
+fix["\xc4\x83"] = "a"
+fix["\xc4\x84"] = "A"
+fix["\xc4\x85"] = "a"
+fix["\xc4\x86"] = "C"
+fix["\xc4\x87"] = "c"
+fix["\xc4\x88"] = "C"
+fix["\xc4\x89"] = "c"
+fix["\xc4\x8a"] = "C"
+fix["\xc4\x8b"] = "c"
+fix["\xc4\x8c"] = "C"
+fix["\xc4\x8d"] = "c"
+fix["\xc4\x8e"] = "D"
+fix["\xc4\x8f"] = "d"
+fix["\xc4\x90"] = "D"
+fix["\xc4\x91"] = "d"
+fix["\xc4\x92"] = "E"
+fix["\xc4\x93"] = "e"
+fix["\xc4\x94"] = "E"
+fix["\xc4\x95"] = "e"
+fix["\xc4\x96"] = "E"
+fix["\xc4\x97"] = "e"
+fix["\xc4\x98"] = "E"
+fix["\xc4\x99"] = "e"
+fix["\xc4\x9a"] = "E"
+fix["\xc4\x9b"] = "e"
+fix["\xc4\x9c"] = "G"
+fix["\xc4\x9d"] = "g"
+fix["\xc4\x9e"] = "G"
+fix["\xc4\x9f"] = "g"
+fix["\xc4\xa0"] = "G"
+fix["\xc4\xa1"] = "g"
+fix["\xc4\xa2"] = "G"
+fix["\xc4\xa3"] = "g"
+fix["\xc4\xa4"] = "H"
+fix["\xc4\xa5"] = "h"
+fix["\xc4\xa6"] = "H"
+fix["\xc4\xa7"] = "h"
+fix["\xc4\xa8"] = "I"
+fix["\xc4\xa9"] = "i"
+fix["\xc4\xaa"] = "I"
+fix["\xc4\xab"] = "i"
+fix["\xc4\xac"] = "I"
+fix["\xc4\xad"] = "i"
+fix["\xc4\xae"] = "I"
+fix["\xc4\xaf"] = "i"
+fix["\xc4\xb0"] = "I"
+fix["\xc4\xb1"] = "i"
+fix["\xc4\xb4"] = "J"
+fix["\xc4\xb5"] = "j"
+fix["\xc4\xb6"] = "K"
+fix["\xc4\xb7"] = "k"
+fix["\xc4\xb8"] = "k"
+fix["\xc4\xb9"] = "L"
+fix["\xc4\xba"] = "l"
+fix["\xc4\xbb"] = "L"
+fix["\xc4\xbc"] = "l"
+fix["\xc4\xbd"] = "L"
+fix["\xc4\xbe"] = "l"
+fix["\xc4\xbf"] = "L"
+fix["\xc5\x80"] = "l"
+fix["\xc5\x81"] = "L"
+fix["\xc5\x82"] = "l"
+fix["\xc5\x83"] = "N"
+fix["\xc5\x84"] = "n"
+fix["\xc5\x85"] = "N"
+fix["\xc5\x86"] = "n"
+fix["\xc5\x87"] = "N"
+fix["\xc5\x88"] = "n"
+fix["\xc5\x8a"] = "N"
+fix["\xc5\x8b"] = "n"
+fix["\xc5\x8c"] = "O"
+fix["\xc5\x8d"] = "o"
+fix["\xc5\x8e"] = "O"
+fix["\xc5\x8f"] = "o"
+fix["\xc5\x90"] = "O"
+fix["\xc5\x91"] = "o"
+fix["\xc5\x94"] = "R"
+fix["\xc5\x95"] = "r"
+fix["\xc5\x96"] = "R"
+fix["\xc5\x97"] = "r"
+fix["\xc5\x98"] = "R"
+fix["\xc5\x99"] = "r"
+fix["\xc5\x9a"] = "S"
+fix["\xc5\x9b"] = "s"
+fix["\xc5\x9c"] = "S"
+fix["\xc5\x9d"] = "s"
+fix["\xc5\x9e"] = "S"
+fix["\xc5\x9f"] = "s"
+fix["\xc5\xa0"] = "S"
+fix["\xc5\xa1"] = "s"
+fix["\xc5\xa2"] = "T"
+fix["\xc5\xa3"] = "t"
+fix["\xc5\xa4"] = "T"
+fix["\xc5\xa5"] = "t"
+fix["\xc5\xa6"] = "T"
+fix["\xc5\xa7"] = "t"
+fix["\xc5\xa8"] = "U"
+fix["\xc5\xa9"] = "u"
+fix["\xc5\xaa"] = "U"
+fix["\xc5\xab"] = "u"
+fix["\xc5\xac"] = "U"
+fix["\xc5\xad"] = "u"
+fix["\xc5\xae"] = "U"
+fix["\xc5\xaf"] = "u"
+fix["\xc5\xb0"] = "U"
+fix["\xc5\xb1"] = "u"
+fix["\xc5\xb2"] = "U"
+fix["\xc5\xb3"] = "u"
+fix["\xc5\xb4"] = "W"
+fix["\xc5\xb5"] = "w"
+fix["\xc5\xb6"] = "Y"
+fix["\xc5\xb7"] = "y"
+fix["\xc5\xb8"] = "Y"
+fix["\xc5\xb9"] = "Z"
+fix["\xc5\xba"] = "z"
+fix["\xc5\xbb"] = "Z"
+fix["\xc5\xbc"] = "z"
+fix["\xc5\xbd"] = "Z"
+fix["\xc5\xbe"] = "z"
+fix["\xc5\xbf"] = "s"
+
+# letters with no one-letter answer
+fix["\xc3\x86"] = "AE"
+fix["\xc3\x9e"] = "TH"
+fix["\xc3\x9f"] = "ss"
+fix["\xc3\xa6"] = "ae"
+fix["\xc3\xbe"] = "th"
+fix["\xc4\xb2"] = "IJ"
+fix["\xc4\xb3"] = "ij"
+fix["\xc5\x89"] = "'n"
+fix["\xc5\x92"] = "OE"
+fix["\xc5\x93"] = "oe"
+
+# Greek capitals
+grk["\xce\x91"] = "A"
+grk["\xce\x92"] = "B"
+grk["\xce\x93"] = "G"
+grk["\xce\x94"] = "D"
+grk["\xce\x95"] = "E"
+grk["\xce\x96"] = "Z"
+grk["\xce\x97"] = "E"
+grk["\xce\x98"] = "T"
+grk["\xce\x99"] = "I"
+grk["\xce\x9a"] = "K"
+grk["\xce\x9b"] = "L"
+grk["\xce\x9c"] = "U"
+grk["\xce\x9d"] = "N"
+grk["\xce\x9e"] = "X"
+grk["\xce\x9f"] = "O"
+grk["\xce\xa0"] = "P"
+grk["\xce\xa1"] = "R"
+grk["\xce\xa3"] = "S"
+grk["\xce\xa4"] = "T"
+grk["\xce\xa5"] = "U"
+grk["\xce\xa6"] = "F"
+grk["\xce\xa7"] = "C"
+grk["\xce\xa8"] = "Y"
+grk["\xce\xa9"] = "O"
+
+# Greek small letters
+grk["\xce\xb1"] = "a"
+grk["\xce\xb2"] = "b"
+grk["\xce\xb3"] = "g"
+grk["\xce\xb4"] = "d"
+grk["\xce\xb5"] = "e"
+grk["\xce\xb6"] = "z"
+grk["\xce\xb7"] = "e"
+grk["\xce\xb8"] = "t"
+grk["\xce\xb9"] = "i"
+grk["\xce\xba"] = "k"
+grk["\xce\xbb"] = "l"
+grk["\xce\xbc"] = "u"
+grk["\xce\xbd"] = "n"
+grk["\xce\xbe"] = "x"
+grk["\xce\xbf"] = "o"
+grk["\xcf\x80"] = "p"
+grk["\xcf\x81"] = "r"
+grk["\xcf\x82"] = "s"
+grk["\xcf\x83"] = "s"
+grk["\xcf\x84"] = "t"
+grk["\xcf\x85"] = "u"
+grk["\xcf\x86"] = "f"
+grk["\xcf\x87"] = "c"
+grk["\xcf\x88"] = "y"
+grk["\xcf\x89"] = "o"
+
+# a Greek letter with a second code point
+grk["\xc2\xb5"] = "u"
+
+# The accented letters. Skipped outright on a buffer that is already pure
+# ASCII, which turns the common case into one scan instead of one per entry.
+if (search_string(cleaned, high_byte, 0, "regex") != -1) {
+    # One scan per distinct lead byte, three of them here, answers for every
+    # entry that starts with it, so a paste with no accents in it never pays
+    # for the 190 accented entries. Memoising against a buffer that changes
+    # under the loop is safe because every replacement is ASCII and so cannot
+    # put a lead byte back in.
+    seen = $empty_array
+
+    for (ch in fix) {
+        lead = substring(ch, 0, 1)
+        if (lead in seen) {
+            here = seen[lead]
+        } else {
+            here = 0
+            if (search_string(cleaned, lead, 0, "case") != -1) {
+                here = 1
+            }
+            seen[lead] = here
+        }
+
+        if (here == 1) {
+            if (search_string(cleaned, ch, 0, "case") != -1) {
+                # "copy" is not optional. Without it replace_in_string()
+                # returns an empty string whenever the pattern does not match,
+                # and this loop would erase the buffer on its first miss.
+                cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
+                fixed = fixed "  " ch " -> " fix[ch] "\n"
+            }
+        }
+    }
+}
+
+# Greek, in two passes. The first records where every letter is while the text
+# still holds them, because those offsets are what the report turns into line
+# and column numbers; the second replaces them. Nothing caps the scan: the
+# index it builds is what drives the replacement, so a cap would mean a silent
+# partial conversion.
+#
+# Every grk[] key is two bytes and every replacement is one, so an offset taken
+# here, less the bytes the folds ahead of it removed, is the offset in the
+# finished buffer. shrink is written out as the lengths rather than as a count
+# of letters, so an entry that is not two bytes to one would still be right.
+found = $empty_array
+gpos = $empty_array
+gch = $empty_array
+n_greek = 0
+n_shown = 0
+shrink = 0
+
+pos = search_string(cleaned, greek_char, 0, "regex")
+while (pos != -1) {
+    # $search_end is global and the next search overwrites it, so read it
+    # before anything else touches the string.
+    stop = $search_end
+    ch = substring(cleaned, pos, stop)
+    if (ch in grk) {
+        # Positions are kept for the first 20 only, which is as much as a
+        # dialog can usefully hold. The count below is of all of them.
+        if (n_shown < 20) {
+            gpos[n_shown] = pos - shrink
+            gch[n_shown] = ch
+            n_shown++
+        }
+        shrink = shrink + (stop - pos) - length(grk[ch])
+        found[ch] = 1
+        n_greek++
+    }
+    pos = search_string(cleaned, greek_char, stop, "regex")
+}
+
+for (ch in found) {
+    cleaned = replace_in_string(cleaned, ch, grk[ch], "case", "copy")
+}
+
+# Write back, once, only if there is a change to make.
+if (cleaned != original) {
+    saved_cursor = $cursor
+    replace_range(0, $text_length, cleaned)
+
+    # An accented letter is longer than what replaces it, so the buffer usually
+    # got shorter and the old offset may be past the end.
+    if (saved_cursor > $text_length) {
+        saved_cursor = $text_length
+    }
+    set_cursor_pos(saved_cursor)
+}
+
+# Line and column for each Greek letter, now that the buffer holds the finished
+# text. set_cursor_pos() and then $line and $column are the editor's own
+# arithmetic, the same numbers the statistics line shows as L: and C:, so
+# nothing here counts a column by hand. A tab would make a column ambiguous, so
+# run this after Normalize Characters, which takes the tabs out.
+glist = ""
+for (i = 0; i < n_shown; i++) {
+    # On a buffer XNEdit locked, the write above did not land and these offsets
+    # address text that is not there.
+    if (gpos[i] > $text_length) {
+        gpos[i] = $text_length
+    }
+    set_cursor_pos(gpos[i])
+    glist = glist "    line " $line ", column " $column "    " gch[i] " -> " grk[gch[i]] "\n"
+}
+
+# The cursor ends on the first Greek letter, because that is the one thing here
+# that asks for a decision. With no Greek it stays where it was.
+if (n_greek > 0) {
+    set_cursor_pos(gpos[0])
+}
+
+# Report. t_print() goes to the terminal that launched xnedit, so the routine
+# case stays quiet; the dialog is reserved for the case that wants a human.
+if (fixed == "" && n_greek == 0) {
+    t_print("fold: " $file_name ": nothing to change\n")
+} else {
+    t_print("fold: " $file_name ":\n" fixed glist)
+}
+
+# Built up a statement at a time, because line continuations would have to
+# survive the extra layer of escaping that nedit.rc puts on every macro line.
+if (n_greek > 0) {
+    msg = $file_name " had " n_greek " Greek letter(s) in it, and each one is "
+    msg = msg "now the nearest single Latin letter. Which letter it started as "
+    msg = msg "is no longer recoverable from the file. Five of the readings are "
+    msg = msg "shared, whether or not this file held the pair:\n\n"
+    msg = msg "    e   epsilon, eta\n"
+    msg = msg "    o   omicron, omega\n"
+    msg = msg "    s   sigma, final sigma\n"
+    msg = msg "    t   tau, theta\n"
+    msg = msg "    u   upsilon, mu, micro sign\n\n"
+    msg = msg glist
+    if (n_greek > n_shown) {
+        n_more = n_greek - n_shown
+        msg = msg "    ...and " n_more " more\n"
+    }
+    msg = msg "\nLines count from 1 and columns from 0, the same as the "
+    msg = msg "statistics line. The cursor is on the first one."
+    dialog(msg, "OK")
+}
