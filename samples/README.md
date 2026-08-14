@@ -36,9 +36,14 @@ Everything that makes it a NED file, none of which any command here attempts:
 - The column heading row, `ap_name1|name1|coordx1|coordy1|vz1`.
 - Coordinates lose their colons and gain an explicit sign:
   `00:10:09.97` to `001009.97`, `15:34:09.66` to `+153409.66`.
-- `ap_name1` and `name1` are built out of the coordinates:
-  `SDSS J001009.97-004603.6`. Note that these are rounded to one decimal and
-  are not simply `coordx1` and `coordy1` pasted together.
+- `ap_name1` and `name1` are the SDSS designations, and they cannot be worked
+  out from anything else in the file. Row 2 is the one to look at: the name
+  reads `SDSS J004054.31+153409.8` where `coordx1` is `004054.33` and
+  `coordy1` is `+153409.66`. Different digits, not a rounding of them. The
+  designation comes from SDSS's own astrometry and the paper's measured
+  position is a separate quantity that lands nearby, so the names have to be
+  looked up. Deriving them from the coordinates would produce a plausible
+  identifier for the wrong object.
 - Every field in `A13L.mod.after` is padded out to the width of the widest
   value in its column, and every row ends up the same length. Nothing in
   `macros/commands/` pads anything.
