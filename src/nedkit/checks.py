@@ -2,9 +2,9 @@
 
 These catch the mistakes that are cheap to make and expensive to notice: a
 header that doesn't match what the install dialog needs, a file named after
-something other than its menu entry, and above all a ``replace_in_string()``
-that forgets its ``"copy"`` argument and so erases the buffer whenever the
-pattern happens not to match.
+something other than its menu entry, a ``replace_in_string()`` that forgets its
+``"copy"`` argument and so erases the buffer whenever the pattern happens not to
+match, and a search left on the case-insensitive default.
 """
 
 from __future__ import annotations
@@ -16,6 +16,34 @@ from pathlib import Path
 from nedkit.macro import HEADER_FIELDS, MENUS, MacroFile, slug
 
 _IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+#: How many arguments each searching subroutine takes before its optional ones
+#: begin. The search type is not a fixed slot: XNEdit scans every argument past
+#: these for a token it recognises, so ``"case"`` can sit anywhere after them.
+SEARCH_TYPE_FUNCTIONS = {
+    "search": 2,
+    "search_string": 3,
+    "replace_all": 2,
+    "replace_in_selection": 2,
+    "replace_in_string": 3,
+    "split": 2,
+}
+
+#: Every token ``StringToSearchType()`` accepts, from ``searchTypeStrings`` in
+#: search.c. Anything else in the optional arguments is a direction, a wrap
+#: setting or ``"copy"``, none of which selects a search type.
+SEARCH_TYPES = frozenset(
+    {"literal", "case", "regex", "word", "caseWord", "regexNoCase"}
+)
+
+#: Of those, the ones that fold case. ``"literal"`` is the search with the Case
+#: Sensitive box unticked, not the byte-for-byte search its name suggests.
+CASE_FOLDING_SEARCH_TYPES = frozenset({"literal", "word", "regexNoCase"})
+
+#: A macro string literal, whole and on its own. Escapes are allowed through
+#: because no search type token contains one, so an argument that has any is
+#: still readable as "not a search type".
+_STRING_LITERAL = re.compile(r'^"((?:[^"\\]|\\.)*)"$')
 
 
 @dataclass(frozen=True)
@@ -247,6 +275,80 @@ def check_replace_in_string_copy(macro: MacroFile) -> list[Finding]:
     return findings
 
 
+def _literal_arguments(args: list[str]) -> tuple[list[str], bool]:
+    """Split arguments into readable string literals and everything else.
+
+    Returns the contents of each literal, and whether any argument was
+    something this can't read.
+    """
+    literals = []
+    opaque = False
+    for arg in args:
+        match = _STRING_LITERAL.match(arg)
+        if match is None:
+            opaque = True
+        else:
+            literals.append(match.group(1))
+    return literals, opaque
+
+
+def check_search_type(path: Path, text: str, offset: int = 1) -> list[Finding]:
+    """Every search has to name a case-sensitive type.
+
+    ``"literal"`` is the search with the Case Sensitive box unticked, and it is
+    also the default, so leaving the type out picks the unsafe one. XNEdit folds
+    case over UTF-8 rather than over bytes, which makes that worse than it
+    sounds: uppercasing the ``fi`` ligature U+FB01 yields the two characters
+    ``FI``, and a ``"literal"`` search for lower-case alpha matches capital
+    Alpha, so a character table would rewrite letters it never named.
+
+    The type is not a positional argument. ``readSearchArgs()`` (macro.c) and
+    ``searchType()`` (menu.c) both walk every argument past the required ones
+    looking for a recognised token, mixed in with ``"wrap"``, ``"nowrap"``,
+    ``"backward"``, ``"forward"`` and ``"copy"``. So checking one slot proves
+    nothing: ``search_string(s, "abc", 0, "backward")`` has an argument in the
+    slot, names no type, and case-folds. Match the C and scan the lot.
+
+    An argument that is not a plain string literal is a variable, and a variable
+    could hold ``"case"``. Those suppress the "names no type" finding rather
+    than risk a false positive on a macro doing something legitimate; a wrong
+    type spelled out is still reported, since that one is certain.
+
+    ``offset`` is the line the text starts on in the file, so findings point at
+    the right line of a command whose body sits under a header.
+    """
+    findings = []
+
+    for name, required in sorted(SEARCH_TYPE_FUNCTIONS.items()):
+        for call in find_calls(text, name):
+            literals, opaque = _literal_arguments(call.args[required:])
+            named = [token for token in literals if token in SEARCH_TYPES]
+            folding = [token for token in named if token in CASE_FOLDING_SEARCH_TYPES]
+            line = offset + call.line - 1
+
+            if folding:
+                findings.append(
+                    Finding(
+                        path,
+                        line,
+                        f'{name}() searches with "{folding[0]}", which folds '
+                        'case; pass "case" for an exact match, or "regex"',
+                    )
+                )
+            elif not named and not opaque:
+                findings.append(
+                    Finding(
+                        path,
+                        line,
+                        f"{name}() names no search type, so it falls back to a "
+                        'case-insensitive one; pass "case" for an exact match, '
+                        'or "regex"',
+                    )
+                )
+
+    return findings
+
+
 def check_no_define(macro: MacroFile) -> list[Finding]:
     """``define`` is illegal inside a menu item; it belongs in macros/lib/."""
     return [
@@ -298,6 +400,7 @@ def check_command(macro: MacroFile) -> list[Finding]:
         *check_header(macro),
         *check_filename(macro),
         *check_replace_in_string_copy(macro),
+        *check_search_type(macro.path, macro.body, macro.body_offset),
         *check_no_define(macro),
         *check_formatting(macro.path),
     ]
@@ -306,4 +409,8 @@ def check_command(macro: MacroFile) -> list[Finding]:
 def check_library(path: Path) -> list[Finding]:
     """Every check that applies to a file in macros/lib/."""
     text = path.read_text(encoding="utf-8")
-    return [*check_library_prefix(path, text), *check_formatting(path)]
+    return [
+        *check_library_prefix(path, text),
+        *check_search_type(path, text),
+        *check_formatting(path),
+    ]
