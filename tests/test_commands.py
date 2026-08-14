@@ -171,3 +171,41 @@ def test_command_does_not_corrupt_a_non_utf8_file(
     assert b"\xb0" in run.output, (
         f"{command.name} lost the latin-1 byte: {run.output!r}"
     )
+
+
+#: Assignments a command must still have room for. Twenty table pairs, which is
+#: a group of accented letters or a run of Greek, so the check fails while there
+#: is still somewhere to put the next one.
+HEADROOM = 40
+
+
+@pytest.mark.xnedit
+@pytest.mark.parametrize("command", command_files(REPO_ROOT), ids=lambda p: p.stem)
+def test_command_has_room_to_grow(
+    command: Path, runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """Every command compiles with room to spare in XNEdit's program array.
+
+    XNEdit parses a macro into ``static Inst Prog[4096]`` and refuses anything
+    longer, whatever route it was installed by. Ordinary macro code never comes
+    close; a lookup table is nothing but assignments, at nine instructions each,
+    and ``fold-letters-to-ascii`` already uses about two thirds of the budget.
+
+    Growing a table past the limit is caught today only as a thirty second
+    timeout on every fixture the command has, because the parse error arrives as
+    a modal dialog that waits for a human who is not there. That is a wretched
+    way to learn about a fixed-size array, so this pads each command out and
+    asks the editor directly, while there is still room to act on the answer.
+    """
+    filler = "\n".join(f'headroom_probe["{i}"] = "{i}"' for i in range(HEADROOM))
+    body = parse(command).body + "\n" + filler + "\n"
+
+    run = runner.run_on_bytes(body, b"", tmp_path, name="headroom.txt", save=False)
+
+    assert run.ok, (
+        f"{command.name} has less than {HEADROOM} assignments of headroom left "
+        f"in XNEdit's 4096 instruction program array, so the next table group "
+        f"added to it will not compile. Splitting the command in two is what "
+        f"fold-letters-to-ascii exists for; see the macro size note in "
+        f"CLAUDE.md.\n{run.describe()}"
+    )

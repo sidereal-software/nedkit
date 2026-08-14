@@ -68,8 +68,11 @@ real bugs:
   stopped on. Measured against XNEdit 1.6.3:
   - An `arr["k"] = "v"` assignment costs **9 instructions**, so a body with no
     logic in it holds about **450** of them.
-  - `normalize-characters.nm` uses 45% of its budget and `fold-letters-to-ascii.nm`
-    69%, leaving room for about 248 and 139 more assignments.
+  - `normalize-characters.nm` uses roughly 45% of its budget and
+    `fold-letters-to-ascii.nm` roughly 69%. Do not trust a figure written down
+    here for the margin: every edit to a command moves it, and the one above
+    was already stale within a day. `test_command_has_room_to_grow` measures it
+    against the editor instead, and fails while there is still room to act.
   - Each `define` is compiled separately and gets its own fresh 4096. 800
     assignments split over two subroutines load fine, so a table too big for a
     menu command could live in `macros/lib/` and fill a `$global` array. That
