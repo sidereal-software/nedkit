@@ -8,6 +8,11 @@ like a call but isn't.
 falls back to ``"literal"``, which is the search with the Case Sensitive box
 unticked, so the default is the unsafe answer and saying nothing is the same
 bug as saying the wrong thing.
+
+``check_read_only_guard()`` is the third, and the cases below are the shapes
+the bug came in: a write with no lock test at all, and a lock test that names
+``$locked`` rather than ``$read_only`` and so passes a file with no write
+permission straight through.
 """
 
 from __future__ import annotations
@@ -17,9 +22,11 @@ from pathlib import Path
 import pytest
 
 from nedkit.checks import (
+    BUFFER_WRITING_FUNCTIONS,
     check_formatting,
     check_header_separated,
     check_library_prefix,
+    check_read_only_guard,
     check_replace_in_string_copy,
     check_search_type,
     find_calls,
@@ -227,6 +234,96 @@ def test_the_finding_points_at_the_line_the_search_is_on() -> None:
     text = 'a = 1\nb = 2\nx = search_string(t, "a", 0)'
     findings = check_search_type(Path("fake.nm"), text, 15)
     assert [finding.line for finding in findings] == [17]
+
+
+#: One call to each buffer-writing subroutine, spelled the way a command would
+#: write it. Every one of them refuses a locked buffer by ringing the bell and
+#: returning, so every one of them needs the same guard above it.
+BUFFER_WRITES = {
+    "replace_range": "replace_range(0, $text_length, out)",
+    "replace_selection": "replace_selection(out)",
+    "replace_all": 'replace_all("a", "b", "case")',
+    "replace_in_selection": 'replace_in_selection("a", "b", "case")',
+    "insert_string": "insert_string(out)",
+}
+
+GUARD = 'if ($read_only == 1) {\n    dialog("locked")\n    return\n}\n'
+
+
+def test_every_buffer_write_has_a_case() -> None:
+    """Adding a function to the constant without a case here proves nothing."""
+    assert sorted(BUFFER_WRITES) == sorted(BUFFER_WRITING_FUNCTIONS)
+
+
+@pytest.mark.parametrize("name", sorted(BUFFER_WRITES))
+def test_a_write_under_a_read_only_guard_is_accepted(name: str) -> None:
+    assert check_read_only_guard(_macro(GUARD + BUFFER_WRITES[name])) == []
+
+
+@pytest.mark.parametrize("name", sorted(BUFFER_WRITES))
+def test_a_write_with_no_guard_at_all_is_reported(name: str) -> None:
+    findings = check_read_only_guard(_macro(BUFFER_WRITES[name]))
+    assert len(findings) == 1, findings
+    assert findings[0].message.startswith(f"{name}()"), findings[0].message
+    assert "$read_only" in findings[0].message
+
+
+@pytest.mark.parametrize("name", sorted(BUFFER_WRITES))
+def test_a_guard_on_locked_alone_is_reported(name: str) -> None:
+    """``$locked`` is ``IS_USER_LOCKED`` and the writes refuse on
+    ``IS_ANY_LOCKED``, so a file with no write permission reads ``$locked`` 0,
+    walks past the guard, and loses the write anyway. The message has to say
+    which variable to write instead, because the command looks guarded."""
+    body = "if ($locked == 1) {\n    return\n}\n" + BUFFER_WRITES[name]
+    findings = check_read_only_guard(_macro(body))
+    assert len(findings) == 1, findings
+    assert "$locked" in findings[0].message
+    assert "$read_only" in findings[0].message
+
+
+def test_a_command_that_never_writes_needs_no_guard() -> None:
+    """Reporting a read-only command would be a finding on a file doing nothing
+    wrong, and a check that cries wolf gets skimmed."""
+    body = 'if (search("a", 0, "case") == -1) {\n    dialog("nothing here")\n}'
+    assert check_read_only_guard(_macro(body)) == []
+
+
+def test_read_only_in_a_comment_does_not_count_as_a_guard() -> None:
+    """The comment is how the six commands explain the guard, so a file that
+    kept the explanation and lost the guard is exactly the shape to catch."""
+    body = "# $read_only is tested above\nreplace_range(0, $text_length, out)"
+    findings = check_read_only_guard(_macro(body))
+    assert len(findings) == 1, findings
+    assert findings[0].line == 2
+
+
+def test_read_only_in_a_string_does_not_count_as_a_guard() -> None:
+    body = 'dialog("this one ignores $read_only")\nreplace_range(0, $text_length, out)'
+    assert len(check_read_only_guard(_macro(body))) == 1
+
+
+def test_an_unguarded_command_is_reported_once_at_its_first_write() -> None:
+    """One missing guard is one problem however many writes sit under it, and
+    the first write is the line to jump to."""
+    body = "replace_selection(a)\nreplace_range(0, $text_length, b)"
+    findings = check_read_only_guard(_macro(body))
+    assert len(findings) == 1, findings
+    assert findings[0].line == 1
+    assert findings[0].message.startswith("replace_selection()")
+
+
+def test_the_guard_finding_points_at_a_line_in_the_file() -> None:
+    """A command's body sits under its header, so the offset is what makes the
+    reported line one you can jump to."""
+    macro = MacroFile(
+        path=Path("fake.nm"),
+        title="Fake",
+        prose="",
+        fields={},
+        body="a = 1\nb = 2\nreplace_range(0, $text_length, a)",
+        body_offset=15,
+    )
+    assert check_read_only_guard(macro)[0].line == 17
 
 
 def test_find_definitions() -> None:

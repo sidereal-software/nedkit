@@ -5,7 +5,9 @@ header that doesn't match what the install dialog needs, a header running
 straight into the body with no blank line to say where it ends, a file named
 after something other than its menu entry, a ``replace_in_string()`` that
 forgets its ``"copy"`` argument and so erases the buffer whenever the pattern
-happens not to match, and a search left on the case-insensitive default.
+happens not to match, a search left on the case-insensitive default, and a
+command that writes to the buffer without ever asking whether the buffer takes
+writes.
 """
 
 from __future__ import annotations
@@ -15,8 +17,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from nedkit.macro import HEADER_FIELDS, MENUS, MacroFile, slug
-
-_IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 #: How many arguments each searching subroutine takes before its optional ones
 #: begin. The search type is not a fixed slot: XNEdit scans every argument past
@@ -45,6 +45,27 @@ CASE_FOLDING_SEARCH_TYPES = frozenset({"literal", "word", "regexNoCase"})
 #: because no search type token contains one, so an argument that has any is
 #: still readable as "not a search type".
 _STRING_LITERAL = re.compile(r'^"((?:[^"\\]|\\.)*)"$')
+
+#: The subroutines that write text into the buffer, and the reason they all
+#: need the same guard: every one of them refuses a locked buffer by ringing
+#: the bell and returning, raising nothing a macro could catch.
+#: ``replaceRangeMS()`` and ``replaceSelectionMS()`` test ``IS_ANY_LOCKED``
+#: inline in macro.c; ``replace_all()`` and ``replace_in_selection()`` are
+#: action routines reaching the same condition through ``CheckReadOnly()``
+#: (file.c), and ``insert_string()`` through ``checkReadOnly()`` (text.c).
+#:
+#: The line drawn here is the writes that take the text to write as an
+#: argument, which is what a command computing a rewrite reaches for. The
+#: keystroke actions (``newline()``, ``self_insert()``,
+#: ``delete_next_character()``) refuse on the same condition and are left out
+#: because no command here writes that way. Add one when that changes.
+BUFFER_WRITING_FUNCTIONS = (
+    "replace_range",
+    "replace_selection",
+    "replace_all",
+    "replace_in_selection",
+    "insert_string",
+)
 
 
 @dataclass(frozen=True)
@@ -181,6 +202,19 @@ def find_definitions(text: str) -> list[tuple[int, str]]:
     return found
 
 
+def reads_variable(text: str, name: str) -> bool:
+    """Whether ``text`` reads the built-in variable ``name`` as code.
+
+    A mention inside a comment or a string literal doesn't count, which is the
+    difference between a command that tests ``$read_only`` and one that only
+    talks about it.
+    """
+    code = _code_positions(text)
+    return any(
+        match.start() in code for match in re.finditer(rf"{re.escape(name)}\b", text)
+    )
+
+
 def check_header(macro: MacroFile) -> list[Finding]:
     """The header has to carry everything the Customize Menus dialog asks for."""
     findings = []
@@ -301,6 +335,60 @@ def check_replace_in_string_copy(macro: MacroFile) -> list[Finding]:
                 )
             )
     return findings
+
+
+def check_read_only_guard(macro: MacroFile) -> list[Finding]:
+    """A command that writes to the buffer has to consider ``$read_only``.
+
+    Every subroutine in :data:`BUFFER_WRITING_FUNCTIONS` answers a locked
+    buffer by ringing the bell and returning. Nothing is raised and nothing is
+    returned to test, so a command that computes its changes, writes them and
+    then reports what it computed reports work that never happened. That is
+    what all six commands did on a file XNEdit could not read as UTF-8, until
+    each of them learned to refuse up front.
+
+    ``$read_only`` is the test and ``$locked`` is not. The writes refuse on
+    ``IS_ANY_LOCKED``, which is exactly what ``$read_only`` returns, while
+    ``$locked`` is ``IS_USER_LOCKED`` alone and reads 0 on a file with no write
+    permission. The encoding lock happens to set the user bit too, so a command
+    guarding on ``$locked`` looks correct right up until someone opens a file
+    they cannot write.
+
+    **This is syntactic and proves nothing about the guard.** It looks for the
+    write and for the variable, in the same body, and cannot tell whether the
+    test it found stands between the two or whether it guards anything at all:
+    a command that reads ``$read_only`` into a variable and ignores it passes.
+    What it catches is the command that never asks the question, which is the
+    shape the bug had every one of the six times.
+    """
+    writes = [
+        (name, call)
+        for name in BUFFER_WRITING_FUNCTIONS
+        for call in find_calls(macro.body, name)
+    ]
+    if not writes or reads_variable(macro.body, "$read_only"):
+        return []
+
+    name, call = min(writes, key=lambda write: write[1].line)
+    line = macro.body_offset + call.line - 1
+
+    if reads_variable(macro.body, "$locked"):
+        message = (
+            f"{name}() writes to the buffer, and the only lock this command "
+            "tests is $locked. That is IS_USER_LOCKED alone, and it reads 0 on "
+            "a file with no write permission, where the write vanishes just the "
+            f"same. Test $read_only, the IS_ANY_LOCKED that {name}() itself "
+            "refuses on"
+        )
+    else:
+        message = (
+            f"{name}() writes to the buffer and nothing in this command tests "
+            "$read_only. A locked buffer takes no writes: the call rings the "
+            "bell and returns, raising nothing, so the command goes on to "
+            "report an edit that never happened"
+        )
+
+    return [Finding(macro.path, line, message)]
 
 
 def _literal_arguments(args: list[str]) -> tuple[list[str], bool]:
@@ -429,6 +517,7 @@ def check_command(macro: MacroFile) -> list[Finding]:
         *check_header_separated(macro),
         *check_filename(macro),
         *check_replace_in_string_copy(macro),
+        *check_read_only_guard(macro),
         *check_search_type(macro.path, macro.body, macro.body_offset),
         *check_no_define(macro),
         *check_formatting(macro.path),
