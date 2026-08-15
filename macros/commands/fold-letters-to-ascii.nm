@@ -31,6 +31,10 @@
 # A run that finds nothing leaves the buffer, the undo history and the modified
 # flag untouched.
 #
+# It refuses a locked buffer, because nothing written to one lands. XNEdit
+# locks a file it cannot read as UTF-8, which is the usual reason; File > Read
+# Only and a file with no write permission lock one too.
+#
 # A buffer with any accented letter in it gets scanned once per accented entry
 # in the table, so a file of several megabytes stalls. That size of job belongs
 # in Python rather than in the editor.
@@ -45,9 +49,22 @@
 # Preferences > Default Settings > Customize Menus > Macro Menu, then
 # Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
 
-original = get_range(0, $text_length)
-cleaned = original
 fixed = ""
+ok = 1
+msg = ""
+
+# A locked buffer takes no writes. replace_range() on one does nothing and says
+# nothing, so everything below would be computed and thrown away and the
+# summary would name an edit that never happened. $read_only is the test and
+# not $locked: $locked misses a file with no write permission, while $read_only
+# is the same condition replace_range() itself refuses on.
+if ($read_only == 1) {
+    ok = 0
+    msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+    msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+    msg = msg "File > Read Only locks a buffer too, and so does a file with "
+    msg = msg "no write permission."
+}
 
 # Any byte with the high bit set, i.e. any part of any non-ASCII character.
 # The buffer holds UTF-8 and macro positions are byte offsets, so this is a
@@ -335,125 +352,135 @@ grk["\xcf\x89"] = "o"
 # a Greek letter with a second code point
 grk["\xc2\xb5"] = "u"
 
-# The accented letters. Skipped outright on a buffer that is already pure
-# ASCII, which turns the common case into one scan instead of one per entry.
-if (search_string(cleaned, high_byte, 0, "regex") != -1) {
-    # One scan per distinct lead byte, three of them here, answers for every
-    # entry that starts with it, so a paste with no accents in it never pays
-    # for the 190 accented entries. Memoising against a buffer that changes
-    # under the loop is safe because every replacement is ASCII and so cannot
-    # put a lead byte back in.
-    seen = $empty_array
-
-    for (ch in fix) {
-        lead = substring(ch, 0, 1)
-        if (lead in seen) {
-            here = seen[lead]
-        } else {
-            here = 0
-            if (search_string(cleaned, lead, 0, "case") != -1) {
-                here = 1
-            }
-            seen[lead] = here
-        }
-
-        if (here == 1) {
-            if (search_string(cleaned, ch, 0, "case") != -1) {
-                # "copy" is not optional. Without it replace_in_string()
-                # returns an empty string whenever the pattern does not match,
-                # and this loop would erase the buffer on its first miss.
-                cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
-                fixed = fixed "  " ch " -> " fix[ch] "\n"
-            }
-        }
-    }
-}
-
-# Greek, in two passes. The first records where every letter is while the text
-# still holds them, because those offsets are what the report turns into line
-# and column numbers; the second replaces them. Nothing caps the scan: the
-# index it builds is what drives the replacement, so a cap would mean a silent
-# partial conversion.
-#
-# Every grk[] key is two bytes and every replacement is one, so an offset taken
-# here, less the bytes the folds ahead of it removed, is the offset in the
-# finished buffer. shrink is written out as the lengths rather than as a count
-# of letters, so an entry that is not two bytes to one would still be right.
+# What the report reads, whether or not the work below runs. found[], gpos[]
+# and gch[] are filled by the Greek scan; every grk[] key is two bytes and
+# every replacement is one, so an offset taken there, less the bytes the folds
+# ahead of it removed, is the offset in the finished buffer. shrink is written
+# out as the lengths rather than as a count of letters, so an entry that is not
+# two bytes to one would still be right.
 found = $empty_array
 gpos = $empty_array
 gch = $empty_array
+glist = ""
 n_greek = 0
 n_shown = 0
 shrink = 0
 
-pos = search_string(cleaned, greek_char, 0, "regex")
-while (pos != -1) {
-    # $search_end is global and the next search overwrites it, so read it
-    # before anything else touches the string.
-    stop = $search_end
-    ch = substring(cleaned, pos, stop)
-    if (ch in grk) {
-        # Positions are kept for the first 20 only, which is as much as a
-        # dialog can usefully hold. The count below is of all of them.
-        if (n_shown < 20) {
-            gpos[n_shown] = pos - shrink
-            gch[n_shown] = ch
-            n_shown++
+if (ok == 1) {
+    original = get_range(0, $text_length)
+    cleaned = original
+
+    # The accented letters. Skipped outright on a buffer that is already pure
+    # ASCII, which turns the common case into one scan instead of one per
+    # entry.
+    if (search_string(cleaned, high_byte, 0, "regex") != -1) {
+        # One scan per distinct lead byte, three of them here, answers for
+        # every entry that starts with it, so a paste with no accents in it
+        # never pays for the 190 accented entries. Memoising against a buffer
+        # that changes under the loop is safe because every replacement is
+        # ASCII and so cannot put a lead byte back in.
+        seen = $empty_array
+
+        for (ch in fix) {
+            lead = substring(ch, 0, 1)
+            if (lead in seen) {
+                here = seen[lead]
+            } else {
+                here = 0
+                if (search_string(cleaned, lead, 0, "case") != -1) {
+                    here = 1
+                }
+                seen[lead] = here
+            }
+
+            if (here == 1) {
+                if (search_string(cleaned, ch, 0, "case") != -1) {
+                    # "copy" is not optional. Without it replace_in_string()
+                    # returns an empty string whenever the pattern does not
+                    # match, and this loop would erase the buffer on its first
+                    # miss.
+                    cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
+                    fixed = fixed "  " ch " -> " fix[ch] "\n"
+                }
+            }
         }
-        shrink = shrink + (stop - pos) - length(grk[ch])
-        found[ch] = 1
-        n_greek++
     }
-    pos = search_string(cleaned, greek_char, stop, "regex")
-}
 
-for (ch in found) {
-    cleaned = replace_in_string(cleaned, ch, grk[ch], "case", "copy")
-}
-
-# Write back, once, only if there is a change to make.
-if (cleaned != original) {
-    saved_cursor = $cursor
-    replace_range(0, $text_length, cleaned)
-
-    # An accented letter is longer than what replaces it, so the buffer usually
-    # got shorter and the old offset may be past the end. Belt and braces:
-    # set_cursor_pos() clamps to the end of the buffer itself, on XNEdit and on
-    # NEdit 5.7 alike, so no test can reach the line below.
-    if (saved_cursor > $text_length) {
-        saved_cursor = $text_length
+    # Greek, in two passes. The first records where every letter is while the
+    # text still holds them, because those offsets are what the report turns
+    # into line and column numbers; the second replaces them. Nothing caps the
+    # scan: the index it builds is what drives the replacement, so a cap would
+    # mean a silent partial conversion.
+    pos = search_string(cleaned, greek_char, 0, "regex")
+    while (pos != -1) {
+        # $search_end is global and the next search overwrites it, so read it
+        # before anything else touches the string.
+        stop = $search_end
+        ch = substring(cleaned, pos, stop)
+        if (ch in grk) {
+            # Positions are kept for the first 20 only, which is as much as a
+            # dialog can usefully hold. The count below is of all of them.
+            if (n_shown < 20) {
+                gpos[n_shown] = pos - shrink
+                gch[n_shown] = ch
+                n_shown++
+            }
+            shrink = shrink + (stop - pos) - length(grk[ch])
+            found[ch] = 1
+            n_greek++
+        }
+        pos = search_string(cleaned, greek_char, stop, "regex")
     }
-    set_cursor_pos(saved_cursor)
-}
 
-# Line and column for each Greek letter, now that the buffer holds the finished
-# text. set_cursor_pos() and then $line and $column are the editor's own
-# arithmetic, the same numbers the statistics line shows as L: and C:, so
-# nothing here counts a column by hand. A tab would make a column ambiguous, so
-# run this after Normalize Characters, which takes the tabs out.
-glist = ""
-for (i = 0; i < n_shown; i++) {
-    # On a buffer XNEdit locked, the write above did not land and these offsets
-    # address text that is not there. Belt and braces twice over: a locked
-    # buffer keeps the longer text these offsets were taken from, so they fit
-    # it, and set_cursor_pos() clamps to the end of the buffer itself on both
-    # forks anyway. No test can reach the line below.
-    if (gpos[i] > $text_length) {
-        gpos[i] = $text_length
+    for (ch in found) {
+        cleaned = replace_in_string(cleaned, ch, grk[ch], "case", "copy")
     }
-    set_cursor_pos(gpos[i])
-    glist = glist "    line " $line ", column " $column "    " gch[i] " -> " grk[gch[i]] "\n"
-}
 
-# The cursor ends on the first Greek letter, because that is the one thing here
-# that asks for a decision. With no Greek it stays where it was.
-if (n_greek > 0) {
-    set_cursor_pos(gpos[0])
+    # Write back, once, only if there is a change to make.
+    if (cleaned != original) {
+        saved_cursor = $cursor
+        replace_range(0, $text_length, cleaned)
+
+        # An accented letter is longer than what replaces it, so the buffer
+        # usually got shorter and the old offset may be past the end. Belt and
+        # braces: set_cursor_pos() clamps to the end of the buffer itself, on
+        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
+        if (saved_cursor > $text_length) {
+            saved_cursor = $text_length
+        }
+        set_cursor_pos(saved_cursor)
+    }
+
+    # Line and column for each Greek letter, now that the buffer holds the
+    # finished text. set_cursor_pos() and then $line and $column are the
+    # editor's own arithmetic, the same numbers the statistics line shows as L:
+    # and C:, so nothing here counts a column by hand. A tab would make a
+    # column ambiguous, so run this after Normalize Characters, which takes the
+    # tabs out.
+    for (i = 0; i < n_shown; i++) {
+        # These are offsets into the finished text, and the guard at the top is
+        # what says the write above landed, so they fit the buffer. Belt and
+        # braces: set_cursor_pos() clamps to the end of the buffer itself, on
+        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
+        if (gpos[i] > $text_length) {
+            gpos[i] = $text_length
+        }
+        set_cursor_pos(gpos[i])
+        glist = glist "    line " $line ", column " $column "    " gch[i] " -> " grk[gch[i]] "\n"
+    }
+
+    # The cursor ends on the first Greek letter, because that is the one thing
+    # here that asks for a decision. With no Greek it stays where it was.
+    if (n_greek > 0) {
+        set_cursor_pos(gpos[0])
+    }
 }
 
 # Report. t_print() goes to the terminal that launched xnedit, so the routine
 # case stays quiet; the dialog is reserved for the case that wants a human.
-if (fixed == "" && n_greek == 0) {
+if (ok == 0) {
+    t_print("fold: " $file_name ": nothing changed\n")
+} else if (fixed == "" && n_greek == 0) {
     t_print("fold: " $file_name ": nothing to change\n")
 } else {
     t_print("fold: " $file_name ":\n" fixed glist)
@@ -478,5 +505,8 @@ if (n_greek > 0) {
     }
     msg = msg "\nLines count from 1 and columns from 0, the same as the "
     msg = msg "statistics line. The cursor is on the first one."
+}
+
+if (msg != "") {
     dialog(msg, "OK")
 }

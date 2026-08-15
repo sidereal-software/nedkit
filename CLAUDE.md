@@ -63,11 +63,27 @@ real bugs:
 - **`set_cursor_pos()` clamps for you.** Asking for position 100000 in a 6-byte
   buffer leaves `$cursor` at 6, on XNEdit and on NEdit 5.7 alike: both reach
   the same `TextDSetInsertPosition`. The `if (saved_cursor > $text_length)`
-  guard in the four rewriting commands is therefore unreachable, and Fold's
-  `gpos` clamp is unreachable twice over, since a locked buffer still holds the
-  longer original text those offsets were taken from. All five sites say so in
-  a comment now, because two audits in a row filed them as an untested coverage
-  gap. They are unreachable, not untested.
+  guard in the four rewriting commands is therefore unreachable, and so is
+  Fold's `gpos` clamp, which now sits below a guard that turns a locked buffer
+  away before any offset is taken. All five sites say so in a comment now,
+  because two audits in a row filed them as an untested coverage gap. They are
+  unreachable, not untested.
+- **`replace_range()` is a silent no-op on a locked buffer.** It rings the bell
+  and returns, raising nothing, so a command that computes and then reports
+  what it computed will report work that never happened. **`$read_only` is the
+  test, not `$locked`.** `replaceRangeMS()` refuses on `IS_ANY_LOCKED`, which
+  is exactly what `$read_only` returns, while `$locked` is only
+  `IS_USER_LOCKED`:
+
+  | buffer | `$locked` | `$read_only` | write lands |
+  | --- | --- | --- | --- |
+  | ordinary | 0 | 0 | yes |
+  | cannot be read as UTF-8 | 1 | 1 | no |
+  | no write permission | **0** | 1 | no |
+
+  The encoding lock sets the user bit too (`file.c:886`), which is what makes
+  `$locked` look right until someone opens a file they cannot write. All six
+  commands guard on `$read_only` and refuse rather than compute.
 - **A macro compiles into 4096 instructions and no more.** `PROGRAM_SIZE` in
   `interpret.c:63` sizes `static Inst Prog[PROGRAM_SIZE]` at `:182`, one fixed
   array, and every route into the editor goes through the same `ParseMacro()`:
@@ -264,10 +280,10 @@ built on one is not portable. Three tests cover it from different ends:
   comes back rather than raising a dialog nobody can dismiss, and the bytes are
   untouched. XNEdit only, since NEdit 5.7 has no lock to hit.
 
-Do not read a command's own report to settle any of this. All six report what
-they computed, not what reached the buffer, so on a locked file Trim Trailing
-Blanks announces two trimmed lines that are still there. Only the bytes settle
-it.
+Do not read a command's own report to settle any of this. A report says what a
+command decided to do, and only the bytes say what it did. The two came apart
+once already: until all six learned to refuse a locked buffer, Trim Trailing
+Blanks would announce two trimmed lines that were still sitting there.
 
 The leading BOM is pinned the same way as the lock: XNEdit lifts it out of the
 buffer and puts it back on save.

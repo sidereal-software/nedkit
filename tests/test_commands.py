@@ -266,12 +266,11 @@ def test_a_command_does_not_hang_on_a_buffer_xnedit_locked(
     the command is aimed at an edit it genuinely wants to make and the lock is
     the only reason it does not land.
 
-    Nothing here reads the command's own report, and that is deliberate: all
-    six report what they computed rather than what reached the buffer, so on a
-    locked file Trim Trailing Blanks says it trimmed two lines and the file on
-    disk still has the blanks. Only the bytes settle what happened. That is the
-    same gap that made the byte-survival check this test was split out of pass
-    against every mutant: nothing had been written, so nothing could be lost.
+    Nothing here reads the command's own report, and that is deliberate: only
+    the bytes settle whether anything was written. That is the same gap that
+    made the byte-survival check this test was split out of pass against every
+    mutant, since nothing had been written and so nothing could be lost. What
+    the commands say about it is the test below.
     """
     if not runner.is_xnedit:
         pytest.skip(
@@ -299,6 +298,83 @@ def test_a_command_does_not_hang_on_a_buffer_xnedit_locked(
     )
     assert run.output == source, (
         f"{command.name} wrote to a locked buffer: {run.output!r}"
+    )
+
+
+#: What a command prints in the terminal when it refuses to touch the buffer.
+#: The same words the tab refusal uses, because it is the same kind of answer:
+#: the command ran, found it could do nothing, and did nothing.
+REFUSED = "nothing changed"
+
+
+@pytest.mark.xnedit
+@pytest.mark.parametrize("command", command_files(REPO_ROOT), ids=lambda p: p.stem)
+def test_a_command_refuses_a_buffer_xnedit_locked_and_says_so(
+    command: Path, runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The other half of the test above: what the person running it is told.
+
+    Nothing a command computes can reach a locked buffer, so its report is the
+    only output it has, and for a while every one of them reported what it had
+    computed instead. Trim Trailing Blanks announced two trimmed lines that
+    were still there. Fold Letters to ASCII listed Greek letters by line and
+    column and said the cursor was parked on the first, having moved nothing
+    and folded nothing. That sends someone off to inspect replacements that
+    were never made.
+
+    So the refusal is what gets asserted here rather than a count: the terminal
+    line says nothing changed, and the dialog names the file, says nothing was
+    changed, and gives the encoding lock as the usual reason.
+
+    The same buffer as the test above, and the byte check is repeated, because
+    a command that reported a refusal and wrote anyway would be worse than
+    either failure on its own.
+    """
+    if not runner.is_xnedit:
+        pytest.skip(
+            "the lock is XNEdit's encoding handling, which NEdit 5.7 predates: "
+            f"it reads the file as bytes and edits it happily (running "
+            f"{runner.version})"
+        )
+
+    setup, decodable = _rewrite_case(command)
+    source = decodable.replace(DEGREE, b"\xb0")
+    assert source != decodable, f"{command.name}: no degree sign to break"
+
+    run = runner.run_on_bytes(
+        _with_setup(command, setup), source, tmp_path, name="undecodable.txt"
+    )
+
+    assert run.ok, f"{command.name}: {run.describe()}"
+    assert run.output == source, (
+        f"{command.name} wrote to a locked buffer: {run.output!r}"
+    )
+    assert REFUSED in run.messages, (
+        f"{command.name} did not say it had left the buffer alone. Its summary "
+        f"has to report the refusal rather than the work it would have done: "
+        f"{run.messages!r}"
+    )
+
+    assert len(run.dialogs) == 1, (
+        f"{command.name} should put the reason in front of whoever ran it, "
+        f"once: {run.dialogs}"
+    )
+    message = run.dialogs[0]
+    assert message.startswith("undecodable.txt is locked, so nothing was changed"), (
+        f"{command.name} does not name the file and say nothing changed: {message!r}"
+    )
+    assert "UTF-8" in message, (
+        f"{command.name} does not say why the file is likely to be locked, "
+        f"which is the one thing the person reading this cannot work out from "
+        f"the buffer: {message!r}"
+    )
+
+    # Only Pipe at Columns asks anything, and the guard sits in front of its
+    # prompt on purpose. A question whose answer cannot be acted on is worse
+    # than no question.
+    assert run.prompts == [], (
+        f"{command.name} put a question to the user before finding out it "
+        f"could not write: {run.prompts}"
     )
 
 

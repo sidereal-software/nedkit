@@ -56,6 +56,10 @@ degree sign included. Run Normalize Characters to get those counted.
 A run that finds nothing leaves the buffer, the undo history and the modified
 flag untouched.
 
+It refuses a locked buffer, because nothing written to one lands. XNEdit
+locks a file it cannot read as UTF-8, which is the usual reason; File > Read
+Only and a file with no write permission lock one too.
+
 A buffer with any accented letter in it gets scanned once per accented entry
 in the table, so a file of several megabytes stalls. That size of job belongs
 in Python rather than in the editor.
@@ -63,9 +67,22 @@ in Python rather than in the editor.
 ??? example "The macro body, ready to paste"
 
     ```
-    original = get_range(0, $text_length)
-    cleaned = original
     fixed = ""
+    ok = 1
+    msg = ""
+
+    # A locked buffer takes no writes. replace_range() on one does nothing and says
+    # nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_range() itself refuses on.
+    if ($read_only == 1) {
+        ok = 0
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    }
 
     # Any byte with the high bit set, i.e. any part of any non-ASCII character.
     # The buffer holds UTF-8 and macro positions are byte offsets, so this is a
@@ -353,125 +370,135 @@ in Python rather than in the editor.
     # a Greek letter with a second code point
     grk["\xc2\xb5"] = "u"
 
-    # The accented letters. Skipped outright on a buffer that is already pure
-    # ASCII, which turns the common case into one scan instead of one per entry.
-    if (search_string(cleaned, high_byte, 0, "regex") != -1) {
-        # One scan per distinct lead byte, three of them here, answers for every
-        # entry that starts with it, so a paste with no accents in it never pays
-        # for the 190 accented entries. Memoising against a buffer that changes
-        # under the loop is safe because every replacement is ASCII and so cannot
-        # put a lead byte back in.
-        seen = $empty_array
-
-        for (ch in fix) {
-            lead = substring(ch, 0, 1)
-            if (lead in seen) {
-                here = seen[lead]
-            } else {
-                here = 0
-                if (search_string(cleaned, lead, 0, "case") != -1) {
-                    here = 1
-                }
-                seen[lead] = here
-            }
-
-            if (here == 1) {
-                if (search_string(cleaned, ch, 0, "case") != -1) {
-                    # "copy" is not optional. Without it replace_in_string()
-                    # returns an empty string whenever the pattern does not match,
-                    # and this loop would erase the buffer on its first miss.
-                    cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
-                    fixed = fixed "  " ch " -> " fix[ch] "\n"
-                }
-            }
-        }
-    }
-
-    # Greek, in two passes. The first records where every letter is while the text
-    # still holds them, because those offsets are what the report turns into line
-    # and column numbers; the second replaces them. Nothing caps the scan: the
-    # index it builds is what drives the replacement, so a cap would mean a silent
-    # partial conversion.
-    #
-    # Every grk[] key is two bytes and every replacement is one, so an offset taken
-    # here, less the bytes the folds ahead of it removed, is the offset in the
-    # finished buffer. shrink is written out as the lengths rather than as a count
-    # of letters, so an entry that is not two bytes to one would still be right.
+    # What the report reads, whether or not the work below runs. found[], gpos[]
+    # and gch[] are filled by the Greek scan; every grk[] key is two bytes and
+    # every replacement is one, so an offset taken there, less the bytes the folds
+    # ahead of it removed, is the offset in the finished buffer. shrink is written
+    # out as the lengths rather than as a count of letters, so an entry that is not
+    # two bytes to one would still be right.
     found = $empty_array
     gpos = $empty_array
     gch = $empty_array
+    glist = ""
     n_greek = 0
     n_shown = 0
     shrink = 0
 
-    pos = search_string(cleaned, greek_char, 0, "regex")
-    while (pos != -1) {
-        # $search_end is global and the next search overwrites it, so read it
-        # before anything else touches the string.
-        stop = $search_end
-        ch = substring(cleaned, pos, stop)
-        if (ch in grk) {
-            # Positions are kept for the first 20 only, which is as much as a
-            # dialog can usefully hold. The count below is of all of them.
-            if (n_shown < 20) {
-                gpos[n_shown] = pos - shrink
-                gch[n_shown] = ch
-                n_shown++
+    if (ok == 1) {
+        original = get_range(0, $text_length)
+        cleaned = original
+
+        # The accented letters. Skipped outright on a buffer that is already pure
+        # ASCII, which turns the common case into one scan instead of one per
+        # entry.
+        if (search_string(cleaned, high_byte, 0, "regex") != -1) {
+            # One scan per distinct lead byte, three of them here, answers for
+            # every entry that starts with it, so a paste with no accents in it
+            # never pays for the 190 accented entries. Memoising against a buffer
+            # that changes under the loop is safe because every replacement is
+            # ASCII and so cannot put a lead byte back in.
+            seen = $empty_array
+
+            for (ch in fix) {
+                lead = substring(ch, 0, 1)
+                if (lead in seen) {
+                    here = seen[lead]
+                } else {
+                    here = 0
+                    if (search_string(cleaned, lead, 0, "case") != -1) {
+                        here = 1
+                    }
+                    seen[lead] = here
+                }
+
+                if (here == 1) {
+                    if (search_string(cleaned, ch, 0, "case") != -1) {
+                        # "copy" is not optional. Without it replace_in_string()
+                        # returns an empty string whenever the pattern does not
+                        # match, and this loop would erase the buffer on its first
+                        # miss.
+                        cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
+                        fixed = fixed "  " ch " -> " fix[ch] "\n"
+                    }
+                }
             }
-            shrink = shrink + (stop - pos) - length(grk[ch])
-            found[ch] = 1
-            n_greek++
         }
-        pos = search_string(cleaned, greek_char, stop, "regex")
-    }
 
-    for (ch in found) {
-        cleaned = replace_in_string(cleaned, ch, grk[ch], "case", "copy")
-    }
-
-    # Write back, once, only if there is a change to make.
-    if (cleaned != original) {
-        saved_cursor = $cursor
-        replace_range(0, $text_length, cleaned)
-
-        # An accented letter is longer than what replaces it, so the buffer usually
-        # got shorter and the old offset may be past the end. Belt and braces:
-        # set_cursor_pos() clamps to the end of the buffer itself, on XNEdit and on
-        # NEdit 5.7 alike, so no test can reach the line below.
-        if (saved_cursor > $text_length) {
-            saved_cursor = $text_length
+        # Greek, in two passes. The first records where every letter is while the
+        # text still holds them, because those offsets are what the report turns
+        # into line and column numbers; the second replaces them. Nothing caps the
+        # scan: the index it builds is what drives the replacement, so a cap would
+        # mean a silent partial conversion.
+        pos = search_string(cleaned, greek_char, 0, "regex")
+        while (pos != -1) {
+            # $search_end is global and the next search overwrites it, so read it
+            # before anything else touches the string.
+            stop = $search_end
+            ch = substring(cleaned, pos, stop)
+            if (ch in grk) {
+                # Positions are kept for the first 20 only, which is as much as a
+                # dialog can usefully hold. The count below is of all of them.
+                if (n_shown < 20) {
+                    gpos[n_shown] = pos - shrink
+                    gch[n_shown] = ch
+                    n_shown++
+                }
+                shrink = shrink + (stop - pos) - length(grk[ch])
+                found[ch] = 1
+                n_greek++
+            }
+            pos = search_string(cleaned, greek_char, stop, "regex")
         }
-        set_cursor_pos(saved_cursor)
-    }
 
-    # Line and column for each Greek letter, now that the buffer holds the finished
-    # text. set_cursor_pos() and then $line and $column are the editor's own
-    # arithmetic, the same numbers the statistics line shows as L: and C:, so
-    # nothing here counts a column by hand. A tab would make a column ambiguous, so
-    # run this after Normalize Characters, which takes the tabs out.
-    glist = ""
-    for (i = 0; i < n_shown; i++) {
-        # On a buffer XNEdit locked, the write above did not land and these offsets
-        # address text that is not there. Belt and braces twice over: a locked
-        # buffer keeps the longer text these offsets were taken from, so they fit
-        # it, and set_cursor_pos() clamps to the end of the buffer itself on both
-        # forks anyway. No test can reach the line below.
-        if (gpos[i] > $text_length) {
-            gpos[i] = $text_length
+        for (ch in found) {
+            cleaned = replace_in_string(cleaned, ch, grk[ch], "case", "copy")
         }
-        set_cursor_pos(gpos[i])
-        glist = glist "    line " $line ", column " $column "    " gch[i] " -> " grk[gch[i]] "\n"
-    }
 
-    # The cursor ends on the first Greek letter, because that is the one thing here
-    # that asks for a decision. With no Greek it stays where it was.
-    if (n_greek > 0) {
-        set_cursor_pos(gpos[0])
+        # Write back, once, only if there is a change to make.
+        if (cleaned != original) {
+            saved_cursor = $cursor
+            replace_range(0, $text_length, cleaned)
+
+            # An accented letter is longer than what replaces it, so the buffer
+            # usually got shorter and the old offset may be past the end. Belt and
+            # braces: set_cursor_pos() clamps to the end of the buffer itself, on
+            # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
+            if (saved_cursor > $text_length) {
+                saved_cursor = $text_length
+            }
+            set_cursor_pos(saved_cursor)
+        }
+
+        # Line and column for each Greek letter, now that the buffer holds the
+        # finished text. set_cursor_pos() and then $line and $column are the
+        # editor's own arithmetic, the same numbers the statistics line shows as L:
+        # and C:, so nothing here counts a column by hand. A tab would make a
+        # column ambiguous, so run this after Normalize Characters, which takes the
+        # tabs out.
+        for (i = 0; i < n_shown; i++) {
+            # These are offsets into the finished text, and the guard at the top is
+            # what says the write above landed, so they fit the buffer. Belt and
+            # braces: set_cursor_pos() clamps to the end of the buffer itself, on
+            # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
+            if (gpos[i] > $text_length) {
+                gpos[i] = $text_length
+            }
+            set_cursor_pos(gpos[i])
+            glist = glist "    line " $line ", column " $column "    " gch[i] " -> " grk[gch[i]] "\n"
+        }
+
+        # The cursor ends on the first Greek letter, because that is the one thing
+        # here that asks for a decision. With no Greek it stays where it was.
+        if (n_greek > 0) {
+            set_cursor_pos(gpos[0])
+        }
     }
 
     # Report. t_print() goes to the terminal that launched xnedit, so the routine
     # case stays quiet; the dialog is reserved for the case that wants a human.
-    if (fixed == "" && n_greek == 0) {
+    if (ok == 0) {
+        t_print("fold: " $file_name ": nothing changed\n")
+    } else if (fixed == "" && n_greek == 0) {
         t_print("fold: " $file_name ": nothing to change\n")
     } else {
         t_print("fold: " $file_name ":\n" fixed glist)
@@ -496,6 +523,9 @@ in Python rather than in the editor.
         }
         msg = msg "\nLines count from 1 and columns from 0, the same as the "
         msg = msg "statistics line. The cursor is on the first one."
+    }
+
+    if (msg != "") {
         dialog(msg, "OK")
     }
     ```
@@ -525,12 +555,29 @@ says so in a dialog. Nothing is changed silently and nothing hides.
 A run that finds nothing leaves the buffer, the undo history and the
 modified flag untouched.
 
+It refuses a locked buffer, because nothing written to one lands. XNEdit
+locks a file it cannot read as UTF-8, which is the usual reason; File > Read
+Only and a file with no write permission lock one too.
+
 ??? example "The macro body, ready to paste"
 
     ```
-    original = get_range(0, $text_length)
-    cleaned = original
     fixed = ""
+    ok = 1
+    msg = ""
+
+    # A locked buffer takes no writes. replace_range() on one does nothing and says
+    # nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_range() itself refuses on.
+    if ($read_only == 1) {
+        ok = 0
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    }
 
     # Any byte with the high bit set, i.e. any part of any non-ASCII character.
     # The buffer holds UTF-8 and macro positions are byte offsets, so this is a
@@ -717,76 +764,87 @@ modified flag untouched.
     fix["\xe2\x89\xa5"] = ">="
     nam["\xe2\x89\xa5"] = "U+2265 GREATER-THAN OR EQUAL TO"
 
-    # Stray carriage returns. A DOS-format file never shows these - XNEdit strips
-    # them on open and puts them back on save - but a pasted block can carry them
-    # into a Unix-format buffer.
-    if (search_string(cleaned, "\r", 0, "case") != -1) {
-        cleaned = replace_in_string(cleaned, "\r\n", "\n", "case", "copy")
-        cleaned = replace_in_string(cleaned, "\r", "\n", "case", "copy")
-        fixed = fixed "  carriage return -> newline\n"
-    }
-
-    # Tabs. One tab becomes one space, which does not preserve column alignment.
-    # XNEdit has nothing that expands a tab to the spaces it stands for, so when the
-    # columns have to survive, select the file and run expand through
-    # Shell > Filter Selection instead of this.
-    if (search_string(cleaned, "\t", 0, "case") != -1) {
-        cleaned = replace_in_string(cleaned, "\t", " ", "case", "copy")
-        fixed = fixed "  tab -> space\n"
-    }
-
-    # The table itself. Skipped outright on a buffer that is already pure ASCII,
-    # which turns the common case into one scan instead of one per entry.
-    if (search_string(cleaned, high_byte, 0, "regex") != -1) {
-        for (ch in fix) {
-            before = cleaned
-            # "copy" is not optional. Without it replace_in_string() returns an
-            # empty string whenever the pattern does not match, and this loop
-            # would erase the buffer on its first miss.
-            cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
-            if (cleaned != before) {
-                fixed = fixed "  " nam[ch] "\n"
-            }
-        }
-    }
-
-    # Write back, once, only if there is a change to make.
-    if (cleaned != original) {
-        saved_cursor = $cursor
-        replace_range(0, $text_length, cleaned)
-
-        # The buffer usually got shorter, so the old offset may be past the end.
-        # Belt and braces: set_cursor_pos() clamps to the end of the buffer itself,
-        # on XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
-        if (saved_cursor > $text_length) {
-            saved_cursor = $text_length
-        }
-        set_cursor_pos(saved_cursor)
-    }
-
-    # What is still not ASCII. Counted per character, capped so that a buffer of
-    # mostly non-Latin text cannot turn this into a long stall.
+    # What the report reads, whether or not the work below runs.
     left = $empty_array
     n_left = 0
     first_left = -1
-    pos = search_string(cleaned, high_char, 0, "regex")
-    while (pos != -1 && n_left < 2000) {
-        if (first_left == -1) {
-            first_left = pos
+
+    if (ok == 1) {
+        original = get_range(0, $text_length)
+        cleaned = original
+
+        # Stray carriage returns. A DOS-format file never shows these - XNEdit
+        # strips them on open and puts them back on save - but a pasted block can
+        # carry them into a Unix-format buffer.
+        if (search_string(cleaned, "\r", 0, "case") != -1) {
+            cleaned = replace_in_string(cleaned, "\r\n", "\n", "case", "copy")
+            cleaned = replace_in_string(cleaned, "\r", "\n", "case", "copy")
+            fixed = fixed "  carriage return -> newline\n"
         }
-        ch = substring(cleaned, pos, $search_end)
-        if (ch in left) {
-            left[ch] = left[ch] + 1
-        } else {
-            left[ch] = 1
+
+        # Tabs. One tab becomes one space, which does not preserve column
+        # alignment. XNEdit has nothing that expands a tab to the spaces it stands
+        # for, so when the columns have to survive, select the file and run expand
+        # through Shell > Filter Selection instead of this.
+        if (search_string(cleaned, "\t", 0, "case") != -1) {
+            cleaned = replace_in_string(cleaned, "\t", " ", "case", "copy")
+            fixed = fixed "  tab -> space\n"
         }
-        n_left++
-        pos = search_string(cleaned, high_char, $search_end, "regex")
+
+        # The table itself. Skipped outright on a buffer that is already pure
+        # ASCII, which turns the common case into one scan instead of one per
+        # entry.
+        if (search_string(cleaned, high_byte, 0, "regex") != -1) {
+            for (ch in fix) {
+                before = cleaned
+                # "copy" is not optional. Without it replace_in_string() returns an
+                # empty string whenever the pattern does not match, and this loop
+                # would erase the buffer on its first miss.
+                cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
+                if (cleaned != before) {
+                    fixed = fixed "  " nam[ch] "\n"
+                }
+            }
+        }
+
+        # Write back, once, only if there is a change to make.
+        if (cleaned != original) {
+            saved_cursor = $cursor
+            replace_range(0, $text_length, cleaned)
+
+            # The buffer usually got shorter, so the old offset may be past the
+            # end. Belt and braces: set_cursor_pos() clamps to the end of the
+            # buffer itself, on XNEdit and on NEdit 5.7 alike, so no test can reach
+            # the line below.
+            if (saved_cursor > $text_length) {
+                saved_cursor = $text_length
+            }
+            set_cursor_pos(saved_cursor)
+        }
+
+        # What is still not ASCII. Counted per character, capped so that a buffer
+        # of mostly non-Latin text cannot turn this into a long stall.
+        pos = search_string(cleaned, high_char, 0, "regex")
+        while (pos != -1 && n_left < 2000) {
+            if (first_left == -1) {
+                first_left = pos
+            }
+            ch = substring(cleaned, pos, $search_end)
+            if (ch in left) {
+                left[ch] = left[ch] + 1
+            } else {
+                left[ch] = 1
+            }
+            n_left++
+            pos = search_string(cleaned, high_char, $search_end, "regex")
+        }
     }
 
     # Report. t_print() goes to the terminal that launched xnedit, so the routine
     # case stays quiet; the dialog is reserved for the case that wants a human.
-    if (fixed == "") {
+    if (ok == 0) {
+        t_print("normalize: " $file_name ": nothing changed\n")
+    } else if (fixed == "") {
         t_print("normalize: " $file_name ": nothing to change\n")
     } else {
         t_print("normalize: " $file_name ":\n" fixed)
@@ -811,6 +869,9 @@ modified flag untouched.
         msg = msg "\nThe cursor is on the first one, line " $line ". Fix those by "
         msg = msg "hand, or add them to the table in this macro if the answer is "
         msg = msg "always the same."
+    }
+
+    if (msg != "") {
         dialog(msg, "OK")
     }
     ```
@@ -862,6 +923,10 @@ measured on a line holding one would be wrong. Replace the tabs with the
 spaces they stand for first: select the whole file and run expand through
 Shell > Filter Selection.
 
+It refuses a locked buffer too, because nothing written to one lands. XNEdit
+locks a file it cannot read as UTF-8, which is the usual reason; File > Read
+Only and a file with no write permission lock one too.
+
 Rows whose field count differs from the first data row are padded as far as
 they go and then reported, by count and first line number. No empty field is
 invented to make a row fit, because a short row usually means a value went
@@ -872,15 +937,6 @@ A second run finds the file already square and leaves it alone.
 ??? example "The macro body, ready to paste"
 
     ```
-    original = get_range(0, $text_length)
-
-    # split() on "\n" yields one element per line plus a trailing empty element
-    # when the buffer ends in a newline, so joining the elements back with "\n"
-    # reproduces the buffer exactly. That is what lets the no-change case below be
-    # a plain string comparison.
-    lines = split(original, "\n", "case")
-    n_lines = lines[]
-
     # Arrays have to exist before "in" is used on them.
     keep = $empty_array
     cell = $empty_array
@@ -895,19 +951,43 @@ A second run finds the file already square and leaves it alone.
     ragged = 0
     first_ragged = 0
 
-    # A tab is one character and any number of columns, so a width measured on a
-    # line holding one is not a width. Refusing here keeps tab stops out of every
-    # measurement below.
-    if (search_string(original, "\t", 0, "case") != -1) {
+    # A locked buffer takes no writes. replace_range() on one does nothing and says
+    # nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_range() itself refuses on.
+    if ($read_only == 1) {
         ok = 0
-        msg = $file_name " has a tab in it, so there is no telling which column "
-        msg = msg "anything is in: a tab is one character and however many "
-        msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
-        msg = msg "tabs with the spaces they stand for first: select the whole "
-        msg = msg "file and run expand through Shell > Filter Selection, which "
-        msg = msg "leaves the columns where they sit on screen. Normalize "
-        msg = msg "Characters takes tabs out too, but it writes one space for "
-        msg = msg "each, which usually closes the columns up."
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    }
+
+    if (ok == 1) {
+        original = get_range(0, $text_length)
+
+        # split() on "\n" yields one element per line plus a trailing empty element
+        # when the buffer ends in a newline, so joining the elements back with "\n"
+        # reproduces the buffer exactly. That is what lets the no-change case below
+        # be a plain string comparison.
+        lines = split(original, "\n", "case")
+        n_lines = lines[]
+
+        # A tab is one character and any number of columns, so a width measured on
+        # a line holding one is not a width. Refusing here keeps tab stops out of
+        # every measurement below.
+        if (search_string(original, "\t", 0, "case") != -1) {
+            ok = 0
+            msg = $file_name " has a tab in it, so there is no telling which column "
+            msg = msg "anything is in: a tab is one character and however many "
+            msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
+            msg = msg "tabs with the spaces they stand for first: select the whole "
+            msg = msg "file and run expand through Shell > Filter Selection, which "
+            msg = msg "leaves the columns where they sit on screen. Normalize "
+            msg = msg "Characters takes tabs out too, but it writes one space for "
+            msg = msg "each, which usually closes the columns up."
+        }
     }
 
     # --- pass 1: split every row on "|" and measure each column -----------------
@@ -1116,8 +1196,12 @@ column you named rather than each one shifting the next along. It also means
 a second run inserts a second set of pipes. Overwrite can be run again
 safely; multi-column insert cannot.
 
-Four things it refuses rather than guesses at:
+Five things it refuses rather than guesses at:
 
+  - A locked buffer. Nothing written to one lands. The check runs before the
+    prompt, so it does not ask which columns to pipe first. XNEdit locks a
+    file it cannot read as UTF-8, which is the usual reason; File > Read Only
+    and a file with no write permission lock one too.
   - Column 0. A pipe at the start of a line opens the table with an empty
     field, which is never what a fixed-width table wants.
   - Under Overwrite, a row holding anything but a space at one of those
@@ -1135,9 +1219,8 @@ So read the report before you go on. A skipped row usually means a column is
 a place or two off.
 
 Columns are counted as they are displayed, so an en dash counts as one column
-though it takes three bytes. That holds for anything XNEdit can decode; on a
-file it cannot, the count drifts, but XNEdit locks such a file against
-editing anyway.
+though it takes three bytes. That holds for anything XNEdit can decode. A file
+it cannot decode is locked, which the first refusal above catches.
 
 For one column with no dialog in the way, use Pipe at Cursor Column.
 
@@ -1152,27 +1235,45 @@ For one column with no dialog in the way, use Pipe at Cursor Column.
     ok = 0
     msg = ""
 
-    # string_dialog() takes no default text, so the message is the only place to
-    # put the current column.
-    prompt = "Which columns should get a pipe?\n\n"
-    prompt = prompt "Type the numbers separated by spaces or commas. They count "
-    prompt = prompt "from 0, the way the C: field of the statistics line counts, "
-    prompt = prompt "and the cursor is in column " $column " right now.\n\n"
-    prompt = prompt "Overwrite writes a pipe over the character at each column, "
-    prompt = prompt "and only where that character is a space.\n\n"
-    prompt = prompt "Insert puts the pipe in and pushes the rest of the line right, "
-    prompt = prompt "which loses nothing but widens every row it touches."
+    # A locked buffer takes no writes. replace_range() on one does nothing and says
+    # nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_range() itself refuses on.
+    #
+    # It goes here rather than in the shared block below, because the prompt is in
+    # between: asking which columns to pipe and then refusing to pipe any of them
+    # is worse than not asking.
+    if ($read_only == 1) {
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    } else {
+        # string_dialog() takes no default text, so the message is the only place
+        # to put the current column.
+        prompt = "Which columns should get a pipe?\n\n"
+        prompt = prompt "Type the numbers separated by spaces or commas. They "
+        prompt = prompt "count from 0, the way the C: field of the statistics line "
+        prompt = prompt "counts, and the cursor is in column " $column " right "
+        prompt = prompt "now.\n\n"
+        prompt = prompt "Overwrite writes a pipe over the character at each "
+        prompt = prompt "column, and only where that character is a space.\n\n"
+        prompt = prompt "Insert puts the pipe in and pushes the rest of the line "
+        prompt = prompt "right, which loses nothing but widens every row it "
+        prompt = prompt "touches."
 
-    answer = string_dialog(prompt, "Overwrite", "Insert", "Cancel")
+        answer = string_dialog(prompt, "Overwrite", "Insert", "Cancel")
 
-    # Button 3 is Cancel and button 0 is the window manager's close button. Both
-    # leave ok at 0, and so does anything else the dialog might return.
-    if ($string_dialog_button == 1) {
-        mode = "overwrite"
-        ok = 1
-    } else if ($string_dialog_button == 2) {
-        mode = "insert"
-        ok = 1
+        # Button 3 is Cancel and button 0 is the window manager's close button.
+        # Both leave ok at 0, and so does anything else the dialog might return.
+        if ($string_dialog_button == 1) {
+            mode = "overwrite"
+            ok = 1
+        } else if ($string_dialog_button == 2) {
+            mode = "insert"
+            ok = 1
+        }
     }
 
     if (ok == 1) {
@@ -1476,8 +1577,11 @@ Preferences > Statistics Line puts that number on screen while you aim.
 Right-clicking does not move the cursor, so left-click the column first when
 you run this from the background menu.
 
-Four things it refuses rather than guesses at:
+Five things it refuses rather than guesses at:
 
+  - A locked buffer. Nothing written to one lands. XNEdit locks a file it
+    cannot read as UTF-8, which is the usual reason; File > Read Only and a
+    file with no write permission lock one too.
   - Column 0. A pipe at the start of a line opens the table with an empty
     field, which is never what a fixed-width table wants.
   - A row holding anything but a space at that column. Overwriting there
@@ -1494,9 +1598,8 @@ So read the report before you go on. A skipped row usually means the column
 is a place or two off.
 
 Columns are counted as they are displayed, so an en dash counts as one column
-though it takes three bytes. That holds for anything XNEdit can decode; on a
-file it cannot, the count drifts, but XNEdit locks such a file against
-editing anyway.
+though it takes three bytes. That holds for anything XNEdit can decode. A file
+it cannot decode is locked, which the first refusal above catches.
 
 For several columns at once, or to push the line right instead of writing
 over the space, use Pipe at Columns.
@@ -1512,9 +1615,21 @@ over the space, use Pipe at Columns.
     ok = 1
     msg = ""
 
+    # A locked buffer takes no writes. replace_range() on one does nothing and says
+    # nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_range() itself refuses on.
+    #
     # $column is the display column counting from 0, the same number the C: field
     # of the statistics line shows.
-    if ($column == 0) {
+    if ($read_only == 1) {
+        ok = 0
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    } else if ($column == 0) {
         ok = 0
         msg = "The cursor is in column 0, at the very start of the line.\n\nA pipe "
         msg = msg "there would open the table with an empty field. Put the cursor "
@@ -1756,46 +1871,75 @@ file and the undo history alone when there is nothing to trim.
 Either way it prints a line in the terminal xnedit was launched from, with
 the number of lines it trimmed.
 
+It refuses a locked buffer, because nothing written to one lands. XNEdit
+locks a file it cannot read as UTF-8, which is the usual reason; File > Read
+Only and a file with no write permission lock one too.
+
 ??? example "The macro body, ready to paste"
 
     ```
-    original = get_range(0, $text_length)
+    ok = 1
+    msg = ""
+    n_trimmed = 0
 
-    # The "copy" argument is doing real work here. Without it replace_in_string()
-    # returns an empty string when the pattern matches nothing, and the
-    # replace_range() below would then erase the entire file.
-    trimmed = replace_in_string(original, "[ \t]+$", "", "regex", "copy")
+    # A locked buffer takes no writes. replace_range() on one does nothing and says
+    # nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_range() itself refuses on.
+    if ($read_only == 1) {
+        ok = 0
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    }
 
-    if (trimmed != original) {
-        saved_cursor = $cursor
-        replace_range(0, $text_length, trimmed)
+    if (ok == 1) {
+        original = get_range(0, $text_length)
 
-        # The buffer just got shorter, so the old offset may now be past the end.
-        # Belt and braces: set_cursor_pos() clamps to the end of the buffer itself,
-        # on XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
-        if (saved_cursor > $text_length) {
-            saved_cursor = $text_length
+        # The "copy" argument is doing real work here. Without it
+        # replace_in_string() returns an empty string when the pattern matches
+        # nothing, and the replace_range() below would then erase the entire file.
+        trimmed = replace_in_string(original, "[ \t]+$", "", "regex", "copy")
+
+        if (trimmed != original) {
+            saved_cursor = $cursor
+            replace_range(0, $text_length, trimmed)
+
+            # The buffer just got shorter, so the old offset may now be past the
+            # end. Belt and braces: set_cursor_pos() clamps to the end of the
+            # buffer itself, on XNEdit and on NEdit 5.7 alike, so no test can reach
+            # the line below.
+            if (saved_cursor > $text_length) {
+                saved_cursor = $text_length
+            }
+            set_cursor_pos(saved_cursor)
         }
-        set_cursor_pos(saved_cursor)
+
+        # Count the lines that had blanks on the end of them, in the text as it
+        # came in. "$" anchors to the end of a line rather than the end of the
+        # string, so every match is one line, and $search_end is past the blanks it
+        # matched, which is what makes the search walk forward.
+        pos = search_string(original, "[ \t]+$", 0, "regex")
+        while (pos != -1) {
+            n_trimmed++
+            pos = search_string(original, "[ \t]+$", $search_end, "regex")
+        }
     }
 
     # --- report -----------------------------------------------------------------
-    #
-    # Count the lines that had blanks on the end of them, in the text as it came
-    # in. "$" anchors to the end of a line rather than the end of the string, so
-    # every match is one line, and $search_end is past the blanks it matched, which
-    # is what makes the search walk forward.
-    n_trimmed = 0
-    pos = search_string(original, "[ \t]+$", 0, "regex")
-    while (pos != -1) {
-        n_trimmed++
-        pos = search_string(original, "[ \t]+$", $search_end, "regex")
-    }
 
-    if (n_trimmed == 0) {
+    if (ok == 0) {
+        t_print("trim: " $file_name ": nothing changed\n")
+    } else if (n_trimmed == 0) {
         t_print("trim: " $file_name ": nothing to trim\n")
     } else {
         t_print("trim: " $file_name ": " n_trimmed " line(s) trimmed\n")
+    }
+
+    if (msg != "") {
+        dialog(msg, "OK")
     }
     ```
 

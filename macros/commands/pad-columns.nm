@@ -37,6 +37,10 @@
 # spaces they stand for first: select the whole file and run expand through
 # Shell > Filter Selection.
 #
+# It refuses a locked buffer too, because nothing written to one lands. XNEdit
+# locks a file it cannot read as UTF-8, which is the usual reason; File > Read
+# Only and a file with no write permission lock one too.
+#
 # Rows whose field count differs from the first data row are padded as far as
 # they go and then reported, by count and first line number. No empty field is
 # invented to make a row fit, because a short row usually means a value went
@@ -54,15 +58,6 @@
 # Preferences > Default Settings > Customize Menus > Macro Menu, then
 # Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
 
-original = get_range(0, $text_length)
-
-# split() on "\n" yields one element per line plus a trailing empty element
-# when the buffer ends in a newline, so joining the elements back with "\n"
-# reproduces the buffer exactly. That is what lets the no-change case below be
-# a plain string comparison.
-lines = split(original, "\n", "case")
-n_lines = lines[]
-
 # Arrays have to exist before "in" is used on them.
 keep = $empty_array
 cell = $empty_array
@@ -77,19 +72,43 @@ first_count = 0
 ragged = 0
 first_ragged = 0
 
-# A tab is one character and any number of columns, so a width measured on a
-# line holding one is not a width. Refusing here keeps tab stops out of every
-# measurement below.
-if (search_string(original, "\t", 0, "case") != -1) {
+# A locked buffer takes no writes. replace_range() on one does nothing and says
+# nothing, so everything below would be computed and thrown away and the
+# summary would name an edit that never happened. $read_only is the test and
+# not $locked: $locked misses a file with no write permission, while $read_only
+# is the same condition replace_range() itself refuses on.
+if ($read_only == 1) {
     ok = 0
-    msg = $file_name " has a tab in it, so there is no telling which column "
-    msg = msg "anything is in: a tab is one character and however many "
-    msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
-    msg = msg "tabs with the spaces they stand for first: select the whole "
-    msg = msg "file and run expand through Shell > Filter Selection, which "
-    msg = msg "leaves the columns where they sit on screen. Normalize "
-    msg = msg "Characters takes tabs out too, but it writes one space for "
-    msg = msg "each, which usually closes the columns up."
+    msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+    msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+    msg = msg "File > Read Only locks a buffer too, and so does a file with "
+    msg = msg "no write permission."
+}
+
+if (ok == 1) {
+    original = get_range(0, $text_length)
+
+    # split() on "\n" yields one element per line plus a trailing empty element
+    # when the buffer ends in a newline, so joining the elements back with "\n"
+    # reproduces the buffer exactly. That is what lets the no-change case below
+    # be a plain string comparison.
+    lines = split(original, "\n", "case")
+    n_lines = lines[]
+
+    # A tab is one character and any number of columns, so a width measured on
+    # a line holding one is not a width. Refusing here keeps tab stops out of
+    # every measurement below.
+    if (search_string(original, "\t", 0, "case") != -1) {
+        ok = 0
+        msg = $file_name " has a tab in it, so there is no telling which column "
+        msg = msg "anything is in: a tab is one character and however many "
+        msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
+        msg = msg "tabs with the spaces they stand for first: select the whole "
+        msg = msg "file and run expand through Shell > Filter Selection, which "
+        msg = msg "leaves the columns where they sit on screen. Normalize "
+        msg = msg "Characters takes tabs out too, but it writes one space for "
+        msg = msg "each, which usually closes the columns up."
+    }
 }
 
 # --- pass 1: split every row on "|" and measure each column -----------------

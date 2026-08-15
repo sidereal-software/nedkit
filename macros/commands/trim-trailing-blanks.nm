@@ -6,6 +6,10 @@
 # Either way it prints a line in the terminal xnedit was launched from, with
 # the number of lines it trimmed.
 #
+# It refuses a locked buffer, because nothing written to one lands. XNEdit
+# locks a file it cannot read as UTF-8, which is the usual reason; File > Read
+# Only and a file with no write permission lock one too.
+#
 #   Menu Entry:         NED>Trim Trailing Blanks
 #   Accelerator:        (none)
 #   Mnemonic:           (none)
@@ -16,41 +20,66 @@
 # Preferences > Default Settings > Customize Menus > Macro Menu, then
 # Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
 
-original = get_range(0, $text_length)
+ok = 1
+msg = ""
+n_trimmed = 0
 
-# The "copy" argument is doing real work here. Without it replace_in_string()
-# returns an empty string when the pattern matches nothing, and the
-# replace_range() below would then erase the entire file.
-trimmed = replace_in_string(original, "[ \t]+$", "", "regex", "copy")
+# A locked buffer takes no writes. replace_range() on one does nothing and says
+# nothing, so everything below would be computed and thrown away and the
+# summary would name an edit that never happened. $read_only is the test and
+# not $locked: $locked misses a file with no write permission, while $read_only
+# is the same condition replace_range() itself refuses on.
+if ($read_only == 1) {
+    ok = 0
+    msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+    msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+    msg = msg "File > Read Only locks a buffer too, and so does a file with "
+    msg = msg "no write permission."
+}
 
-if (trimmed != original) {
-    saved_cursor = $cursor
-    replace_range(0, $text_length, trimmed)
+if (ok == 1) {
+    original = get_range(0, $text_length)
 
-    # The buffer just got shorter, so the old offset may now be past the end.
-    # Belt and braces: set_cursor_pos() clamps to the end of the buffer itself,
-    # on XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
-    if (saved_cursor > $text_length) {
-        saved_cursor = $text_length
+    # The "copy" argument is doing real work here. Without it
+    # replace_in_string() returns an empty string when the pattern matches
+    # nothing, and the replace_range() below would then erase the entire file.
+    trimmed = replace_in_string(original, "[ \t]+$", "", "regex", "copy")
+
+    if (trimmed != original) {
+        saved_cursor = $cursor
+        replace_range(0, $text_length, trimmed)
+
+        # The buffer just got shorter, so the old offset may now be past the
+        # end. Belt and braces: set_cursor_pos() clamps to the end of the
+        # buffer itself, on XNEdit and on NEdit 5.7 alike, so no test can reach
+        # the line below.
+        if (saved_cursor > $text_length) {
+            saved_cursor = $text_length
+        }
+        set_cursor_pos(saved_cursor)
     }
-    set_cursor_pos(saved_cursor)
+
+    # Count the lines that had blanks on the end of them, in the text as it
+    # came in. "$" anchors to the end of a line rather than the end of the
+    # string, so every match is one line, and $search_end is past the blanks it
+    # matched, which is what makes the search walk forward.
+    pos = search_string(original, "[ \t]+$", 0, "regex")
+    while (pos != -1) {
+        n_trimmed++
+        pos = search_string(original, "[ \t]+$", $search_end, "regex")
+    }
 }
 
 # --- report -----------------------------------------------------------------
-#
-# Count the lines that had blanks on the end of them, in the text as it came
-# in. "$" anchors to the end of a line rather than the end of the string, so
-# every match is one line, and $search_end is past the blanks it matched, which
-# is what makes the search walk forward.
-n_trimmed = 0
-pos = search_string(original, "[ \t]+$", 0, "regex")
-while (pos != -1) {
-    n_trimmed++
-    pos = search_string(original, "[ \t]+$", $search_end, "regex")
-}
 
-if (n_trimmed == 0) {
+if (ok == 0) {
+    t_print("trim: " $file_name ": nothing changed\n")
+} else if (n_trimmed == 0) {
     t_print("trim: " $file_name ": nothing to trim\n")
 } else {
     t_print("trim: " $file_name ": " n_trimmed " line(s) trimmed\n")
+}
+
+if (msg != "") {
+    dialog(msg, "OK")
 }

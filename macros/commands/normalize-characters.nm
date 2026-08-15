@@ -15,6 +15,10 @@
 # A run that finds nothing leaves the buffer, the undo history and the
 # modified flag untouched.
 #
+# It refuses a locked buffer, because nothing written to one lands. XNEdit
+# locks a file it cannot read as UTF-8, which is the usual reason; File > Read
+# Only and a file with no write permission lock one too.
+#
 #   Menu Entry:         NED>Normalize Characters
 #   Accelerator:        (none)
 #   Mnemonic:           (none)
@@ -25,9 +29,22 @@
 # Preferences > Default Settings > Customize Menus > Macro Menu, then
 # Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
 
-original = get_range(0, $text_length)
-cleaned = original
 fixed = ""
+ok = 1
+msg = ""
+
+# A locked buffer takes no writes. replace_range() on one does nothing and says
+# nothing, so everything below would be computed and thrown away and the
+# summary would name an edit that never happened. $read_only is the test and
+# not $locked: $locked misses a file with no write permission, while $read_only
+# is the same condition replace_range() itself refuses on.
+if ($read_only == 1) {
+    ok = 0
+    msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+    msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+    msg = msg "File > Read Only locks a buffer too, and so does a file with "
+    msg = msg "no write permission."
+}
 
 # Any byte with the high bit set, i.e. any part of any non-ASCII character.
 # The buffer holds UTF-8 and macro positions are byte offsets, so this is a
@@ -214,76 +231,87 @@ nam["\xe2\x89\xa4"] = "U+2264 LESS-THAN OR EQUAL TO"
 fix["\xe2\x89\xa5"] = ">="
 nam["\xe2\x89\xa5"] = "U+2265 GREATER-THAN OR EQUAL TO"
 
-# Stray carriage returns. A DOS-format file never shows these - XNEdit strips
-# them on open and puts them back on save - but a pasted block can carry them
-# into a Unix-format buffer.
-if (search_string(cleaned, "\r", 0, "case") != -1) {
-    cleaned = replace_in_string(cleaned, "\r\n", "\n", "case", "copy")
-    cleaned = replace_in_string(cleaned, "\r", "\n", "case", "copy")
-    fixed = fixed "  carriage return -> newline\n"
-}
-
-# Tabs. One tab becomes one space, which does not preserve column alignment.
-# XNEdit has nothing that expands a tab to the spaces it stands for, so when the
-# columns have to survive, select the file and run expand through
-# Shell > Filter Selection instead of this.
-if (search_string(cleaned, "\t", 0, "case") != -1) {
-    cleaned = replace_in_string(cleaned, "\t", " ", "case", "copy")
-    fixed = fixed "  tab -> space\n"
-}
-
-# The table itself. Skipped outright on a buffer that is already pure ASCII,
-# which turns the common case into one scan instead of one per entry.
-if (search_string(cleaned, high_byte, 0, "regex") != -1) {
-    for (ch in fix) {
-        before = cleaned
-        # "copy" is not optional. Without it replace_in_string() returns an
-        # empty string whenever the pattern does not match, and this loop
-        # would erase the buffer on its first miss.
-        cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
-        if (cleaned != before) {
-            fixed = fixed "  " nam[ch] "\n"
-        }
-    }
-}
-
-# Write back, once, only if there is a change to make.
-if (cleaned != original) {
-    saved_cursor = $cursor
-    replace_range(0, $text_length, cleaned)
-
-    # The buffer usually got shorter, so the old offset may be past the end.
-    # Belt and braces: set_cursor_pos() clamps to the end of the buffer itself,
-    # on XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
-    if (saved_cursor > $text_length) {
-        saved_cursor = $text_length
-    }
-    set_cursor_pos(saved_cursor)
-}
-
-# What is still not ASCII. Counted per character, capped so that a buffer of
-# mostly non-Latin text cannot turn this into a long stall.
+# What the report reads, whether or not the work below runs.
 left = $empty_array
 n_left = 0
 first_left = -1
-pos = search_string(cleaned, high_char, 0, "regex")
-while (pos != -1 && n_left < 2000) {
-    if (first_left == -1) {
-        first_left = pos
+
+if (ok == 1) {
+    original = get_range(0, $text_length)
+    cleaned = original
+
+    # Stray carriage returns. A DOS-format file never shows these - XNEdit
+    # strips them on open and puts them back on save - but a pasted block can
+    # carry them into a Unix-format buffer.
+    if (search_string(cleaned, "\r", 0, "case") != -1) {
+        cleaned = replace_in_string(cleaned, "\r\n", "\n", "case", "copy")
+        cleaned = replace_in_string(cleaned, "\r", "\n", "case", "copy")
+        fixed = fixed "  carriage return -> newline\n"
     }
-    ch = substring(cleaned, pos, $search_end)
-    if (ch in left) {
-        left[ch] = left[ch] + 1
-    } else {
-        left[ch] = 1
+
+    # Tabs. One tab becomes one space, which does not preserve column
+    # alignment. XNEdit has nothing that expands a tab to the spaces it stands
+    # for, so when the columns have to survive, select the file and run expand
+    # through Shell > Filter Selection instead of this.
+    if (search_string(cleaned, "\t", 0, "case") != -1) {
+        cleaned = replace_in_string(cleaned, "\t", " ", "case", "copy")
+        fixed = fixed "  tab -> space\n"
     }
-    n_left++
-    pos = search_string(cleaned, high_char, $search_end, "regex")
+
+    # The table itself. Skipped outright on a buffer that is already pure
+    # ASCII, which turns the common case into one scan instead of one per
+    # entry.
+    if (search_string(cleaned, high_byte, 0, "regex") != -1) {
+        for (ch in fix) {
+            before = cleaned
+            # "copy" is not optional. Without it replace_in_string() returns an
+            # empty string whenever the pattern does not match, and this loop
+            # would erase the buffer on its first miss.
+            cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")
+            if (cleaned != before) {
+                fixed = fixed "  " nam[ch] "\n"
+            }
+        }
+    }
+
+    # Write back, once, only if there is a change to make.
+    if (cleaned != original) {
+        saved_cursor = $cursor
+        replace_range(0, $text_length, cleaned)
+
+        # The buffer usually got shorter, so the old offset may be past the
+        # end. Belt and braces: set_cursor_pos() clamps to the end of the
+        # buffer itself, on XNEdit and on NEdit 5.7 alike, so no test can reach
+        # the line below.
+        if (saved_cursor > $text_length) {
+            saved_cursor = $text_length
+        }
+        set_cursor_pos(saved_cursor)
+    }
+
+    # What is still not ASCII. Counted per character, capped so that a buffer
+    # of mostly non-Latin text cannot turn this into a long stall.
+    pos = search_string(cleaned, high_char, 0, "regex")
+    while (pos != -1 && n_left < 2000) {
+        if (first_left == -1) {
+            first_left = pos
+        }
+        ch = substring(cleaned, pos, $search_end)
+        if (ch in left) {
+            left[ch] = left[ch] + 1
+        } else {
+            left[ch] = 1
+        }
+        n_left++
+        pos = search_string(cleaned, high_char, $search_end, "regex")
+    }
 }
 
 # Report. t_print() goes to the terminal that launched xnedit, so the routine
 # case stays quiet; the dialog is reserved for the case that wants a human.
-if (fixed == "") {
+if (ok == 0) {
+    t_print("normalize: " $file_name ": nothing changed\n")
+} else if (fixed == "") {
     t_print("normalize: " $file_name ": nothing to change\n")
 } else {
     t_print("normalize: " $file_name ":\n" fixed)
@@ -308,5 +336,8 @@ if (n_left > 0) {
     msg = msg "\nThe cursor is on the first one, line " $line ". Fix those by "
     msg = msg "hand, or add them to the table in this macro if the answer is "
     msg = msg "always the same."
+}
+
+if (msg != "") {
     dialog(msg, "OK")
 }
