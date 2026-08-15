@@ -497,9 +497,9 @@ search failure here is cheating users. This limit is not documented."
 XNEdit ships no test harness, so out of the box you have:
 
 - `t_print()` for tracing, visible in the terminal that launched XNEdit.
-- **Macro → Learn Keystrokes**, then **Macro → Replay**, to capture a sequence
+- **Macro > Learn Keystrokes**, then **Macro > Replay**, to capture a sequence
   and see it as macro text.
-- **Macro → Load Macro File** to run a `.nm` file without installing anything.
+- **Macro > Load Macro File** to run a `.nm` file without installing anything.
 - `xnedit -do 'command' file` to run a macro from the shell, and
   `xnc -do 'command'` against a running `xnedit -server` session.
 

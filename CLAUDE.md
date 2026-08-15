@@ -137,11 +137,11 @@ isn't showing up":
   any menu.
 - **Menu commands** (`macros/commands/`) have to end up inside `nedit.rc` as
   part of the `nedit.macroCommands` resource. Either paste them through
-  **Preferences → Default Settings → Customize Menus → Macro Menu**, or ship an
+  **Preferences > Default Settings > Customize Menus > Macro Menu**, or ship an
   `.rc` fragment and load it with `xnedit -import file` followed by
-  **Preferences → Save Defaults**.
+  **Preferences > Save Defaults**.
 - **Background menu commands** are the same thing in a different resource,
-  `nedit.bgMenuCommands`, installed through **Customize Menus → Window
+  `nedit.bgMenuCommands`, installed through **Customize Menus > Window
   Background Menu** and posted by a right-click in the text. Same entry format.
   Undo/Redo/Cut/Copy/Paste are not built in: they are that resource's default
   value, so they survive the dialog (which lists them) and an `-import` (which
@@ -381,6 +381,14 @@ correct human voice for it, so do not let the skill talk you into adding
 personality there.
 
 Never use an em dash. Headings are sentence case.
+
+**`>` separates menu levels and `→` means "becomes".** So
+`Preferences > Default Settings > Customize Menus`, and `α → a`. Menus take the
+plain character because a macro header cannot sensibly use anything else, and
+`tools/gen_docs.py` publishes those headers as a third of the site: one
+convention here means one convention everywhere. It is also how XNEdit spells a
+menu path itself, in `NED>Pipe at Columns`. The arrow keeps its own glyph
+because it says something different, and flattening the two would lose that.
 
 ## Git
 

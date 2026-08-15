@@ -23,7 +23,7 @@ select it and copy it.
 
 ### 2. Open the Macro Commands dialog
 
-**Preferences → Default Settings → Customize Menus → Macro Menu...**
+**Preferences > Default Settings > Customize Menus > Macro Menu...**
 
 ![The Preferences menu, with Default Settings, Customize Menus, and Macro Menu opened in turn](images/macro-menu-path.png)
 
@@ -57,7 +57,7 @@ the command and closes the dialog.
 
 ### 4. Save the defaults
 
-**Preferences → Save Defaults**, then **OK**.
+**Preferences > Save Defaults**, then **OK**.
 
 ![The Save Defaults confirmation, naming ~/.xnedit/nedit.rc](images/save-defaults.png)
 
@@ -80,12 +80,11 @@ it one click from the text it acts on.
 
 It is a different dialog from the one above, which is the step people miss:
 
-**Preferences → Default Settings → Customize Menus → Window Background
+**Preferences > Default Settings > Customize Menus > Window Background
 Menu...**
 
 The form is the one you have already filled in, minus the Requires Selection
-box. Paste the same body, click **Check**, then **OK**, then **Preferences →
-Save Defaults**. A command that belongs in both menus gets installed twice,
+box. Paste the same body, click **Check**, then **OK**, then **Preferences > Save Defaults**. A command that belongs in both menus gets installed twice,
 once through each dialog, and the two copies are independent: editing one does
 not touch the other.
 
@@ -113,7 +112,7 @@ cat macros/lib/text.nm >> ~/.xnedit/autoload.nm
 
 XNEdit does not create `autoload.nm` for you, but `>>` will. Restart XNEdit
 afterwards, then check it loaded by running one of its subroutines from
-**Macro → Execute Macro**.
+**Macro > Execute Macro**.
 
 Appending the same file twice defines the same subroutines twice. When you
 reinstall after an edit, delete the old block first.
@@ -127,7 +126,7 @@ from a file:
 xnedit -import ned-macros.rc
 ```
 
-Then **Preferences → Save Defaults** in the window that opens. The imported
+Then **Preferences > Save Defaults** in the window that opens. The imported
 commands are *merged* into whatever you already have, so this will not clobber
 your own macros.
 
@@ -203,8 +202,7 @@ antialiased text.
 Macro menu. `autoload.nm` defines subroutines; it does not create menu entries.
 
 **It's in the Macro menu but not on right-click.** Those are two dialogs, not
-one. Customize Menus → Macro Menu... fills the Macro menu; Customize Menus →
-Window Background Menu... fills the right-click menu. A command that belongs in
+one. Customize Menus > Macro Menu... fills the Macro menu; Customize Menus > Window Background Menu... fills the right-click menu. A command that belongs in
 both is pasted into both.
 
 **It was there yesterday and now it's gone.** Save Defaults was skipped.

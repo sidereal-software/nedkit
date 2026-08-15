@@ -32,8 +32,8 @@ cat macros/lib/*.nm >> ~/.xnedit/autoload.nm
 Menu commands are a separate step, because XNEdit keeps them inside its
 preferences file rather than as loose files on disk. Open a `.nm` file from
 `macros/commands/`, copy the body, and paste it into
-**Preferences → Default Settings → Customize Menus → Macro Menu**, then
-**Preferences → Save Defaults**.
+**Preferences > Default Settings > Customize Menus > Macro Menu**, then
+**Preferences > Save Defaults**.
 
 [Installing macros](https://nedkit.sidereal.software/installing-macros/) covers both paths
 properly, including where the config directory actually lives and how to
