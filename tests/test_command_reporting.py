@@ -88,7 +88,32 @@ def test_normalize_characters_reports_what_it_left_alone(
 
     message = run.dialogs[0]
     assert "1 kind(s) of non-ASCII character left, 2 in all" in message
-    assert "2x" in message
+    # The character as well as the count. A bare "2x" is also what a message
+    # saying 12x or 22x of something else contains, and it says nothing about
+    # which character the two were.
+    assert "2x  α" in message
+
+
+def test_normalize_characters_leaves_the_cursor_on_the_first_character_it_kept(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The dialog says the cursor is on the first one, so it has to be there.
+
+    The offset is into the buffer the command just wrote, not the one it was
+    handed. The en dash here is one character on the way in and shorter on the
+    way out, so a position taken before the rewrite puts the cursor two bytes
+    early, on the space in front of the alpha rather than on it.
+
+    Two characters it keeps, because landing on the second would also be an
+    answer and only the first is the one being promised.
+    """
+    run = runner.run_on_bytes(
+        body("normalize-characters") + "\n" + CURSOR_PROBE,
+        "abc – α def ω\n".encode(),
+        tmp_path,
+    )
+    assert run.ok, run.describe()
+    assert "cursor=6" in run.messages, run.messages
 
 
 def test_normalize_characters_reports_nothing_left_when_all_is_mapped(
@@ -599,3 +624,55 @@ def test_pad_columns_leaves_the_cursor_where_it_was(
     assert run.output is not None
     assert len(run.output) < len(LOOSELY_PIPED), "the buffer should have shrunk"
     assert "cursor=5" in run.messages, run.messages
+
+
+TRIM = "trim-trailing-blanks"
+
+
+def test_trim_trailing_blanks_says_so_when_there_is_nothing_to_trim(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The quiet answer is still an answer.
+
+    Nothing else on screen changes when a file comes back clean, so a command
+    that printed only when it had found something would be indistinguishable
+    from one that had not run.
+    """
+    run = runner.run_on_bytes(body(TRIM), b"NGC 4472 z=0.003326\n", tmp_path)
+    assert run.ok, run.describe()
+    assert "nothing to trim" in run.messages
+    assert run.dialogs == []
+
+
+def test_trim_trailing_blanks_counts_the_lines_it_trimmed(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """Lines, not matches and not lines in the file.
+
+    Four lines go in and three of them end in blanks. Every one also has a
+    space in the middle of it, which is what makes the count a count of lines:
+    the pattern is anchored to the end of a line, and without that anchor these
+    same four lines have nine runs of whitespace in them.
+    """
+    run = runner.run_on_bytes(
+        body(TRIM),
+        b"NGC 4472   \nIC 3583\nNGC 4486  \nESO 137-006 \n",
+        tmp_path,
+    )
+    assert run.ok, run.describe()
+    assert "3 line(s) trimmed" in run.messages
+    assert run.dialogs == []
+
+
+def test_trim_trailing_blanks_counts_a_line_that_is_nothing_but_blanks(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The one line where the blanks start at column 0.
+
+    A line of spaces is the whole match rather than the tail of one, and it is
+    the shape the counting loop is likeliest to walk off: the search resumes
+    from the end of what it matched, which on this line is the end of the line.
+    """
+    run = runner.run_on_bytes(body(TRIM), b"NGC 4472\n   \nIC 3583\n", tmp_path)
+    assert run.ok, run.describe()
+    assert "1 line(s) trimmed" in run.messages

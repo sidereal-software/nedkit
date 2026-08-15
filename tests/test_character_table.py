@@ -298,14 +298,14 @@ def test_every_replacement_is_pure_ascii() -> None:
 
 
 def test_the_degree_sign_is_in_neither_table() -> None:
-    """``test_command_does_not_corrupt_a_non_utf8_file`` rests on this.
+    """The ``REWRITES`` samples in tests/test_commands.py rest on this.
 
-    That test hands every command a latin-1 file and asserts the byte comes
-    back. It only means anything while no command maps the byte: an accented
-    letter would survive a UTF-8 locale because the buffer locks rather than
-    because the command left it alone, and would be folded away under a latin-1
-    one. The degree sign is left alone on purpose by both commands, which is
-    what makes it a safe sample.
+    Those hand every command a buffer it rewrites and assert the degree sign in
+    it comes back as the same two bytes. That only means anything while no
+    command maps the character: one with a replacement would come back changed
+    on purpose, and the test would be failing on the command doing its job.
+    An accented letter is no good for the same reason, and Fold Letters to
+    ASCII has an answer for most of them.
     """
     claimed = [
         path.name
@@ -315,8 +315,9 @@ def test_the_degree_sign_is_in_neither_table() -> None:
     ]
     assert claimed == [], (
         "the degree sign now has a replacement, so it is no longer a safe "
-        "sample for the latin-1 test in tests/test_commands.py. Pick a byte no "
-        f"table maps and change it there too. Claimed by: {claimed}"
+        "sample for the byte-survival tests in tests/test_commands.py. Pick a "
+        f"character no table maps and change REWRITES there too. Claimed by: "
+        f"{claimed}"
     )
 
 

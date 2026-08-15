@@ -29,21 +29,32 @@ from nedkit import XNEditRunner, parse
 from nedkit.macro import command_files
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+COMMANDS = REPO_ROOT / "macros" / "commands"
 FIXTURE_ROOT = Path(__file__).parent / "fixtures"
 
 
+def _case_dirs(command: Path) -> list[Path]:
+    """Every fixture case for one command, in name order.
+
+    A case is a directory holding an ``input.txt``. One definition, used by
+    everything below: counting a directory without one as a case would let a
+    half-written fixture satisfy ``test_every_command_has_fixtures`` while
+    being invisible to every test that actually runs the editor.
+    """
+    case_root = FIXTURE_ROOT / command.stem
+    if not case_root.is_dir():
+        return []
+    return [
+        case for case in sorted(case_root.iterdir()) if (case / "input.txt").is_file()
+    ]
+
+
 def _cases() -> list[tuple[Path, Path]]:
-    cases = []
-    for command in command_files(REPO_ROOT):
-        case_root = FIXTURE_ROOT / command.stem
-        if not case_root.is_dir():
-            continue
-        cases.extend(
-            (command, case)
-            for case in sorted(case_root.iterdir())
-            if case.is_dir() and (case / "input.txt").is_file()
-        )
-    return cases
+    return [
+        (command, case)
+        for command in command_files(REPO_ROOT)
+        for case in _case_dirs(command)
+    ]
 
 
 def _readable(raw: bytes) -> str:
@@ -65,13 +76,7 @@ def _skip_unless_xnedit(case: Path, runner: XNEditRunner) -> None:
 @pytest.mark.parametrize("command", command_files(REPO_ROOT), ids=lambda p: p.stem)
 def test_every_command_has_fixtures(command: Path) -> None:
     """A command with no fixtures is untested, which should be loud."""
-    case_root = FIXTURE_ROOT / command.stem
-    cases = (
-        [case for case in case_root.iterdir() if case.is_dir()]
-        if case_root.is_dir()
-        else []
-    )
-    assert cases, (
+    assert _case_dirs(command), (
         f"{command.name} has no fixtures. Add at least one case under "
         f"tests/fixtures/{command.stem}/<case>/ with input.txt and expected.txt."
     )
@@ -106,6 +111,18 @@ def test_command_against_fixture(
     )
 
 
+#: Commands this test cannot say anything about, and where their second run is
+#: covered instead. It runs a body with no ``setup.nm``, which leaves both
+#: piping commands unable to pipe anything at all: one gets the harness's empty
+#: answer to its prompt and stops at the ``ncols == 0`` guard, the other reads
+#: ``$column`` as 0 on a freshly opened buffer and refuses column 0. Comparing
+#: either no-op against itself passes whatever the column arithmetic does.
+RERUN_COVERED_ELSEWHERE = {
+    "pipe-at-columns": "tests/test_pipe_columns.py",
+    "pipe-at-cursor-column": "tests/test_pipe_columns.py",
+}
+
+
 @pytest.mark.xnedit
 @pytest.mark.parametrize("command", command_files(REPO_ROOT), ids=lambda p: p.stem)
 def test_command_is_idempotent(
@@ -116,60 +133,215 @@ def test_command_is_idempotent(
     Not a law of nature, but it holds for every cleanup command written so far,
     and a command that fails it is worth a second look before it ships.
     """
-    case_root = FIXTURE_ROOT / command.stem
-    cases = sorted(case_root.glob("*/expected.txt")) if case_root.is_dir() else []
+    if command.stem in RERUN_COVERED_ELSEWHERE:
+        pytest.skip(
+            f"{command.name} does nothing at all without a setup.nm to aim it, "
+            f"so a second run here would prove nothing. Its re-run behaviour is "
+            f"covered by {RERUN_COVERED_ELSEWHERE[command.stem]}."
+        )
+
     cases = [
-        case for case in cases if runner.is_xnedit or not _fork_specific(case.parent)
+        case
+        for case in _case_dirs(command)
+        if (case / "expected.txt").is_file()
+        and (runner.is_xnedit or not _fork_specific(case))
     ]
     if not cases:
         pytest.skip("no fixtures that apply to this editor")
 
     macro = parse(command)
-    for expected_file in cases:
-        settled = expected_file.read_bytes()
+    for case in cases:
+        settled = (case / "expected.txt").read_bytes()
         run = runner.run_on_bytes(
-            macro.body, settled, tmp_path, name=f"{expected_file.parent.name}.txt"
+            macro.body, settled, tmp_path, name=f"{case.name}.txt"
         )
         assert run.ok, f"{command.name} on settled input: {run.describe()}"
         assert run.output == settled, (
-            f"{command.name} changed {expected_file.parent.name} on a second run, "
+            f"{command.name} changed {case.name} on a second run, "
             "so it is not idempotent"
         )
 
 
+#: UTF-8 for U+00B0 DEGREE SIGN, which every one of the buffers below carries
+#: through the edit under test. It is the right character for the job because
+#: no command maps it: ``test_the_degree_sign_is_in_neither_table`` in
+#: tests/test_character_table.py is what keeps that true. It is also two bytes,
+#: so a buffer re-encoded to latin-1 on the way out comes back one byte short
+#: and a dropped character comes back two short.
+DEGREE = "°".encode()
+
+#: Per command, a prologue and a buffer that command genuinely rewrites, each
+#: holding a degree sign somewhere the rewrite has to carry through. The
+#: prologue is what a fixture would put in its ``setup.nm``; the two piping
+#: commands do nothing at all without one.
+#:
+#: An input a command leaves alone is no good here. The whole failure being
+#: guarded against happens on the way back out of the macro, so a command that
+#: never writes keeps every byte it was given no matter how broken it is.
+REWRITES: dict[str, tuple[str, bytes]] = {
+    "trim-trailing-blanks": ("", "NGC 4151   25° C   \nsecond   \n".encode()),
+    "pad-columns": ("", "NGC 4151|25° C\nsecond|x\n".encode()),
+    "normalize-characters": ("", "NGC 4151 – 25° C\n".encode()),
+    "fold-letters-to-ascii": ("", "Balázs 25° C\n".encode()),
+    "pipe-at-cursor-column": (
+        "set_cursor_pos(10)",
+        "NGC 4472   25° C\nIC 3583    25° C\n".encode(),
+    ),
+    "pipe-at-columns": (
+        '$ned_string_dialog_answer = "10"\n$ned_string_dialog_button = 1',
+        "NGC 4472   25° C\nIC 3583    25° C\n".encode(),
+    ),
+}
+
+
+def _rewrite_case(command: Path) -> tuple[str, bytes]:
+    setup, source = REWRITES.get(command.stem, ("", b""))
+    assert source, (
+        f"{command.name} is not in REWRITES, so nothing checks that it carries "
+        f"a non-ASCII character through an edit. Add an entry: a buffer this "
+        f"command rewrites, holding a degree sign, and whatever setup it needs "
+        f"to do the rewrite."
+    )
+    return setup, source
+
+
+def _with_setup(command: Path, setup: str) -> str:
+    body = parse(command).body
+    return setup.rstrip() + "\n" + body if setup else body
+
+
 @pytest.mark.xnedit
 @pytest.mark.parametrize("command", command_files(REPO_ROOT), ids=lambda p: p.stem)
-def test_command_does_not_corrupt_a_non_utf8_file(
+def test_command_keeps_a_non_ascii_character_when_it_rewrites_the_buffer(
     command: Path, runner: XNEditRunner, tmp_path: Path
 ) -> None:
-    """Whatever a command does to a latin-1 file, the bytes have to survive.
+    """The characters NED's files carry have to survive the rewrite.
 
-    NED's data files are not reliably UTF-8, and the damage worth guarding
-    against is a character quietly re-encoded or dropped on save.
+    Half the point of Normalize Characters is that it keeps a degree sign, a
+    Greek letter or an accented name rather than mangling it, and a command
+    that rewrites the whole buffer is one bad round trip away from doing that
+    silently. So each command is handed a buffer it really does edit, and the
+    degree sign in it has to come back as the same two bytes.
 
-    Whether the buffer locks first is a different question, and a
-    locale-dependent one: a file that is entirely latin-1 decodes cleanly under
-    a latin-1 locale and is an error under a UTF-8 one. The
-    unconvertible-byte-locks-the-file fixture pins the lock with a file that is
-    an error either way. This test drops that question and keeps the invariant
-    that holds under either, on classic NEdit as well.
+    Both halves of that matter. The rewrite is checked as well as the bytes,
+    because a command that wrote nothing keeps every byte it was given, which
+    is a green tick and no information.
 
-    That only works because the sample byte is one no command maps, and a
-    degree sign is left alone on purpose by both of the commands that carry a
-    character table. ``test_the_degree_sign_is_in_neither_table`` is what keeps
-    that true. An accented letter would not do: under a UTF-8 locale the lone
-    ``\\xe9`` of a latin-1 ``café`` is invalid, so the buffer locks, nothing is
-    written, and the byte survives for the wrong reason; under a latin-1 locale
-    the editor decodes it and Fold Letters to ASCII turns it into ``e``. Keep
-    the sample outside every table.
+    The sample assumes the UTF-8 locale the workflows pin. Under a latin-1 one
+    the editor would read the degree sign as two characters, one of them an
+    accented capital A that Fold Letters to ASCII has an answer for.
     """
-    source = "NGC 4151 25° C   \nsecond   \n".encode("latin-1")
-    run = runner.run_on_bytes(parse(command).body, source, tmp_path, name="latin1.txt")
+    setup, source = _rewrite_case(command)
+    run = runner.run_on_bytes(
+        _with_setup(command, setup), source, tmp_path, name="degree.txt"
+    )
 
     assert run.ok, f"{command.name}: {run.describe()}"
     assert run.output is not None
-    assert b"\xb0" in run.output, (
-        f"{command.name} lost the latin-1 byte: {run.output!r}"
+    assert run.output != source, (
+        f"{command.name} did not write, so this proves nothing. Give it an "
+        f"input it edits: {source!r}"
+    )
+    assert run.output.count(DEGREE) == source.count(DEGREE), (
+        f"{command.name} went in with {source.count(DEGREE)} degree sign(s) and "
+        f"came out with {run.output.count(DEGREE)}, so one was re-encoded or "
+        f"dropped: {run.output!r}"
+    )
+
+
+@pytest.mark.xnedit
+@pytest.mark.parametrize("command", command_files(REPO_ROOT), ids=lambda p: p.stem)
+def test_a_command_does_not_hang_on_a_buffer_xnedit_locked(
+    command: Path, runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """A buffer the editor could not decode is read-only, and that is silent.
+
+    XNEdit locks a file holding a byte it cannot read as part of a character,
+    so ``replace_range()`` does nothing and raises nothing. Every command has
+    to come back from that rather than put up an error dialog, which with
+    nobody to click OK is a hang.
+
+    Each command gets the buffer it was going to edit in the test above, with
+    the degree sign left as the bare latin-1 byte a NED file would carry. So
+    the command is aimed at an edit it genuinely wants to make and the lock is
+    the only reason it does not land.
+
+    Nothing here reads the command's own report, and that is deliberate: all
+    six report what they computed rather than what reached the buffer, so on a
+    locked file Trim Trailing Blanks says it trimmed two lines and the file on
+    disk still has the blanks. Only the bytes settle what happened. That is the
+    same gap that made the byte-survival check this test was split out of pass
+    against every mutant: nothing had been written, so nothing could be lost.
+    """
+    if not runner.is_xnedit:
+        pytest.skip(
+            "the lock is XNEdit's encoding handling, which NEdit 5.7 predates: "
+            f"it reads the file as bytes and edits it happily (running "
+            f"{runner.version})"
+        )
+
+    setup, decodable = _rewrite_case(command)
+    source = decodable.replace(DEGREE, b"\xb0")
+    assert source != decodable, f"{command.name}: no degree sign to break"
+
+    probe = 't_print("locked=" $locked "\\n")'
+    run = runner.run_on_bytes(
+        _with_setup(command, setup) + "\n" + probe,
+        source,
+        tmp_path,
+        name="undecodable.txt",
+    )
+
+    assert run.ok, f"{command.name}: {run.describe()}"
+    assert "locked=1" in run.messages, (
+        f"XNEdit did not lock a buffer holding an undecodable byte, so this "
+        f"test is no longer about the lock: {run.messages!r}"
+    )
+    assert run.output == source, (
+        f"{command.name} wrote to a locked buffer: {run.output!r}"
+    )
+
+
+#: The commands whose header promises that a run finding nothing leaves the
+#: buffer, the undo history and the modified flag untouched, each with a buffer
+#: it has nothing to do with. Add a command here when it makes that promise.
+#:
+#: Nothing derives this from the macros, because the three of them word the
+#: promise differently and matching on the prose would be worse than a list.
+FINDS_NOTHING: dict[str, bytes] = {
+    "normalize-characters": b"NGC 4472 z=0.003326\n",
+    "fold-letters-to-ascii": b"NGC 4472 z=0.003326\n",
+    "trim-trailing-blanks": b"NGC 4472 z=0.003326\n",
+}
+
+
+@pytest.mark.xnedit
+@pytest.mark.parametrize("command", sorted(FINDS_NOTHING))
+def test_command_that_finds_nothing_leaves_the_modified_flag_alone(
+    command: str, runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The header's promise, which no byte comparison can reach.
+
+    Each of these guards its write with ``if (cleaned != original)``, and the
+    point of the guard is that the bytes are identical either way. Take it out
+    and every fixture still passes; what changes is that the editor marks the
+    file dirty, puts a rewrite of the whole buffer on the undo stack, and asks
+    the user to save a file nothing happened to.
+
+    Run without saving, so the flag read back is the one the macro left rather
+    than the one ``save()`` cleared.
+    """
+    source = FINDS_NOTHING[command]
+    body = parse(COMMANDS / f"{command}.nm").body
+    probe = 't_print("modified=" $modified "\\n")'
+    run = runner.run_on_bytes(
+        body + "\n" + probe, source, tmp_path, name="quiet.txt", save=False
+    )
+
+    assert run.ok, f"{command}: {run.describe()}"
+    assert "modified=0" in run.messages, (
+        f"{command} marked the buffer modified with nothing to change, so it "
+        f"put a no-op rewrite on the undo stack: {run.messages!r}"
     )
 
 

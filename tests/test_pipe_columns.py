@@ -1,15 +1,15 @@
-"""Running the piping commands a second time.
+"""The piping commands on the two inputs a fixture cannot reach.
 
-Both commands are meant to be run once per boundary, so what a second run does
-is the thing a user hits first and the thing the header prose promises. Three
-of the four combinations settle to a fixed point, and one deliberately does
-not.
+**A second run.** Both commands are meant to be run once per boundary, so what
+a second run does is the thing a user hits first and the thing the header prose
+promises. Three of the four combinations settle to a fixed point, and one
+deliberately does not.
 
 This module is the only place either piping command's re-run behaviour is
-tested. **``test_command_is_idempotent`` in ``test_commands.py`` is vacuous for
-both of them**, and reading its two green ticks as coverage would be a mistake.
-It runs a command body against settled fixture output with no ``setup.nm``,
-which leaves each command in a state where it cannot pipe anything at all:
+tested. ``test_command_is_idempotent`` in ``test_commands.py`` skips both of
+them and points here, because it runs a command body against settled fixture
+output with no ``setup.nm``, which leaves each command unable to pipe anything
+at all:
 
 - ``Pipe at Columns`` gets the harness's default empty ``string_dialog()``
   answer, parses no columns out of it, and stops at the ``ncols == 0`` guard,
@@ -17,13 +17,9 @@ which leaves each command in a state where it cannot pipe anything at all:
 - ``Pipe at Cursor Column`` reads ``$column``, which is 0 on a freshly opened
   buffer, and refuses column 0.
 
-Both are no-ops whatever the column arithmetic does, so running either one
-twice there proves nothing. Everything below sets up a run that pipes for real
-and then repeats it.
-
-``test_command_does_not_corrupt_a_non_utf8_file`` is empty for the same two
-reasons, so the byte-survival check is repeated here with an answer that makes
-the command actually try to write.
+**A table longer than one chunk.** Both commands rebuild the buffer a chunk at
+a time, flushing every 200 lines, and the fixtures are five lines at their
+longest. Everything about that boundary lives at the bottom of this file.
 """
 
 from __future__ import annotations
@@ -152,20 +148,52 @@ def test_multi_column_insert_run_twice_adds_a_second_set_of_pipes(
     )
 
 
-def test_pipe_at_columns_keeps_the_bytes_of_a_file_it_cannot_decode(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    """NED's files are not reliably UTF-8, and a re-encoded byte is silent damage.
+#: Long enough to cross the 200-line flush twice, and not a multiple of it, so
+#: the last chunk is a partial one. The same number ``test_pad_columns.py``
+#: uses on the third copy of this logic.
+LONG = 501
 
-    XNEdit locks a buffer it cannot decode, so nothing lands here at all. What
-    matters either way is that the bytes come back as they went in, which is
-    the invariant ``test_command_does_not_corrupt_a_non_utf8_file`` asserts for
-    the other commands and cannot reach for this one.
+#: The column the pipe goes in, and a column that is a space on every row of
+#: the table below.
+AT = 10
+
+#: What ``setup.nm`` would carry to aim each command at column ``AT``. Both
+#: commands own a byte-identical copy of the chunk loop, kept that way by
+#: ``test_the_shared_column_arithmetic_is_copied_verbatim``, so a bug in the
+#: flush lands in both at once and covering one is not covering the other.
+AIMED_AT_THE_COLUMN = {
+    "pipe-at-cursor-column": f"set_cursor_pos({AT})",
+    "pipe-at-columns": asked(str(AT), OVERWRITE),
+}
+
+
+@pytest.mark.parametrize("command", sorted(AIMED_AT_THE_COLUMN))
+def test_a_table_longer_than_the_chunk_flush_comes_back_whole(
+    command: str, runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """No line lost, doubled, or run into the next at a chunk boundary.
+
+    Appending every line onto one growing string is quadratic, so the loop
+    builds a chunk and empties it into the output every 200 lines. Emptying it
+    is the part with nothing else holding it up: leave the chunk in place and
+    each flush writes out everything written so far again, which on this table
+    is more than twice the bytes that went in. Five rows is the longest table
+    any fixture holds, and the flush never fires on one.
     """
-    source = "NGC 4151   café   12:10:32\nIC 3583    plain  12:36:44\n".encode(
-        "latin-1"
+    source = "".join(
+        f"NGC {number:04d}   {number}\n" for number in range(LONG)
+    ).encode()
+    expected = "".join(
+        f"NGC {number:04d}  |{number}\n" for number in range(LONG)
+    ).encode()
+
+    result = run(runner, command, AIMED_AT_THE_COLUMN[command], source, tmp_path)
+
+    got = result.split(b"\n")
+    want = expected.split(b"\n")
+    assert len(got) == len(want), (
+        f"{LONG} rows went in and {len(got) - 1} came back out, so a line was "
+        f"lost or doubled at a chunk boundary"
     )
-    result = run(
-        runner, "pipe-at-columns", asked("10, 23", OVERWRITE), source, tmp_path
-    )
-    assert b"\xe9" in result, f"the latin-1 byte did not survive: {result!r}"
+    for number, (line, wanted) in enumerate(zip(got, want), start=1):
+        assert line == wanted, f"line {number} came back as {line!r}, not {wanted!r}"
