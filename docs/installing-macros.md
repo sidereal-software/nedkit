@@ -235,5 +235,11 @@ both is pasted into both.
 `t_print()` calls to the macro. That output goes to the terminal, not to any
 window.
 
+**It says the file is locked, so nothing was changed.** A locked buffer takes
+no writes, so the command stopped before doing anything. XNEdit locks a file it
+cannot read as UTF-8, which on NED data is the usual reason;
+[when the file is locked](cleaning-pdf-tables.md#when-the-file-is-locked) goes
+through the rest of what the window is telling you.
+
 **The command is greyed out.** Requires Selection is ticked and nothing is
 selected.

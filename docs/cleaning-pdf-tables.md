@@ -353,3 +353,51 @@ so decide before you run it rather than after.
 It is a separate command partly because flattening a name is a decision about
 your data rather than a typographic cleanup, and partly because a macro
 compiles into 4096 instructions and the two tables do not fit in one.
+
+## When the file is locked
+
+A locked buffer takes no writes, so every command checks for one before it does
+anything else. What you get instead of an edit is a dialog:
+
+```
+A13L.mod.before is locked, so nothing was changed.
+
+XNEdit locks a file it cannot read as UTF-8, which is the usual reason.
+File > Read Only locks a buffer too, and so does a file with no write
+permission.
+```
+
+and a line in the terminal where the count normally goes:
+
+```
+trim: A13L.mod.before: nothing changed
+```
+
+All six say it, under their own prefix: `normalize:`, `fold:`, `pipe:`, `pad:`,
+`trim:`. The buffer was not touched, so there is nothing to undo.
+
+NED's data files are not reliably UTF-8, so the encoding lock is the one you
+will meet. XNEdit read a byte it could not decode, put U+FFFD REPLACEMENT
+CHARACTER in the buffer where that byte was, and locked the buffer. The text on
+screen is therefore not the file on disk: saving it would write those
+replacement characters over the bytes they stand in for, and the originals would
+be gone. That is what the lock prevents, and it is why the commands refuse.
+
+The window says so twice over. The title bar carries `(locked)` after the
+filename, and a bar under the menus reads:
+
+```
+1 non-convertible characters skipped: file locked to prevent accidental changes
+```
+
+Two dropdowns sit in that bar. **Errors**, on the left, lists each byte XNEdit
+could not convert, as `0xE9` and so on; picking one selects that spot in the
+text and scrolls to it, which is the fastest way to find them. On the right is
+the encoding it read the file as. Choose another and click **Reload**, and it
+re-reads the file from disk as that instead. A reading that decodes cleanly
+comes back unlocked and the commands run normally.
+
+Which encoding is right is a question about your data, and nothing here can
+answer it. Worth knowing before you start trying things: unticking **File >
+Read Only** releases the encoding lock along with the tick, and the next save
+then puts those replacement characters on disk for real.

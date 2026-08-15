@@ -556,7 +556,7 @@ character that at least looks wrong.
 | `Ω` U+2126 OHM SIGN | A unit symbol with its own code point, not a letter, and folding it to `O` would destroy it. Greek `Ω` U+03A9 is a different character and Fold Letters to ASCII does replace that one. |
 | `ά` `έ` `ώ` accented Greek | Never seen in this data, so it is not in either table. |
 | `≪` `≫` `∝` `≃` and other relations not in the table | Add them if your files use them consistently. |
-| Bytes that are not valid UTF-8 | A lone byte such as `0x96` may be a Windows-1252 en dash, or it may be the remains of a truncated character. Replacing it blind would corrupt any multi-byte character that happens to contain that byte. |
+| Bytes that are not valid UTF-8 | XNEdit replaces each byte it cannot decode with U+FFFD REPLACEMENT CHARACTER as it reads the file, and locks the buffer, so both commands refuse the file rather than reach the byte. See [when the file is locked](cleaning-pdf-tables.md#when-the-file-is-locked). |
 
 Normalize Characters is the command that reports these. After it runs it counts
 what is left, puts the cursor on the first one, and lists them in a dialog with

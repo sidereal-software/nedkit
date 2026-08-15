@@ -96,8 +96,11 @@ name Pad Columns, Pipe at Columns and Pipe at Cursor Column all land a place
 off, and the column Fold Letters to ASCII reports for a Greek letter is a
 different number. Two smaller differences are about encoding, which XNEdit
 added and 5.7 predates: Normalize Characters leaves a byte order mark where it
-found it, and Trim Trailing Blanks stops on a buffer XNEdit locked over a byte
-it could not decode.
+found it, and all six commands refuse a buffer XNEdit has locked over a byte it
+could not decode, with a dialog saying why. NEdit 5.7 has no such lock, so there
+they edit the file like any other.
+[When the file is locked](cleaning-pdf-tables.md#when-the-file-is-locked) is
+what that refusal looks like.
 
 The two editors keep their settings in different places, `~/.xnedit/` against
 `~/.nedit/`, so instructions written for one will send you to the wrong

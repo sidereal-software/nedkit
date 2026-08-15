@@ -70,9 +70,10 @@ The two halves of the suite are also the two workflows.
 
 `ci.yml` runs on every push and every pull request, and covers the half that
 needs no editor: ruff, the macro conventions, the generated pages, and a real
-3.9 parse of anything the NED team is expected to run. It takes about a minute.
-It deselects the macro tests rather than letting them skip, so the count at the
-bottom of the log is the truth about what ran.
+3.9 parse of anything the NED team is expected to run. It takes something like
+twenty seconds, an order of magnitude rather than a target. It deselects the
+macro tests rather than letting them skip, so the count at the bottom of the
+log is the truth about what ran.
 
 `macros.yml` runs the other half, at 08:17 on Monday morning in California. It
 builds XNEdit v1.6.3 on a Linux runner, caches the binary until either the
