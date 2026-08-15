@@ -36,9 +36,8 @@ Execute**.
 
 ![The Macro Commands dialog with the Trim Trailing Blanks command filled in](images/macro-commands-dialog.png)
 
-*The dialog once the command has been filled in. The list on the left only
-shows `NED>Trim Trailing Blanks` after you add it; before that, `New` is
-selected and the fields on the right are empty.*
+*The dialog once the command has been filled in. Until you add it, the list on
+the left ends at `New` and the fields on the right are empty.*
 
 | Field | What goes in it |
 | --- | --- |
@@ -90,26 +89,17 @@ Save Defaults**. A command that belongs in both menus gets installed twice,
 once through each dialog, and the two copies are independent: editing one does
 not touch the other.
 
-Undo, Redo, Cut, Copy and Paste survive that, but not because they are built
-in. They are the default value of the `nedit.bgMenuCommands` resource, and a
-default only applies while the resource is unset. The dialog keeps them because
-it shows them: you add your command under the five already listed, and Save
-Defaults writes all six out. Importing an `.rc` fragment keeps them too, since
-an imported entry is added to the list already loaded, or replaces the one with
-the same name.
-
-Where they do disappear is if you write `~/.xnedit/nedit.rc` by hand. The
-resource is set from that point on, so the menu next startup is exactly the
-entries on that line and nothing else.
+Undo, Redo, Cut, Copy and Paste survive that. They are the default value of the
+`nedit.bgMenuCommands` resource, and both the dialog and `-import` add to the
+list rather than replacing it. Writing `nedit.bgMenuCommands` into
+`~/.xnedit/nedit.rc` by hand is what loses them, since the menu is then exactly
+the entries on that line.
 
 ### Right-clicking does not move the cursor
 
 Worth knowing before running Pipe at Cursor Column that way. Posting the
 background menu leaves the insert cursor wherever it already was, so left-click
 the column you mean first, then right-click.
-
-Which button opens the menu is set by `nedit.bgMenuButton`, which defaults to
-`~Shift~Ctrl~Meta~Alt<Btn3Down>`: a right-click with no modifier held down.
 
 ## Install a subroutine library
 
@@ -130,8 +120,8 @@ reinstall after an edit, delete the old block first.
 
 ## Install several commands at once
 
-Pasting a dozen commands through the dialog does not scale past the first
-person. XNEdit can read them from a file instead:
+Rather than paste a dozen commands through the dialog, XNEdit can read them
+from a file:
 
 ```sh
 xnedit -import ned-macros.rc
@@ -166,18 +156,9 @@ The format is unforgiving:
 - **Backslashes double.** A macro that contains `"[ \t]+$"` is written
   `"[ \\t]+$"` here, and `"\\w"` becomes `"\\\\w"`.
 
-Background menu commands sit in a second resource, `nedit.bgMenuCommands`, with
-the identical format:
-
-```
-nedit.bgMenuCommands: \
-	NED>Pipe at Cursor Column:::: {\n\
-		mode = "overwrite"\n\
-	}\n
-```
-
-One `-import` reads both, so a file carrying both resources installs a command
-into both menus in one go.
+Background menu commands sit in a second resource, `nedit.bgMenuCommands`, in
+the identical format. One `-import` reads both, so a file carrying both
+resources installs a command into both menus in one go.
 
 Because of that backslash rule especially, don't hand-write these. Install the
 command through the dialog, run Save Defaults, then copy the entry XNEdit

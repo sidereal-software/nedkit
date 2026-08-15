@@ -12,17 +12,16 @@
 #     Griffin|12:29:46.7
 #     Smith  |12:36:44.0
 #
-# Run it last, because every edit before it changes a width. Normalize
-# Characters turns a ligature into the two letters it stands for, Fold Letters
-# to ASCII turns ß into ss, and a value fixed by hand is whatever length you
-# typed. So fix the characters, put the pipes in, read the file through, and
-# pad at the end.
+# Run it last, because every edit before it changes a width: a ligature becomes
+# the two letters it stands for, ß becomes ss, and a value fixed by hand is
+# whatever length you typed. So fix the characters, put the pipes in, read the
+# file through, and pad at the end.
 #
 # It splits on "|" and nothing else. A line with no pipe in it is not a table
 # row: it passes through verbatim, along with blank lines and the ##refcode
 # header block, and none of them count towards a column width. Nothing here
-# guesses where a boundary should go, so a file nobody has piped yet comes back
-# untouched.
+# reads a boundary out of a run of spaces, so a file nobody has piped yet comes
+# back untouched.
 #
 # Widths are counted in characters rather than bytes, so a field measures what
 # it prints. Balázs is six wide, though it takes seven bytes.
@@ -37,9 +36,9 @@
 # spaces they stand for first: select the whole file and run expand through
 # Shell > Filter Selection.
 #
-# It refuses a locked buffer too, because nothing written to one lands. XNEdit
-# locks a file it cannot read as UTF-8, which is the usual reason; File > Read
-# Only and a file with no write permission lock one too.
+# It refuses a locked buffer too, since nothing written to one lands. XNEdit
+# locks a file it cannot read as UTF-8; File > Read Only and a file you cannot
+# write lock one too.
 #
 # Rows whose field count differs from the first data row are padded as far as
 # they go and then reported, by count and first line number. No empty field is

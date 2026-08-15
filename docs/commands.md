@@ -36,19 +36,19 @@ instead: Weiß becomes Weiss, Ærø becomes AEro. Those are the only ones that
 change a line's width.
 
 Greek letters become a single Latin letter, so α becomes a and Δ becomes D.
-Five readings collide. Both ε and η give e, both ο and ω give o, both σ and ς
-give s, both τ and θ give t, and both υ and μ give u, and afterwards nothing
-can tell a pair apart. So every Greek letter gets listed in a dialog with the
-line and column it was on, and the cursor lands on the first one. Read that
-list before the file goes any further.
+Five readings collide: ε and η both give e, ο and ω give o, σ and ς give s,
+τ and θ give t, and υ and μ give u. Nothing can tell a pair apart afterwards,
+so every Greek letter gets listed in a dialog with the line and column it was
+on, and the cursor lands on the first one. Read that list before the file
+goes any further.
 
 μ, Μ and the micro sign µ give u rather than m, so that 24 µm stays a
 wavelength instead of turning into 24 mm.
 
-An accent fold is not reported that way. It goes in the terminal summary and
-nowhere else, because there is nothing ambiguous to decide. It is still data
-loss: nothing in the file records that the accent was ever there, so keep the
-original if the spelling of a name matters.
+An accent fold gets no dialog, only the terminal summary, since there is
+nothing ambiguous to decide. It is still data loss: nothing in the file
+records that the accent was ever there, so keep the original if the spelling
+of a name matters.
 
 Anything else non-ASCII is left exactly as it was, accented Greek and the
 degree sign included. Run Normalize Characters to get those counted.
@@ -56,12 +56,12 @@ degree sign included. Run Normalize Characters to get those counted.
 A run that finds nothing leaves the buffer, the undo history and the modified
 flag untouched.
 
-It refuses a locked buffer, because nothing written to one lands. XNEdit
-locks a file it cannot read as UTF-8, which is the usual reason; File > Read
-Only and a file with no write permission lock one too.
+It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+lock one too.
 
 A buffer with any accented letter in it gets scanned once per accented entry
-in the table, so a file of several megabytes stalls. That size of job belongs
+in the table, so a file of several megabytes stalls. A job that size belongs
 in Python rather than in the editor.
 
 ??? example "The macro body, ready to paste"
@@ -550,14 +550,14 @@ newlines.
 Non-ASCII characters with no safe ASCII spelling - degree signs, Greek
 letters, accented names - are deliberately left alone. Rather than mangle
 them, the macro counts what is left, parks the cursor on the first one, and
-says so in a dialog. Nothing is changed silently and nothing hides.
+lists them in a dialog.
 
 A run that finds nothing leaves the buffer, the undo history and the
 modified flag untouched.
 
-It refuses a locked buffer, because nothing written to one lands. XNEdit
-locks a file it cannot read as UTF-8, which is the usual reason; File > Read
-Only and a file with no write permission lock one too.
+It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+lock one too.
 
 ??? example "The macro body, ready to paste"
 
@@ -898,17 +898,16 @@ becomes
     Griffin|12:29:46.7
     Smith  |12:36:44.0
 
-Run it last, because every edit before it changes a width. Normalize
-Characters turns a ligature into the two letters it stands for, Fold Letters
-to ASCII turns ß into ss, and a value fixed by hand is whatever length you
-typed. So fix the characters, put the pipes in, read the file through, and
-pad at the end.
+Run it last, because every edit before it changes a width: a ligature becomes
+the two letters it stands for, ß becomes ss, and a value fixed by hand is
+whatever length you typed. So fix the characters, put the pipes in, read the
+file through, and pad at the end.
 
 It splits on "|" and nothing else. A line with no pipe in it is not a table
 row: it passes through verbatim, along with blank lines and the ##refcode
 header block, and none of them count towards a column width. Nothing here
-guesses where a boundary should go, so a file nobody has piped yet comes back
-untouched.
+reads a boundary out of a run of spaces, so a file nobody has piped yet comes
+back untouched.
 
 Widths are counted in characters rather than bytes, so a field measures what
 it prints. Balázs is six wide, though it takes seven bytes.
@@ -923,9 +922,9 @@ measured on a line holding one would be wrong. Replace the tabs with the
 spaces they stand for first: select the whole file and run expand through
 Shell > Filter Selection.
 
-It refuses a locked buffer too, because nothing written to one lands. XNEdit
-locks a file it cannot read as UTF-8, which is the usual reason; File > Read
-Only and a file with no write permission lock one too.
+It refuses a locked buffer too, since nothing written to one lands. XNEdit
+locks a file it cannot read as UTF-8; File > Read Only and a file you cannot
+write lock one too.
 
 Rows whose field count differs from the first data row are padded as far as
 they go and then reported, by count and first line number. No empty field is
@@ -1171,11 +1170,10 @@ Answering "10, 23" and choosing Overwrite gives
     NGC 4472  |12:29:46.7  |0.003326
     IC 3583   |12:36:44.0  |0.001155
 
-Get the characters right first. A replacement that changes how many
+Get the characters right first: a replacement that changes how many
 characters are on a line moves every column to its right, so Normalize
-Characters and Fold Letters to ASCII belong before this rather than after it.
-Nothing here pads the fields either; Pad Columns does that, once every other
-edit is done.
+Characters and Fold Letters to ASCII belong before this. Nothing here pads
+the fields either; Pad Columns does that, last.
 
 Type the columns separated by spaces or commas, in any order; repeats are
 ignored. They count from 0, the numbering the C: field of the statistics line
@@ -1192,16 +1190,16 @@ Two buttons, two ways of putting the pipe in:
     one character of width on every row it touches.
 
 Insert works through the columns right to left, so every pipe lands at the
-column you named rather than each one shifting the next along. It also means
-a second run inserts a second set of pipes. Overwrite can be run again
-safely; multi-column insert cannot.
+column you named rather than each one shifting the next along. A second run
+still inserts a second set of pipes; overwrite is the one that repeats
+safely.
 
 Five things it refuses rather than guesses at:
 
-  - A locked buffer. Nothing written to one lands. The check runs before the
-    prompt, so it does not ask which columns to pipe first. XNEdit locks a
-    file it cannot read as UTF-8, which is the usual reason; File > Read Only
-    and a file with no write permission lock one too.
+  - A locked buffer. Nothing written to one lands. XNEdit locks a file it
+    cannot read as UTF-8; File > Read Only and a file you cannot write lock
+    one too. The check runs before the prompt, so it does not ask which
+    columns to pipe first.
   - Column 0. A pipe at the start of a line opens the table with an empty
     field, which is never what a fixed-width table wants.
   - Under Overwrite, a row holding anything but a space at one of those
@@ -1219,8 +1217,7 @@ So read the report before you go on. A skipped row usually means a column is
 a place or two off.
 
 Columns are counted as they are displayed, so an en dash counts as one column
-though it takes three bytes. That holds for anything XNEdit can decode. A file
-it cannot decode is locked, which the first refusal above catches.
+though it takes three bytes.
 
 For one column with no dialog in the way, use Pipe at Cursor Column.
 
@@ -1566,11 +1563,10 @@ with the cursor on the blank column in front of 12:29 becomes
     NGC 4472  |12:29:46.7   0.003326
     IC 3583   |12:36:44.0   0.001155
 
-Run it once per boundary, and get the characters right first. A replacement
+Run it once per boundary, and get the characters right first: a replacement
 that changes how many characters are on a line moves every column to its
-right, so Normalize Characters and Fold Letters to ASCII belong before this
-rather than after it. Nothing here pads the fields either; Pad Columns does
-that, once every other edit is done.
+right, so Normalize Characters and Fold Letters to ASCII belong before this.
+Nothing here pads the fields either; Pad Columns does that, last.
 
 The column is the one the statistics line calls C:, counting from 0.
 Preferences > Statistics Line puts that number on screen while you aim.
@@ -1580,8 +1576,8 @@ you run this from the background menu.
 Five things it refuses rather than guesses at:
 
   - A locked buffer. Nothing written to one lands. XNEdit locks a file it
-    cannot read as UTF-8, which is the usual reason; File > Read Only and a
-    file with no write permission lock one too.
+    cannot read as UTF-8; File > Read Only and a file you cannot write lock
+    one too.
   - Column 0. A pipe at the start of a line opens the table with an empty
     field, which is never what a fixed-width table wants.
   - A row holding anything but a space at that column. Overwriting there
@@ -1598,8 +1594,7 @@ So read the report before you go on. A skipped row usually means the column
 is a place or two off.
 
 Columns are counted as they are displayed, so an en dash counts as one column
-though it takes three bytes. That holds for anything XNEdit can decode. A file
-it cannot decode is locked, which the first refusal above catches.
+though it takes three bytes.
 
 For several columns at once, or to push the line right instead of writing
 over the space, use Pipe at Columns.
@@ -1866,14 +1861,12 @@ over the space, use Pipe at Columns.
 | Source | [`macros/commands/trim-trailing-blanks.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/trim-trailing-blanks.nm) |
 
 Removes trailing spaces and tabs from every line in the buffer. Leaves the
-file and the undo history alone when there is nothing to trim.
+file and the undo history alone when there is nothing to trim. Either way it
+says what it did in the terminal xnedit was launched from.
 
-Either way it prints a line in the terminal xnedit was launched from, with
-the number of lines it trimmed.
-
-It refuses a locked buffer, because nothing written to one lands. XNEdit
-locks a file it cannot read as UTF-8, which is the usual reason; File > Read
-Only and a file with no write permission lock one too.
+It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+lock one too.
 
 ??? example "The macro body, ready to paste"
 

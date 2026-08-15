@@ -11,11 +11,10 @@
 #     NGC 4472  |12:29:46.7  |0.003326
 #     IC 3583   |12:36:44.0  |0.001155
 #
-# Get the characters right first. A replacement that changes how many
+# Get the characters right first: a replacement that changes how many
 # characters are on a line moves every column to its right, so Normalize
-# Characters and Fold Letters to ASCII belong before this rather than after it.
-# Nothing here pads the fields either; Pad Columns does that, once every other
-# edit is done.
+# Characters and Fold Letters to ASCII belong before this. Nothing here pads
+# the fields either; Pad Columns does that, last.
 #
 # Type the columns separated by spaces or commas, in any order; repeats are
 # ignored. They count from 0, the numbering the C: field of the statistics line
@@ -32,16 +31,16 @@
 #     one character of width on every row it touches.
 #
 # Insert works through the columns right to left, so every pipe lands at the
-# column you named rather than each one shifting the next along. It also means
-# a second run inserts a second set of pipes. Overwrite can be run again
-# safely; multi-column insert cannot.
+# column you named rather than each one shifting the next along. A second run
+# still inserts a second set of pipes; overwrite is the one that repeats
+# safely.
 #
 # Five things it refuses rather than guesses at:
 #
-#   - A locked buffer. Nothing written to one lands. The check runs before the
-#     prompt, so it does not ask which columns to pipe first. XNEdit locks a
-#     file it cannot read as UTF-8, which is the usual reason; File > Read Only
-#     and a file with no write permission lock one too.
+#   - A locked buffer. Nothing written to one lands. XNEdit locks a file it
+#     cannot read as UTF-8; File > Read Only and a file you cannot write lock
+#     one too. The check runs before the prompt, so it does not ask which
+#     columns to pipe first.
 #   - Column 0. A pipe at the start of a line opens the table with an empty
 #     field, which is never what a fixed-width table wants.
 #   - Under Overwrite, a row holding anything but a space at one of those
@@ -59,8 +58,7 @@
 # a place or two off.
 #
 # Columns are counted as they are displayed, so an en dash counts as one column
-# though it takes three bytes. That holds for anything XNEdit can decode. A file
-# it cannot decode is locked, which the first refusal above catches.
+# though it takes three bytes.
 #
 # For one column with no dialog in the way, use Pipe at Cursor Column.
 #

@@ -4,10 +4,9 @@ Small tools for the NED team at IPAC.
 
 **Documentation: <https://nedkit.sidereal.software>**
 
-Most of what lives here is XNEdit macros. A lot of the team's day goes into
-reading and reshaping text files by hand, and collapsing a fiddly ten-step edit
-into one menu item saves that time back every day it gets used. Python
-utilities belong here too, for the jobs that are too big to do inside the
+Most of it is XNEdit macros. Reshaping a data file by hand is slow and easy to
+get subtly wrong, and a macro does the same edit the same way every time.
+Python utilities belong here too, for the jobs too big to run inside the
 editor.
 
 ## Layout
@@ -42,72 +41,52 @@ distribute a whole menu at once instead of pasting commands one by one.
 
 ## Writing macros
 
-[The macro language reference](https://nedkit.sidereal.software/xnedit-macro-reference/) is a condensed
-reference for the macro language: the built-in subroutines and variables, the
-action routines you can call, and the handful of behaviors that will waste an
-afternoon if you don't know about them. Read the gotchas section before you
-write anything that touches the whole buffer.
+[The macro language reference](https://nedkit.sidereal.software/xnedit-macro-reference/)
+covers the built-in subroutines and variables, the action routines, and the
+behaviors that will waste an afternoon if you don't know about them. Read its
+"Read this first" section before writing anything that touches the whole
+buffer.
 
-`macros/commands/trim-trailing-blanks.nm` and `macros/lib/text.nm` are working
-examples. They exist to pin down the conventions the docs describe, so copy
-their shape.
+`macros/commands/trim-trailing-blanks.nm` and `macros/lib/text.nm` are the
+smallest working examples of each kind, so copy their shape.
 
 ## Cleaning up a table pasted from a PDF
 
-1. Get rid of the tabs, by selecting the whole file and running it through
-   `expand` with **Shell > Filter Selection**. `expand` puts a tab stop every 8
-   columns and so does XNEdit, so they agree until somebody changes
-   **Preferences > Tab Stops**; if yours is not 8, say so with `expand -t N`.
-2. **Normalize Characters** (`macros/commands/normalize-characters.nm`) rewrites
-   the dashes, quotes, spaces and ligatures that only look like their ASCII
-   counterparts, turns tabs into spaces, and reports whatever non-ASCII it
-   deliberately left alone rather than guessing at it.
-3. **Fold Letters to ASCII** (`macros/commands/fold-letters-to-ascii.nm`), if
-   the letters that report names should go too. `Balázs` becomes `Balazs` and
-   `α` becomes `a`, keeping case. Both folds are irreversible, and the Greek one
-   collides several letters onto the same answer, so it lists every one it
-   replaced with the line and column. Read
-   [Character replacements](https://nedkit.sidereal.software/character-replacements/)
-   before running it over author names.
+1. Get rid of the tabs: select the whole file and run it through `expand` with
+   **Shell > Filter Selection**.
+2. **Normalize Characters** rewrites the dashes, quotes, spaces and ligatures
+   that only look like their ASCII counterparts, and reports whatever non-ASCII
+   it deliberately left alone.
+3. **Fold Letters to ASCII**, if the accented and Greek letters should go too.
+   `Balázs` becomes `Balazs` and `α` becomes `a`, keeping case. Both folds are
+   irreversible.
 4. Read the file through and fix whatever needs fixing by hand.
-5. Put the field boundaries in. **Pipe at Cursor Column**
-   (`macros/commands/pipe-at-cursor-column.nm`) writes a `|` down the column
-   the cursor is in, on every line at once; **Pipe at Columns**
-   (`macros/commands/pipe-at-columns.nm`) asks for several column numbers and
-   does them in one pass. Blank lines and the `##refcode` header block pass
-   through untouched.
-6. **Pad Columns** (`macros/commands/pad-columns.nm`) pads every field out to
-   the width of the widest value in its column, counting characters rather than
-   bytes, so the finished file is square. It splits on `|` and nothing else, so
-   a line with no pipe in it passes through untouched.
-7. **Trim Trailing Blanks** (`macros/commands/trim-trailing-blanks.nm`), if you
-   would rather the rows did not all end in the same place. Pad Columns pads the
-   last column too.
+5. Put the field boundaries in with **Pipe at Cursor Column**, one column at a
+   time, or **Pipe at Columns**, several in one pass.
+6. **Pad Columns** pads every field out to the width of the widest value in its
+   column, so the finished file is square.
+7. **Trim Trailing Blanks**, if you would rather the rows did not all end in
+   the same place.
 
 You name the columns yourself, because nothing here works them out for you. The
-pipe commands and Pad Columns all refuse a buffer with a tab in it, since a tab
-is one character and any number of columns, which is what step 1 is for.
-`expand` has to run before Normalize Characters, not after: Normalize takes the
-tabs out too, but it writes a single space for each and closes the columns up.
-
-The letters get fixed before the boundaries are chosen because a replacement
-that changes how many characters are on a line moves every column to its right.
-The padding goes last because every edit before it changes a width.
+letters get fixed before the boundaries are chosen, since a replacement that
+changes how many characters are on a line moves every column to its right, and
+the padding goes last because every edit before it changes a width.
 
 [Cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
-works through the whole sequence on a real file, and
+works the sequence through on a real file, and
 [Character replacements](https://nedkit.sidereal.software/character-replacements/)
-lists every character Normalize Characters touches.
+lists every character the two rewriting commands touch.
 
 ## Requirements
 
 macOS is the only platform in scope, running XNEdit 1.6 or newer on XQuartz.
 
 This repo targets [unixwork/xnedit](https://github.com/unixwork/xnedit), a fork
-of NEdit 5.7 with Unicode support, antialiased text, and multi-cursor editing.
-It is a different program from classic NEdit and keeps its settings in
-`~/.xnedit/` rather than `~/.nedit/`. If a macro here misbehaves, check which
-editor is actually running before you start debugging the macro.
+of NEdit 5.7 with Unicode support and antialiased text. It is a different
+program from classic NEdit and keeps its settings in `~/.xnedit/` rather than
+`~/.nedit/`. If a macro here misbehaves, check which editor is running before
+you start debugging the macro.
 
 There are no prebuilt macOS binaries, so XNEdit gets built from source. The
 dependencies are all in Homebrew:
@@ -142,9 +121,9 @@ uv run pytest                 # everything
 uv run pytest -m "not xnedit" # conventions only, no editor needed
 ```
 
-The suite also fails when a macro has changed without
-`uv run python tools/gen_docs.py` being run, so the documentation site cannot
-drift away from the macros it describes.
+It also fails when a macro has changed without
+`uv run python tools/gen_docs.py` being run, so the documentation cannot drift
+away from the macros it describes.
 
 Tests that drive the editor need XNEdit on `$PATH`, or `NEDKIT_XNEDIT` pointing
 at the binary, and an X display. Without either they skip, so set
@@ -152,12 +131,11 @@ at the binary, and an X display. Without either they skip, so set
 [Running the tests](https://nedkit.sidereal.software/testing/) covers building
 an XNEdit to test against, and why the run flickers windows on screen.
 
-A new command needs at least one case under
-`tests/fixtures/<command>/<case>/`, holding `input.txt` and the `expected.txt`
-it should produce; the suite fails on any command that has none. Test harness
-code lives in `src/nedkit/` and runs on current Python. Everything else stays
-on 3.9, which `tests/test_python_version.py` checks against a real 3.9 that uv
-fetches.
+A new command needs at least one case under `tests/fixtures/<command>/<case>/`,
+holding `input.txt` and the `expected.txt` it should produce; the suite fails on
+any command that has none. Harness code in `src/nedkit/` runs on current Python.
+Everything else stays on 3.9, which `tests/test_python_version.py` checks
+against a real 3.9 that uv fetches.
 
 ## License
 

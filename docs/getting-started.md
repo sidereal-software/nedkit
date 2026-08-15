@@ -38,9 +38,8 @@ cat macros/lib/text.nm >> "${XNEDIT_HOME:-$HOME/.xnedit}/autoload.nm"
 
 Restart XNEdit afterwards. `autoload.nm` is not created for you.
 
-`XNEDIT_HOME` overrides the configuration directory. XNEdit renamed this from
-`NEDIT_HOME` and ignores the old name, which is a common source of confusion
-when copying instructions written for NEdit.
+`XNEDIT_HOME` overrides the configuration directory. Note the leading `X`:
+XNEdit ignores NEdit's `NEDIT_HOME`.
 
 ## Checking that it worked
 
@@ -52,6 +51,5 @@ was never run.
 !!! warning "Before you run one on something you care about"
 
     A macro writes straight to the buffer with no confirmation step, so a
-    pattern that matches more than you meant takes the file with it. Try each
-    one on a copy first. Undo works, and every command here leaves the buffer
-    alone when it finds nothing to do, but a copy costs nothing.
+    pattern that matches more than you meant takes the file with it. Undo
+    works, but try each command on a copy first.

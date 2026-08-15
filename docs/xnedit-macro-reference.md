@@ -1,9 +1,8 @@
 # XNEdit macro language reference
 
-A condensed reference for writing macros in this repo. It is not a replacement
-for [the official docs](https://www.unixwork.de/xnedit/doc/html/xnedit.html),
-which you should read for anything subtle. This page exists so you don't have to
-go looking for the ninety percent of things you need every day.
+A condensed reference for writing macros in this repo, covering the things you
+need every day. Read [the official
+docs](https://www.unixwork.de/xnedit/doc/html/xnedit.html) for anything subtle.
 
 XNEdit's macro language descends from NEdit 5.7, so NEdit macros found in the
 wild generally work unchanged.

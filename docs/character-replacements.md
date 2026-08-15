@@ -15,19 +15,16 @@ character:
 | [Normalize Characters](commands.md#normalize-characters) | Dashes, quotes, spaces, ligatures, math relations, invisible characters | First. It also takes out tabs and stray carriage returns. |
 | [Fold Letters to ASCII](commands.md#fold-letters-to-ascii) | Accented Latin letters and Greek letters | After Normalize Characters, and only when you want the letters flattened. |
 
-They are separate commands because a macro compiles into 4096 instructions and
-no more, and one table of 313 characters plus the code to apply it does not
-fit. The split is also the more useful shape: flattening `Balázs` to `Balazs`
-is a decision about your data, not a typographic cleanup, so it takes its own
-menu item rather than riding along with the dashes.
+They are separate commands because flattening `Balázs` to `Balazs` is a
+decision about your data rather than a typographic cleanup, and because one
+table of 313 characters does not fit in the 4096 instructions a macro gets.
 
 Run Normalize Characters on its own and it reports the accented and Greek
 letters in its "no safe ASCII spelling" dialog, which is the nudge toward the
 second command.
 
 The tables below are generated from the macros themselves by
-`tools/gen_docs.py`, so they cannot drift apart. Add a character to a macro,
-run the script, and this page follows.
+`tools/gen_docs.py`, so they cannot drift apart.
 
 ## Whitespace
 
@@ -450,7 +447,7 @@ Handled by Normalize Characters, outside the character table.
 
 Normalize Characters' table is a lookup: an en dash has one obvious ASCII
 spelling and that is the end of it. Fold Letters to ASCII is a set of judgement
-calls, so here is the reasoning behind them.
+calls.
 
 ### Accented letters
 
@@ -523,21 +520,12 @@ that list before the file goes any further. `σ` and `ς` both giving `s` also
 means word-final position is not recoverable, so do not reach for this macro on
 Greek prose; it is built for a data column.
 
-Two published schemes would have avoided the collisions altogether, and neither
-was taken:
-
-- **Beta Code** (`η` to `H`, `θ` to `Q`, `ω` to `W`) is bijective, so no two
-  letters share an answer and the original is always recoverable. It reads
-  wrong here: `Ω` coming out as `W` is not something anyone scanning an
-  astronomy file will parse as omega.
-- **ISO 843** (`β` to `v`, `η` to `i`) follows modern Greek pronunciation.
-  These letters turn up as symbols in a data column rather than as Greek words,
-  so a reader meeting `v` where the paper had `β` has to know the standard
-  before the file makes sense.
-
-Spelling the name out, `α` to `alpha`, was rejected for a different reason:
-one letter for one keeps the line the width it was, and the whole point of
-running this before the pipes go in is that nothing moves.
+Two published schemes avoid the collisions and are not used here. Beta Code
+(`ω` to `W`) is bijective, so the original is always recoverable, and ISO 843
+(`β` to `v`) follows modern Greek pronunciation; both need a reader who knows
+the standard before an astronomy file makes sense. Spelling the name out, `α`
+to `alpha`, would widen the line, and the point of running this before the
+pipes go in is that nothing moves.
 
 Every Greek letter is in the table, including the fourteen that look like a
 Latin letter already. `Ο` U+039F is pixel-identical to `O`, and nothing
@@ -601,20 +589,13 @@ and column. That arithmetic assumes every `grk[]` replacement is exactly one
 character, so a character that replaces to more or fewer belongs in `fix[]`
 whatever it is. `fix[]` runs first and nothing measures it.
 
-Both macros still have room, but not the same amount of it. Normalize
-Characters uses about 45% of the 4096 instructions a macro gets, which is
-roughly 120 more two-line entries. Fold Letters to ASCII is at about 69%, and
-that headroom has been measured from both ends: 40 more assignments compile,
-139 do not.
-
-Do not work from a number written on a page, these included. Every edit to
-either macro moves them, and this page has carried a stale one before.
-`test_command_has_room_to_grow` asks the editor instead: it pads each command
-with 40 more assignments and fails if the result will not compile, which is
-early enough to do something about. What to do is a third command rather than a
-bigger table, the way Fold Letters to ASCII was split off in the first place.
-Past the limit the editor refuses the macro with `macro too large` the moment
-it is parsed.
+Both macros still have room, but a macro compiles into 4096 instructions and no
+more, and past that the editor refuses it with `macro too large` at parse time.
+Do not work from a headroom figure written on a page: every edit to either
+macro moves it. `test_command_has_room_to_grow` asks the editor instead, padding
+each command with 40 more assignments and failing while there is still room to
+act. The answer then is a third command rather than a bigger table, the way Fold
+Letters to ASCII was split off in the first place.
 
 Get the bytes with:
 
@@ -625,7 +606,7 @@ python3 -c 'print("".join("\\x%02x" % b for b in chr(0x2013).encode()))'
 Then regenerate this page:
 
 ```sh
-python3 tools/gen_docs.py
+uv run python tools/gen_docs.py
 ```
 
 Keys are written as escapes rather than as literal characters so the macro

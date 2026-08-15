@@ -77,34 +77,23 @@ nothing to remove.
 
 </div>
 
-They are in the order they are meant to be run. Just pasted a table out of a
-paper and want to know what that means in practice?
-[Cleaning up a pasted table](cleaning-pdf-tables.md) walks the whole sequence
-through on a real file. To get the commands installed in the first place, start
-with [getting started](getting-started.md).
+They are in the order they are meant to be run.
+[Cleaning up a pasted table](cleaning-pdf-tables.md) walks the sequence through
+on a real file, and [getting started](getting-started.md) covers installing
+them in the first place.
 
 ## Which editor
 
 These are written for [XNEdit](https://github.com/unixwork/xnedit) and tested
-against it every week. They are ordinary NEdit macros, though, and the same run
-puts the suite through classic NEdit 5.7 to see how far they carry. The answer
-is: nearly all the way.
+against it every week. They are ordinary NEdit macros and run on classic NEdit
+5.7 too, give or take some column arithmetic on non-ASCII text. The two editors
+keep their settings in different places, `~/.xnedit/` against `~/.nedit/`, so
+instructions written for one send you to the wrong directory.
 
-Where they part company is mostly column arithmetic. XNEdit counts a column in
-characters and NEdit 5.7 counts it in bytes, so on a line holding an accented
-name Pad Columns, Pipe at Columns and Pipe at Cursor Column all land a place
-off, and the column Fold Letters to ASCII reports for a Greek letter is a
-different number. Two smaller differences are about encoding, which XNEdit
-added and 5.7 predates: Normalize Characters leaves a byte order mark where it
-found it, and all six commands refuse a buffer XNEdit has locked over a byte it
-could not decode, with a dialog saying why. NEdit 5.7 has no such lock, so there
-they edit the file like any other.
-[When the file is locked](cleaning-pdf-tables.md#when-the-file-is-locked) is
-what that refusal looks like.
-
-The two editors keep their settings in different places, `~/.xnedit/` against
-`~/.nedit/`, so instructions written for one will send you to the wrong
-directory. That is the difference worth remembering.
+Only XNEdit locks a file it cannot read as UTF-8, and all six commands refuse a
+locked buffer rather than write into one. [When the file is
+locked](cleaning-pdf-tables.md#when-the-file-is-locked) is what that looks like
+and what to do about it.
 
 XNEdit runs under XQuartz on the Macs, which explains some behavior that
 otherwise looks like a bug: the menu bar sits inside the window, copy and paste

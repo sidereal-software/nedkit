@@ -1,14 +1,12 @@
 # Trim Trailing Blanks
 #
 # Removes trailing spaces and tabs from every line in the buffer. Leaves the
-# file and the undo history alone when there is nothing to trim.
+# file and the undo history alone when there is nothing to trim. Either way it
+# says what it did in the terminal xnedit was launched from.
 #
-# Either way it prints a line in the terminal xnedit was launched from, with
-# the number of lines it trimmed.
-#
-# It refuses a locked buffer, because nothing written to one lands. XNEdit
-# locks a file it cannot read as UTF-8, which is the usual reason; File > Read
-# Only and a file with no write permission lock one too.
+# It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+# a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+# lock one too.
 #
 #   Menu Entry:         NED>Trim Trailing Blanks
 #   Accelerator:        (none)

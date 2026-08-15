@@ -70,10 +70,9 @@ The two halves of the suite are also the two workflows.
 
 `ci.yml` runs on every push and every pull request, and covers the half that
 needs no editor: ruff, the macro conventions, the generated pages, and a real
-3.9 parse of anything the NED team is expected to run. It takes something like
-twenty seconds, an order of magnitude rather than a target. It deselects the
-macro tests rather than letting them skip, so the count at the bottom of the
-log is the truth about what ran.
+3.9 parse of anything the NED team is expected to run. It takes about twenty
+seconds. It deselects the macro tests rather than letting them skip, so the
+count at the bottom of the log is the truth about what ran.
 
 `macros.yml` runs the other half, at 08:17 on Monday morning in California. It
 builds XNEdit v1.6.3 on a Linux runner, caches the binary until either the
@@ -93,7 +92,7 @@ puts the same suite through that, which is how far the macros carry outside the
 editor they were written for. It is a gate like any other job: everything that
 diverges on 5.7 is marked and skips there, either by an `xnedit-only` file
 beside the fixture or by a skip in the test itself, so a red run means a real
-failure and tolerating one would only teach people to stop looking.
+failure.
 
 The second builds XNEdit on macOS exactly as this page tells you to, XQuartz
 included: its headers are part of the build, not just the X server the editor

@@ -12,11 +12,10 @@
 #     NGC 4472  |12:29:46.7   0.003326
 #     IC 3583   |12:36:44.0   0.001155
 #
-# Run it once per boundary, and get the characters right first. A replacement
+# Run it once per boundary, and get the characters right first: a replacement
 # that changes how many characters are on a line moves every column to its
-# right, so Normalize Characters and Fold Letters to ASCII belong before this
-# rather than after it. Nothing here pads the fields either; Pad Columns does
-# that, once every other edit is done.
+# right, so Normalize Characters and Fold Letters to ASCII belong before this.
+# Nothing here pads the fields either; Pad Columns does that, last.
 #
 # The column is the one the statistics line calls C:, counting from 0.
 # Preferences > Statistics Line puts that number on screen while you aim.
@@ -26,8 +25,8 @@
 # Five things it refuses rather than guesses at:
 #
 #   - A locked buffer. Nothing written to one lands. XNEdit locks a file it
-#     cannot read as UTF-8, which is the usual reason; File > Read Only and a
-#     file with no write permission lock one too.
+#     cannot read as UTF-8; File > Read Only and a file you cannot write lock
+#     one too.
 #   - Column 0. A pipe at the start of a line opens the table with an empty
 #     field, which is never what a fixed-width table wants.
 #   - A row holding anything but a space at that column. Overwriting there
@@ -44,8 +43,7 @@
 # is a place or two off.
 #
 # Columns are counted as they are displayed, so an en dash counts as one column
-# though it takes three bytes. That holds for anything XNEdit can decode. A file
-# it cannot decode is locked, which the first refusal above catches.
+# though it takes three bytes.
 #
 # For several columns at once, or to push the line right instead of writing
 # over the space, use Pipe at Columns.

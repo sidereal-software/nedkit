@@ -14,19 +14,11 @@ bytes, so nothing fails if these two go stale. They are here to be read.
 ## What the commands already do
 
 Not much of it, and none of it straight off the disk. `A13L.mod.before` is tab
-separated, and **Pipe at Cursor Column**, **Pipe at Columns** and **Pad
-Columns** all refuse a buffer with a tab in it: a tab is one character and any
-number of columns, so there is no saying what column anything is in. Select the
-whole file and run it through `expand` first, using
-**Shell > Filter Selection**. `expand` and XNEdit both put a tab stop every 8
-columns by default, so the file comes back looking as it did; on a machine
-where **Preferences > Tab Stops** has been changed, pass the same number with
-`expand -t N` or every column moves.
-
-After that, **Normalize Characters** turns the en dashes into minus signs,
-piping the boundaries puts the delimiters in, and **Pad Columns** squares the
-result up. That gets to a padded pipe-delimited table, which is still a long
-way from `A13L.mod.after`.
+separated, and the two pipe commands and **Pad Columns** refuse a buffer with a
+tab in it, so it goes through `expand` first. After that, **Normalize
+Characters** turns the en dashes into minus signs, piping the boundaries puts
+the delimiters in, and **Pad Columns** squares the result up. That gets to a
+padded pipe-delimited table, which is still a long way from `A13L.mod.after`.
 [Cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
 works that through step by step, on exactly this file.
 
@@ -41,18 +33,17 @@ Everything that makes it a NED file, none of which any command here attempts:
 - The column heading row, `ap_name1|name1|coordx1|coordy1|vz1`.
 - Coordinates lose their colons and gain an explicit sign:
   `00:10:09.97` to `001009.97`, `15:34:09.66` to `+153409.66`.
-- `ap_name1` and `name1` are the SDSS designations, and they cannot be worked
-  out from anything else in the file. Row 2 is the one to look at: the name
-  reads `SDSS J004054.31+153409.8` where `coordx1` is `004054.33` and
-  `coordy1` is `+153409.66`. Different digits, not a rounding of them. The
-  designation comes from SDSS's own astrometry and the paper's measured
-  position is a separate quantity that lands nearby, so the names have to be
-  looked up. Deriving them from the coordinates would produce a plausible
-  identifier for the wrong object.
+- `ap_name1` and `name1` are the SDSS designations, and they have to be looked
+  up. Row 2 shows why: the name reads `SDSS J004054.31+153409.8` where
+  `coordx1` is `004054.33` and `coordy1` is `+153409.66`. Different digits, not
+  a rounding of them, because the designation comes from SDSS's own astrometry
+  and the paper's measured position is a separate quantity that lands nearby.
+  Deriving a name from the coordinates would produce a plausible identifier for
+  the wrong object.
 - The column widths in `A13L.mod.after` are measured over the finished values,
   including the heading row and the explicit signs. Pad Columns will square the
   file up once those are in, but it cannot invent them.
 
-That list is the gap between the two files, so it is also the most concrete
-statement in this repo of what a NED job actually involves. Anything added to
-`macros/commands/` should be closing part of it.
+That list is the gap between the two files, and the most concrete statement in
+this repo of what a NED job involves. Anything added to `macros/commands/`
+should be closing part of it.

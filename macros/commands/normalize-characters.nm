@@ -10,14 +10,14 @@
 # Non-ASCII characters with no safe ASCII spelling - degree signs, Greek
 # letters, accented names - are deliberately left alone. Rather than mangle
 # them, the macro counts what is left, parks the cursor on the first one, and
-# says so in a dialog. Nothing is changed silently and nothing hides.
+# lists them in a dialog.
 #
 # A run that finds nothing leaves the buffer, the undo history and the
 # modified flag untouched.
 #
-# It refuses a locked buffer, because nothing written to one lands. XNEdit
-# locks a file it cannot read as UTF-8, which is the usual reason; File > Read
-# Only and a file with no write permission lock one too.
+# It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+# a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+# lock one too.
 #
 #   Menu Entry:         NED>Normalize Characters
 #   Accelerator:        (none)
