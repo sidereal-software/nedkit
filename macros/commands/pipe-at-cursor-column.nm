@@ -246,7 +246,9 @@ if (ok == 1) {
         replace_range(0, $text_length, out)
 
         # Inserting lengthens the buffer and overwriting leaves it the same
-        # length, but clamp rather than reason about which happened.
+        # length, but clamp rather than reason about which happened. Belt and
+        # braces: set_cursor_pos() clamps to the end of the buffer itself, on
+        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
         if (saved_cursor > $text_length) {
             saved_cursor = $text_length
         }

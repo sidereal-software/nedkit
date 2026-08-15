@@ -417,7 +417,9 @@ if (cleaned != original) {
     replace_range(0, $text_length, cleaned)
 
     # An accented letter is longer than what replaces it, so the buffer usually
-    # got shorter and the old offset may be past the end.
+    # got shorter and the old offset may be past the end. Belt and braces:
+    # set_cursor_pos() clamps to the end of the buffer itself, on XNEdit and on
+    # NEdit 5.7 alike, so no test can reach the line below.
     if (saved_cursor > $text_length) {
         saved_cursor = $text_length
     }
@@ -432,7 +434,10 @@ if (cleaned != original) {
 glist = ""
 for (i = 0; i < n_shown; i++) {
     # On a buffer XNEdit locked, the write above did not land and these offsets
-    # address text that is not there.
+    # address text that is not there. Belt and braces twice over: a locked
+    # buffer keeps the longer text these offsets were taken from, so they fit
+    # it, and set_cursor_pos() clamps to the end of the buffer itself on both
+    # forks anyway. No test can reach the line below.
     if (gpos[i] > $text_length) {
         gpos[i] = $text_length
     }

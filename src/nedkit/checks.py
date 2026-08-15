@@ -1,10 +1,11 @@
 """Static checks over the ``.nm`` files, run without XNEdit.
 
 These catch the mistakes that are cheap to make and expensive to notice: a
-header that doesn't match what the install dialog needs, a file named after
-something other than its menu entry, a ``replace_in_string()`` that forgets its
-``"copy"`` argument and so erases the buffer whenever the pattern happens not to
-match, and a search left on the case-insensitive default.
+header that doesn't match what the install dialog needs, a header running
+straight into the body with no blank line to say where it ends, a file named
+after something other than its menu entry, a ``replace_in_string()`` that
+forgets its ``"copy"`` argument and so erases the buffer whenever the pattern
+happens not to match, and a search left on the case-insensitive default.
 """
 
 from __future__ import annotations
@@ -235,6 +236,33 @@ def check_header(macro: MacroFile) -> list[Finding]:
     return findings
 
 
+def check_header_separated(macro: MacroFile) -> list[Finding]:
+    """A blank line has to come between the header and the body.
+
+    The header is the run of comment lines the file opens with, and it ends at
+    the first line that is not one. Nothing else marks where it stops, so a
+    comment written straight under the install boilerplate reads as more header:
+    it is dropped from ``macro.body``, and with it from the block on
+    docs/commands.md that people paste into the Customize Menus dialog. The
+    blank line is the whole of what tells the two apart.
+    """
+    if (
+        macro.header_lines
+        and macro.body.strip()
+        and macro.body_offset == macro.header_lines + 1
+    ):
+        return [
+            Finding(
+                macro.path,
+                macro.body_offset,
+                "the body starts on the line straight below the header. A "
+                "comment written here would be read as part of the header and "
+                "dropped from the body; leave a blank line between the two",
+            )
+        ]
+    return []
+
+
 def check_filename(macro: MacroFile) -> list[Finding]:
     """The filename is the kebab-cased command name, per macros/README.md."""
     if not macro.command_name:
@@ -398,6 +426,7 @@ def check_command(macro: MacroFile) -> list[Finding]:
     """Every check that applies to a file in macros/commands/."""
     return [
         *check_header(macro),
+        *check_header_separated(macro),
         *check_filename(macro),
         *check_replace_in_string_copy(macro),
         *check_search_type(macro.path, macro.body, macro.body_offset),

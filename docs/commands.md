@@ -435,7 +435,9 @@ in Python rather than in the editor.
         replace_range(0, $text_length, cleaned)
 
         # An accented letter is longer than what replaces it, so the buffer usually
-        # got shorter and the old offset may be past the end.
+        # got shorter and the old offset may be past the end. Belt and braces:
+        # set_cursor_pos() clamps to the end of the buffer itself, on XNEdit and on
+        # NEdit 5.7 alike, so no test can reach the line below.
         if (saved_cursor > $text_length) {
             saved_cursor = $text_length
         }
@@ -450,7 +452,10 @@ in Python rather than in the editor.
     glist = ""
     for (i = 0; i < n_shown; i++) {
         # On a buffer XNEdit locked, the write above did not land and these offsets
-        # address text that is not there.
+        # address text that is not there. Belt and braces twice over: a locked
+        # buffer keeps the longer text these offsets were taken from, so they fit
+        # it, and set_cursor_pos() clamps to the end of the buffer itself on both
+        # forks anyway. No test can reach the line below.
         if (gpos[i] > $text_length) {
             gpos[i] = $text_length
         }
@@ -751,6 +756,8 @@ modified flag untouched.
         replace_range(0, $text_length, cleaned)
 
         # The buffer usually got shorter, so the old offset may be past the end.
+        # Belt and braces: set_cursor_pos() clamps to the end of the buffer itself,
+        # on XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
         if (saved_cursor > $text_length) {
             saved_cursor = $text_length
         }
@@ -1029,7 +1036,9 @@ A second run finds the file already square and leaves it alone.
             replace_range(0, $text_length, out)
 
             # Padding lengthens the buffer, but trimming the spaces a field came in
-            # with can shorten it.
+            # with can shorten it. Belt and braces: set_cursor_pos() clamps to the
+            # end of the buffer itself, on XNEdit and on NEdit 5.7 alike, so no
+            # test can reach the line below.
             if (saved_cursor > $text_length) {
                 saved_cursor = $text_length
             }
@@ -1135,6 +1144,8 @@ For one column with no dialog in the way, use Pipe at Cursor Column.
 ??? example "The macro body, ready to paste"
 
     ```
+    # --- prologue: ask which columns, and how -----------------------------------
+
     mode = "overwrite"
     cols = $empty_array
     ncols = 0
@@ -1383,7 +1394,9 @@ For one column with no dialog in the way, use Pipe at Cursor Column.
             replace_range(0, $text_length, out)
 
             # Inserting lengthens the buffer and overwriting leaves it the same
-            # length, but clamp rather than reason about which happened.
+            # length, but clamp rather than reason about which happened. Belt and
+            # braces: set_cursor_pos() clamps to the end of the buffer itself, on
+            # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
             if (saved_cursor > $text_length) {
                 saved_cursor = $text_length
             }
@@ -1491,6 +1504,8 @@ over the space, use Pipe at Columns.
 ??? example "The macro body, ready to paste"
 
     ```
+    # --- prologue: the single column the cursor is sitting in -------------------
+
     mode = "overwrite"
     cols = $empty_array
     ncols = 0
@@ -1676,7 +1691,9 @@ over the space, use Pipe at Columns.
             replace_range(0, $text_length, out)
 
             # Inserting lengthens the buffer and overwriting leaves it the same
-            # length, but clamp rather than reason about which happened.
+            # length, but clamp rather than reason about which happened. Belt and
+            # braces: set_cursor_pos() clamps to the end of the buffer itself, on
+            # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
             if (saved_cursor > $text_length) {
                 saved_cursor = $text_length
             }
@@ -1736,6 +1753,9 @@ over the space, use Pipe at Columns.
 Removes trailing spaces and tabs from every line in the buffer. Leaves the
 file and the undo history alone when there is nothing to trim.
 
+Either way it prints a line in the terminal xnedit was launched from, with
+the number of lines it trimmed.
+
 ??? example "The macro body, ready to paste"
 
     ```
@@ -1751,10 +1771,31 @@ file and the undo history alone when there is nothing to trim.
         replace_range(0, $text_length, trimmed)
 
         # The buffer just got shorter, so the old offset may now be past the end.
+        # Belt and braces: set_cursor_pos() clamps to the end of the buffer itself,
+        # on XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
         if (saved_cursor > $text_length) {
             saved_cursor = $text_length
         }
         set_cursor_pos(saved_cursor)
+    }
+
+    # --- report -----------------------------------------------------------------
+    #
+    # Count the lines that had blanks on the end of them, in the text as it came
+    # in. "$" anchors to the end of a line rather than the end of the string, so
+    # every match is one line, and $search_end is past the blanks it matched, which
+    # is what makes the search walk forward.
+    n_trimmed = 0
+    pos = search_string(original, "[ \t]+$", 0, "regex")
+    while (pos != -1) {
+        n_trimmed++
+        pos = search_string(original, "[ \t]+$", $search_end, "regex")
+    }
+
+    if (n_trimmed == 0) {
+        t_print("trim: " $file_name ": nothing to trim\n")
+    } else {
+        t_print("trim: " $file_name ": " n_trimmed " line(s) trimmed\n")
     }
     ```
 

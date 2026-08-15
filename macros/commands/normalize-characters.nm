@@ -253,6 +253,8 @@ if (cleaned != original) {
     replace_range(0, $text_length, cleaned)
 
     # The buffer usually got shorter, so the old offset may be past the end.
+    # Belt and braces: set_cursor_pos() clamps to the end of the buffer itself,
+    # on XNEdit and on NEdit 5.7 alike, so no test can reach the line below.
     if (saved_cursor > $text_length) {
         saved_cursor = $text_length
     }

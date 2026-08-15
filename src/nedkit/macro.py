@@ -15,10 +15,11 @@ A menu command file is a header comment followed by the macro body:
     original = get_range(0, $text_length)
     ...
 
-The header is the leading run of comment and blank lines, so a body must not
-open with a comment of its own or it gets read as part of the header. Every
-command in ``macros/commands/`` starts with code, and
-``tests/test_conventions.py`` keeps it that way.
+The header is the run of comment lines the file opens with, and it ends at the
+first line that is not one. The blank line under it is what lets a body open
+with a comment of its own instead of having that comment read as more header,
+and :func:`nedkit.checks.check_header_separated` is what keeps the blank line
+there.
 """
 
 from __future__ import annotations
@@ -76,6 +77,16 @@ class MacroFile:
     body_offset: int
     """Line number (1-based) the body starts on, for error messages."""
 
+    header_lines: int = 0
+    """How many lines the opening run of comments covers.
+
+    The header is that run and nothing else, so the line straight after it is
+    the one that decides whether a body comment survives:
+    :func:`nedkit.checks.check_header_separated` asks for it to be blank. Zero
+    for a body with no header above it, which is what a ``MacroFile`` built
+    from a bare body in a test has.
+    """
+
     @property
     def menu_entry(self) -> str:
         return self.fields.get("Menu Entry", "")
@@ -123,30 +134,32 @@ def parse(path: Path) -> MacroFile:
     text = path.read_text(encoding="utf-8")
     lines = text.split("\n")
 
+    header_lines = 0
+    while header_lines < len(lines) and lines[header_lines].startswith("#"):
+        header_lines += 1
+
     fields: dict[str, str] = {}
     title = ""
     prose: list[str] = []
-    body_start = 0
 
-    for index, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped and not stripped.startswith("#"):
-            body_start = index
-            break
-
+    for line in lines[:header_lines]:
         match = _FIELD_RE.match(line)
         if match:
             value = match.group(2)
             fields[match.group(1)] = "" if value in NONE_VALUES else value
-        elif not title and stripped.startswith("#"):
-            title = stripped.lstrip("#").strip()
-        elif not fields and stripped.startswith("#"):
+        elif not title:
+            title = line.lstrip("#").strip()
+        elif not fields:
             # Everything after the fields is install boilerplate, identical in
             # every command, so prose collection stops once a field is seen.
             prose.append(_COMMENT_RE.sub("", line, count=1).rstrip())
-    else:
-        # Comments all the way down: no body at all.
-        body_start = len(lines)
+
+    # The body is everything under the header, blank lines between the two
+    # dropped so that a body opening with a comment keeps that comment and
+    # still reports its line numbers from the right place.
+    body_start = header_lines
+    while body_start < len(lines) and not lines[body_start].strip():
+        body_start += 1
 
     body_lines = lines[body_start:]
     while body_lines and not body_lines[-1].strip():
@@ -159,6 +172,7 @@ def parse(path: Path) -> MacroFile:
         fields=fields,
         body="\n".join(body_lines),
         body_offset=body_start + 1,
+        header_lines=header_lines,
     )
 
 

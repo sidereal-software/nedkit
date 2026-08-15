@@ -18,6 +18,7 @@ import pytest
 
 from nedkit.checks import (
     check_formatting,
+    check_header_separated,
     check_library_prefix,
     check_replace_in_string_copy,
     check_search_type,
@@ -266,20 +267,26 @@ def test_slug() -> None:
     assert slug("Fill Sel. w/Char") == "fill-sel-wchar"
 
 
-def test_parse_reads_header_and_body(tmp_path: Path) -> None:
+#: A header with everything the install dialog asks for, ready to have a body
+#: written under it. The blank line is the caller's to add or leave out.
+HEADER = (
+    "# Example\n"
+    "#\n"
+    "#   Menu Entry:         NED>Example\n"
+    "#   Accelerator:        (none)\n"
+    "#   Mnemonic:           (none)\n"
+    "#   Requires Selection: yes\n"
+)
+
+
+def written(tmp_path: Path, text: str) -> Path:
     path = tmp_path / "example.nm"
-    path.write_text(
-        "# Example\n"
-        "#\n"
-        "#   Menu Entry:         NED>Example\n"
-        "#   Accelerator:        (none)\n"
-        "#   Mnemonic:           (none)\n"
-        "#   Requires Selection: yes\n"
-        "\n"
-        "x = 1\n",
-        encoding="utf-8",
-    )
-    macro = parse(path)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_parse_reads_header_and_body(tmp_path: Path) -> None:
+    macro = parse(written(tmp_path, HEADER + "\nx = 1\n"))
     assert macro.title == "Example"
     assert macro.menu_entry == "NED>Example"
     assert macro.command_name == "Example"
@@ -287,6 +294,29 @@ def test_parse_reads_header_and_body(tmp_path: Path) -> None:
     assert macro.fields["Accelerator"] == ""
     assert macro.body == "x = 1"
     assert macro.body_offset == 8
+    assert macro.header_lines == 6
+
+
+def test_parse_keeps_a_comment_the_body_opens_with(tmp_path: Path) -> None:
+    """The divider the two piping commands open with is body, not header.
+
+    It sits under the header rather than in it, and reading it as header drops
+    it from ``macro.body``, which is the text ``tools/gen_docs.py`` publishes as
+    the block to paste in. The published body would then be missing a line the
+    file has.
+    """
+    macro = parse(written(tmp_path, HEADER + "\n# --- prologue ---\n\nx = 1\n"))
+    assert macro.body == "# --- prologue ---\n\nx = 1"
+    assert macro.body_offset == 8
+    assert macro.prose == ""
+
+
+def test_parse_counts_from_the_first_line_of_the_body(tmp_path: Path) -> None:
+    """``body_offset`` is what turns a line in the body into a line in the file,
+    so a body opening with a comment has to count from that comment."""
+    macro = parse(written(tmp_path, HEADER + "\n# a comment\nx = 1\n"))
+    lines = macro.path.read_text(encoding="utf-8").split("\n")
+    assert lines[macro.body_offset - 1] == macro.body.split("\n")[0]
 
 
 def test_parse_survives_a_file_with_no_body(tmp_path: Path) -> None:
@@ -294,3 +324,31 @@ def test_parse_survives_a_file_with_no_body(tmp_path: Path) -> None:
     path.write_text("# nothing here\n", encoding="utf-8")
     macro = parse(path)
     assert macro.body == ""
+
+
+def test_a_blank_line_between_header_and_body_is_accepted(tmp_path: Path) -> None:
+    assert check_header_separated(parse(written(tmp_path, HEADER + "\nx = 1\n"))) == []
+
+
+def test_a_body_touching_the_header_is_reported(tmp_path: Path) -> None:
+    """Nothing but the blank line says where the header stops.
+
+    Without it the next line is header whatever it holds, so a comment there
+    goes missing from the body and from the docs, and the file that lost it
+    looks fine.
+    """
+    findings = check_header_separated(parse(written(tmp_path, HEADER + "x = 1\n")))
+    assert len(findings) == 1, findings
+    assert findings[0].line == 7
+    assert "blank line" in findings[0].message
+
+
+def test_a_file_that_is_all_body_is_accepted(tmp_path: Path) -> None:
+    """A library file has no header, so there is nothing to separate."""
+    assert check_header_separated(parse(written(tmp_path, "x = 1\n"))) == []
+
+
+def test_a_file_that_is_all_header_is_left_to_the_header_check(tmp_path: Path) -> None:
+    """``check_header()`` already says a command has no body. Saying it twice,
+    in two voices, buries the one finding that names the real problem."""
+    assert check_header_separated(parse(written(tmp_path, HEADER))) == []
