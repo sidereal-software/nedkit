@@ -171,7 +171,19 @@ def test_normalizing_after_the_piping_pulls_the_pipes_out_of_line(
     included. The other row does not move. There is then no single column
     number that finds the boundary on both rows, and the next one has to be
     aimed at twice.
+
+    The rule holds on either editor; these numbers do not. ``ﬀ`` is three bytes
+    and NEdit 5.7 counts bytes, so column 14 lands two characters earlier on the
+    row holding it and the pipes are out of line before Normalize Characters
+    even runs.
     """
+    if not runner.is_xnedit:
+        pytest.skip(
+            "the setup needs a multi-byte character to be one column, which is "
+            f"XNEdit's Unicode handling; NEdit 5.7 predates it (running "
+            f"{runner.version})"
+        )
+
     piped = apply(
         runner,
         ["pipe-at-columns"],
@@ -237,7 +249,18 @@ def test_folding_after_the_padding_pushes_the_row_it_widened_out_of_line(
     ``ß`` becomes ``ss``, so the field it is in gets a character wider than the
     width Pad Columns just measured for that column, and the row it is on ends
     up a character longer than the rest.
+
+    The rule holds on either editor; this setup does not. ``ß`` is two bytes, so
+    NEdit 5.7 measures ``Weiß`` as exactly as wide as ``Smith``, pads neither,
+    and there is no measurement for the fold to invalidate.
     """
+    if not runner.is_xnedit:
+        pytest.skip(
+            "the setup needs a multi-byte character to be one column, which is "
+            f"XNEdit's Unicode handling; NEdit 5.7 predates it (running "
+            f"{runner.version})"
+        )
+
     result = apply(runner, ["pad-columns", "fold-letters-to-ascii"], SHARP_S, tmp_path)
 
     assert pipe_columns(result) == [[6], [5]], (
