@@ -10,7 +10,7 @@ wild generally work unchanged.
 
 ## Read this first
 
-These five behaviors account for most of the time people lose.
+These behaviors account for most of the time people lose.
 
 **There is no floating point.** Integers are 32-bit signed, from -2147483647 to
 2147483647, and that is the only numeric type. Redshifts, coordinates, and flux
@@ -25,20 +25,34 @@ original. So this deletes the buffer whenever there is nothing to trim:
 replace_range(0, $text_length, replace_in_string(get_range(0, $text_length), "[ \t]+$", "", "regex"))
 ```
 
-Passing `"copy"` as the fifth argument makes it return the input unchanged
-instead:
+Passing `"copy"` makes it return the input unchanged instead. It can go in the
+fourth argument or the fifth, because the call scans every trailing argument for
+it:
 
 ```
-replace_in_string(text, "[ \t]+$", "", "regex", "copy")
+replace_in_string(text, "[ \t]+$", "", "regex", "copy")   # with a search type
+replace_in_string(text, "\xc3\xa9", "e", "copy")          # without one
 ```
+
+**With no search type, matching is case-insensitive.**
+`replace_in_string("HELLO", "l", "-")` gives `HE--O`. The default type is
+`"literal"`, which is the plain search with the Case Sensitive box unticked, so
+a table keyed on one case of a letter fires on both until you pass `"case"`.
+That bites hardest in a replacement table: `fold-letters-to-ascii.nm` carries
+both cases of every Greek letter, and without `"case"` the entry for `α` would
+answer for `Α` as well. An unrecognised type is a hard error rather than a
+silent fallback, so the trap is only ever a type you left out, never one you
+misspelled.
 
 **Backslashes are consumed twice.** The string literal is unescaped first, then
 the result goes to the regex engine. A regex `\s` is written `"\\s"`. A regex
 matching a literal `*` is `"\\*"`.
 
-**`define` cannot nest,** and cannot appear inside a menu item definition.
-Subroutines belong in `macros/lib/`, which is loaded through `autoload.nm` at
-startup.
+**`define` cannot nest,** cannot appear inside a menu item definition, and is
+not accepted in a `-do` string either: `xnedit -do 'define f { ... }' file`
+stops on an error dialog whatever the body is. A definition has to arrive
+through `autoload.nm` or Load Macro File. Subroutines belong in `macros/lib/`,
+which is loaded through `autoload.nm` at startup.
 
 **Positions are character offsets from 0,** not line and column. `$text_length`
 is the offset one past the last character.
@@ -153,11 +167,11 @@ message = "found " count " matches"
 ## Subroutines
 
 ```
-define ned_example {
+define ned_trim_end {
     if ($n_args < 1) {
         return ""
     }
-    return toupper($1)
+    return replace_in_string($1, "[ \t]+$", "", "regex", "copy")
 }
 ```
 
@@ -230,14 +244,32 @@ replace_substring(string, start, end, replace_with)
 replace_in_string(string, search_for, replace_with [, type, "copy"])
 split(string, separation_string [, search_type])
 string_compare(string1, string2 [, consider-case])
-toupper(string)
-tolower(string)
+toupper(string)      # ASCII only. See the warning below
+tolower(string)      # ASCII only. See the warning below
 valid_number(string)
 max(n1, n2, ...)
 min(n1, n2, ...)
 ```
 
 `split()` returns an array indexed from 0.
+
+!!! danger "`toupper()` and `tolower()` destroy non-ASCII text"
+
+    On XNEdit 1.6.3 the 8 bytes of `αβ Éx` come back from `toupper()` as the 5
+    bytes `\xce\xce \xc3X`. Every multi-byte character has lost its
+    continuation byte and what is left is not valid UTF-8. `tolower()` on the
+    same string returns a single byte. Put that in the buffer and the save
+    stops on a modal dialog that never closes, with the file on disk already
+    truncated to nothing.
+
+    The `uppercase()` and `lowercase()` action routines get the same string
+    right, because the code behind them sets `LC_CTYPE` and measures each
+    character before converting it, which `toupper()` and `tolower()` do not.
+    So change case with the action routine, or leave the case alone.
+
+    Measured on 1.6.3. Upstream changed that code after the v1.6.3 tag, in
+    commit `c5b1120`, so a later release will not necessarily fail the same
+    way. Check before trusting it on anything but ASCII.
 
 **Searching**
 
@@ -255,11 +287,29 @@ start or -1, and set `$search_end`.
 is also the default when you leave `search_type` off. The same names mean the
 same things in `replace_in_string()` and `replace_all()`.
 
-That matters beyond letter case. XNEdit folds case over UTF-8, not over bytes,
-and some characters change length when folded - uppercasing the `fi` ligature
-U+FB01 gives the two characters `FI`. A `"literal"` search for a multi-byte
-character can therefore match text you did not intend. Use `"case"` whenever
-you are matching exact bytes.
+That matters beyond letter case. XNEdit folds `"literal"` case over UTF-8
+rather than over bytes, and some characters change length when folded:
+uppercasing the `fi` ligature U+FB01 gives the two characters `FI`. So a
+`"literal"` search for a multi-byte character can match text you did not
+intend. Use `"case"` whenever you are matching exact bytes.
+
+The other insensitive types do not reach that far. Searching `É` for `é` on
+XNEdit 1.6.3:
+
+| Type | Folds ASCII case | Folds non-ASCII case |
+| --- | --- | --- |
+| `"literal"` | yes | yes |
+| `"case"` | no | no |
+| `"word"` | yes | no |
+| `"caseWord"` | no | no |
+| `"regex"` | no | no |
+| `"regexNoCase"` | yes | no |
+
+`"regexNoCase"` folds one byte at a time, through `tolower()` guarded by
+`isalpha()`, so a multi-byte character is not something it can see at all.
+`"word"` is version-specific: a change to whole-word searching for strings
+whose length differs between cases landed upstream after the v1.6.3 tag, in
+commit `8c6cebc`, so check that row again on the next release.
 
 **Files and shell**
 
@@ -354,7 +404,15 @@ docs](https://www.unixwork.de/xnedit/doc/html/basicSyntax.html).
 
 `.` matches one whole UTF-8 character, however many bytes that takes. Repeat it
 and that stops being true: `.{n}`, `.*` and `.+` all go through the engine's
-`greedy()` path, which advances a byte at a time.
+`greedy()` path, which advances a byte at a time. It is not only `greedy()`.
+The quantifier machinery around it backtracks with `Reg_Input = save +
+num_matched` (`regularExp.c:3429`), which is the same assumption of one byte
+per repetition.
+
+`.{1}` is the exception, and only because it is not a repetition by the time it
+runs: `regularExp.c:1063` optimises `x{1,1}` away entirely, leaving a bare `x`.
+So `^.{1}$` matches a three-byte character and `^.{2}$` does not, while
+`^.{3}$` does.
 
 So this looks like it puts a pipe at column 24, and does not:
 
@@ -370,6 +428,11 @@ you tested with. Count the characters yourself instead: match runs of `[ -~]`,
 where a byte is a character, and step over everything else with a single bare
 `.`. `pipe-at-cursor-column.nm` does that.
 
+A character class counts bytes whether it is repeated or not, and a multi-byte
+character written inside one is taken apart into its bytes: `^[é]$` does not
+match `é`, and `^[é]{2}$` does. That does not break the `[ -~]+` walk above,
+because every member of that class is one byte, so leave that pattern alone.
+
 `$column` sits on the character side of this divide. It is the display column,
 counting a multi-byte character as one and expanding a tab to the next tab
 stop, and it is the same number the statistics line shows as `C:`. `length()`,
@@ -377,14 +440,62 @@ stop, and it is the same number the statistics line shows as `C:`. `length()`,
 can hand you half of a character. Both sides are right about their own
 question; mixing them produces the off-by-two.
 
+The one place `$column` and the statistics line part company is when the
+position is not in the displayed text, which in practice means continuous wrap
+with the cursor scrolled off screen. The stats line goes to `C: ---` there,
+because the call behind it fails rather than returning a column. `$column`
+answers from the buffer and returns a number regardless, so a macro reading it
+is on the safer side of the two.
+
 Two more things about a bare `.`, both of which matter once you are stepping
 with it: it never matches a newline, and on a byte that is not valid UTF-8 it
 believes the lead byte anyway, so it can step clean past the end of a string
 that is not valid text.
 
+None of this is XNEdit adding a hazard. NEdit 5.7 counts bytes in a bare `.`
+too, and the character-aware `.` is the one Unicode change XNEdit has made to
+the 4178-line regex engine, in commit `732c8ab`. That single difference is why
+the macros here put a pipe in a different place on the two editors whenever a
+line holds a non-ASCII character, and why the column fixtures carry an
+`xnedit-only` marker.
+
+## Fixed-size limits
+
+Six compile-time constants that a macro can reach. None of them are in the
+official docs, and they are the same in XNEdit 1.6.3 and NEdit 5.7, since 5.7
+is where all six come from.
+
+| Constant | Value | What hits it |
+| --- | --- | --- |
+| `PROGRAM_SIZE` | 4096 instructions | A single compiled macro |
+| `SEARCHMAX` | 5119 bytes | The pattern of a literal or case search |
+| `MAX_ITEMS_PER_MENU` | 400 items | Each of the Macro, Shell and background menus |
+| `STACK_SIZE` | 1024 | The interpreter's value stack |
+| `MAX_SYM_LEN` | 100 characters | A variable or subroutine name |
+| `LOOP_STACK_SIZE` | 200 | `break` and `continue` statements per program |
+
+The first two are the ones that turn up in practice.
+
+**4096 instructions** is per compiled macro, and every way of getting a macro
+into the editor goes through the same parser: `-do`, a menu command out of
+`nedit.rc`, `autoload.nm`, Load Macro File. Over the limit it is refused at
+parse time with `macro too large`, naming the line it stopped on. Each `define`
+compiles separately and gets its own 4096. A table assignment such as
+`fix["\xe2\x80\x93"] = "-"` costs 9 instructions, so 455 of them fill a `-do`
+body and 456 are refused; inside a `define` it is 454, because `return` takes
+the last slot. That is what a big replacement table has to be budgeted against.
+
+**5119 bytes** is the more dangerous one, because nothing tells you. A
+`"literal"` or `"case"` search whose pattern is 5119 bytes or longer returns
+-1, the same answer as a pattern that genuinely is not there. 5118 bytes
+matches; 5119 does not. Regex searches do not go through that path and are not
+affected. The source comment is blunt about it: the limit "should be done away
+with now that searching can be done from macros without limits. Returning
+search failure here is cheating users. This limit is not documented."
+
 ## Developing and testing
 
-There is no test harness. What you have:
+XNEdit ships no test harness, so out of the box you have:
 
 - `t_print()` for tracing, visible in the terminal that launched XNEdit.
 - **Macro → Learn Keystrokes**, then **Macro → Replay**, to capture a sequence
@@ -392,6 +503,11 @@ There is no test harness. What you have:
 - **Macro → Load Macro File** to run a `.nm` file without installing anything.
 - `xnedit -do 'command' file` to run a macro from the shell, and
   `xnc -do 'command'` against a running `xnedit -server` session.
+
+This repo builds on that last one: every command is run through a real XNEdit
+and the buffer compared byte for byte against a fixture. See
+[running the tests](testing.md) for how to build an editor to test against and
+how to add a case.
 
 Always try a destructive macro on a copy first. Macros edit the buffer directly
 and a wrong regex is quiet about it.

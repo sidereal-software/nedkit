@@ -60,6 +60,14 @@ real bugs:
 - `^` and `$` anchor to line boundaries, not string boundaries, so multi-line
   buffer rewrites with `[ \t]+$` work as expected.
 - Array element count is `arr[]` with no index. Iterate with `for (k in arr)`.
+- **`set_cursor_pos()` clamps for you.** Asking for position 100000 in a 6-byte
+  buffer leaves `$cursor` at 6, on XNEdit and on NEdit 5.7 alike: both reach
+  the same `TextDSetInsertPosition`. The `if (saved_cursor > $text_length)`
+  guard in the four rewriting commands is therefore unreachable, and Fold's
+  `gpos` clamp is unreachable twice over, since a locked buffer still holds the
+  longer original text those offsets were taken from. All five sites say so in
+  a comment now, because two audits in a row filed them as an untested coverage
+  gap. They are unreachable, not untested.
 - **A macro compiles into 4096 instructions and no more.** `PROGRAM_SIZE` in
   `interpret.c:63` sizes `static Inst Prog[PROGRAM_SIZE]` at `:182`, one fixed
   array, and every route into the editor goes through the same `ParseMacro()`:
@@ -67,7 +75,9 @@ real bugs:
   the limit you get `macro too large` at parse time, naming whichever line it
   stopped on. Measured against XNEdit 1.6.3:
   - An `arr["k"] = "v"` assignment costs **9 instructions**, so a body with no
-    logic in it holds about **450** of them.
+    logic in it holds about **450** of them. Exactly: 455 assignments compile
+    in a `-do` body and 456 do not, which pins the cost at 9 with no base
+    overhead. Inside a `define` it is 454, the `return` taking the last slot.
   - `normalize-characters.nm` uses roughly 45% of its budget and
     `fold-letters-to-ascii.nm` roughly 69%. Do not trust a figure written down
     here for the margin: every edit to a command moves it, and the one above
@@ -84,6 +94,23 @@ real bugs:
   buffers stdout, so a run killed early loses its output and a slow-but-fine
   macro looks exactly like a rejected one.
 
+  Five more fixed-size limits sit behind the macro language, none of them
+  documented upstream and all of them inherited unchanged from NEdit 5.7. The
+  dangerous one is `SEARCHMAX` 5119: a `"literal"` or `"case"` search whose
+  pattern is 5119 bytes or longer returns -1, which is also the answer for a
+  pattern that is not there, and the source comment admits that "returning
+  search failure here is cheating users". Regex searches do not go through
+  that path. The others are `MAX_ITEMS_PER_MENU` 400 per menu, `STACK_SIZE`
+  1024, `MAX_SYM_LEN` 100 and `LOOP_STACK_SIZE` 200. The table is on
+  [the macro language page](docs/xnedit-macro-reference.md).
+- **`toupper()` and `tolower()` destroy non-ASCII text.** On 1.6.3 they walk
+  the string with no locale guard, so the 8 bytes of `αβ Éx` come back from
+  `toupper()` as 5 bytes and `tolower()` returns 1. Writing that into the
+  buffer means the save stops on a modal dialog and the file is left empty. The
+  `uppercase()` and `lowercase()` action routines are correct on the same text.
+  Since NED data is full of accented names and Greek letters, treat both
+  functions as ASCII-only.
+
 ## Distributing macros
 
 Two different mechanisms, and mixing them up is the usual source of "the macro
@@ -99,8 +126,11 @@ isn't showing up":
   **Preferences → Save Defaults**.
 - **Background menu commands** are the same thing in a different resource,
   `nedit.bgMenuCommands`, installed through **Customize Menus → Window
-  Background Menu** and posted by a right-click in the text. Same entry format,
-  merged with the built-in Undo/Redo/Cut/Copy/Paste. A command can live in both
+  Background Menu** and posted by a right-click in the text. Same entry format.
+  Undo/Redo/Cut/Copy/Paste are not built in: they are that resource's default
+  value, so they survive the dialog (which lists them) and an `-import` (which
+  adds to the list already loaded), and they vanish the moment a hand-written
+  `nedit.rc` sets the resource to something else. A command can live in both
   menus, which is what the `Install In:` header field records, and it is then
   pasted into both dialogs. Right-clicking does not move the insert cursor, so
   a command that reads `$column` needs a left-click first.
@@ -173,8 +203,9 @@ a full run flickers windows on screen and steals focus. It is not a failure,
 but do not run the suite in the middle of something else. There is no Xvfb on
 macOS to hide behind.
 
-A run takes about 45 seconds, nearly all of it XNEdit starting up once per
-test.
+A run takes a couple of minutes, nearly all of it XNEdit starting up once per
+test. That figure tracks the number of editor-backed tests rather than staying
+put, so treat it as an order of magnitude and not a target.
 
 ### Writing a test
 
@@ -200,39 +231,61 @@ commands in sequence, which is the only place their interaction shows up. It
 works from inline bytes rather than from `samples/`, because the sample paste
 is tab separated and the pipe commands refuse a buffer with a tab in it.
 
-Encoding behaviour needs care, because it depends on the locale as much as on
-the editor. A file that is *entirely* latin-1 decodes cleanly under a latin-1
-locale and is an error under a UTF-8 one, so a fixture built on one is not
-portable. Two tests cover it from opposite ends:
+**A test that cannot fail is worse than no test**, because it is also a claim
+that the thing is covered. Three turned up in one day: a blanket idempotency
+check that was a no-op for two of the commands, a pipeline re-run that stayed
+green because the command under it correctly refused to act, and the
+byte-survival check described below. Every one was found by mutating a macro
+and watching the suite stay green, and none by reading the test. So when a test
+asserts that something *survived*, make it assert first that something
+*happened*.
+
+Encoding behaviour is where that bites, because the answer depends on the
+locale as much as on the editor. A file that is *entirely* latin-1 decodes
+cleanly under a latin-1 locale and is an error under a UTF-8 one, so a fixture
+built on one is not portable. Three tests cover it from different ends:
 
 - `unconvertible-byte-locks-the-file` pins the lock, using a file that is valid
   UTF-8 apart from one stray byte. That is an error under any locale, and the
   workflows pin `LANG` so the answer cannot drift.
-- `test_command_does_not_corrupt_a_non_utf8_file` drops the question of whether
-  the buffer locks and asserts only that the bytes survive. That is
-  editor-independent, classic NEdit included, and it is locale-independent
-  **only when the sample byte is one no command's table maps**. That condition
-  is the whole invariant, so hold it deliberately:
+- `test_command_keeps_a_non_ascii_character_when_it_rewrites_the_buffer` hands
+  each command a buffer it genuinely edits, holding a UTF-8 degree sign that no
+  table maps, and asserts the buffer changed **before** asserting the character
+  survived. Its predecessor asserted only the second half, on a sample that was
+  invalid UTF-8 under every locale: the editor locked the buffer,
+  `replace_range()` no-opped, the byte survived because nothing was ever
+  written, and it passed for all six commands whatever they did. Asserting a
+  real rewrite costs the locale independence the old one appeared to have, so
+  this test assumes the UTF-8 locale the workflows pin. Under a latin-1 one the
+  degree sign decodes as two characters, one of which Fold Letters to ASCII has
+  an answer for.
+- `test_a_command_does_not_hang_on_a_buffer_xnedit_locked` keeps the old sample
+  and asserts what it really proved: the editor locks the buffer, the macro
+  comes back rather than raising a dialog nobody can dismiss, and the bytes are
+  untouched. XNEdit only, since NEdit 5.7 has no lock to hit.
 
-    Fold Letters to ASCII maps every accented letter. A latin-1 `café` survives
-    under `LANG=C.UTF-8` because the lone `\xe9` is invalid there, so XNEdit
-    locks the buffer and nothing is written. Under a latin-1 locale the editor
-    decodes it, the macro folds it to `e`, and the byte is gone. Same test,
-    same editor, opposite results, and the failure names nothing that would
-    point at the locale.
+Do not read a command's own report to settle any of this. All six report what
+they computed, not what reached the buffer, so on a locked file Trim Trailing
+Blanks announces two trimmed lines that are still there. Only the bytes settle
+it.
 
-  So pick a byte outside every table, such as `\xb0`, which nothing maps. CI
-  pins `LANG`, but a team member running `uv run pytest` does not.
+The leading BOM is pinned the same way as the lock: XNEdit lifts it out of the
+buffer and puts it back on save.
 
-The leading BOM is pinned the same way: XNEdit lifts it out of the buffer and
-puts it back on save.
+There are five `xnedit-only` fixtures, and only two of them are about encoding
+(the lock and the BOM). The other three are Pad Columns, Pipe at Columns and
+Pipe at Cursor Column, where the divergence is arithmetic: XNEdit counts a
+column in characters and NEdit 5.7 counts it in bytes, in `$column` and in the
+regex engine alike, so a line holding an accented name comes out a place too
+wide there. Fold Letters to ASCII is the only command with no marker, which
+does not make it fork-independent: the column it reports for a Greek letter is
+XNEdit's, and the test pinning that skips on 5.7 in its own body rather than
+through a fixture.
 
-Both of those are XNEdit behaviour that classic NEdit predates, so both cases
-carry an `xnedit-only` file naming the reason, and the suite skips them when
-`runner.is_xnedit` is false. That is decided from `<binary> -version`, not from
-the filename. Reach for the marker only when a case genuinely turns on the
-fork; every expected failure left unmarked is one more reason to stop reading
-the NEdit job.
+The suite skips a marked case when `runner.is_xnedit` is false, decided from
+`<binary> -version` rather than from the filename. Reach for the marker only
+when a case genuinely turns on the fork; every expected failure left unmarked
+is one more reason to stop reading the NEdit job.
 
 ## Conventions
 
@@ -283,11 +336,18 @@ committed page has drifted from the macro it came from.
 This puts two formatting contracts on the macro files. Breaking either one
 silently produces wrong docs, so keep them:
 
-- A command's header comment is the run of `#` lines the file opens with. The
-  first line is the title, the prose runs from there to the `Menu Entry:`
-  block, and everything after that block is install boilerplate the docs do not
-  repeat. Write the prose so it reads as documentation, because it becomes the
-  documentation.
+- A command's header comment is the leading contiguous run of `#` lines, ending
+  at the first line that is not one. The first line is the title, the prose
+  runs from there to the `Menu Entry:` block, and everything after that block
+  is install boilerplate the docs do not repeat. Write the prose so it reads as
+  documentation, because it becomes the documentation.
+
+    A blank line has to separate the header from the body, and
+    `nedkit.checks.check_header_separated` enforces it. That blank line is the
+    only thing marking where the header stops, so with it in place **a command
+    body may open with a comment of its own**. Without it, that comment reads
+    as more header and is dropped from the body, which is what silently ate two
+    commands' opening divider line on the paste-in block in `docs/commands.md`.
 - In the character table, a group heading is the comment line directly above a
   `fix[...]` or `grk[...]` line with no blank line between them. That is the
   only thing separating a heading from ordinary prose earlier in the file.
@@ -357,5 +417,8 @@ unless asked.
 
 - Whether the team wants a shared macro menu everyone syncs, or individuals
   picking commands à la carte.
-- What the actual parsing tasks are, which is what should drive the first real
-  macros.
+
+Closed: what the actual parsing tasks are. Six commands have shipped, and
+`samples/README.md` states the rest of the job concretely, as the gap between
+`A13L.mod.before` and `A13L.mod.after`. Anything added to `macros/commands/`
+should close part of that list.

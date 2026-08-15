@@ -90,11 +90,14 @@ jobs:
     timeout-minutes: 30
     # XNEdit is what the team runs and what the macros target; classic NEdit is
     # here to show how far they carry, since the two share a macro language.
-    # The answer is 98 of 100: the two that do not are the encoding cases XNEdit
-    # added and 5.7 predates, and they carry an xnedit-only file so they skip
-    # here rather than fail. That is why this job has no continue-on-error. Now
-    # that the expected divergence is marked, a red run means something, and
-    # tolerating it would only teach people to stop looking.
+    # The answer is nearly all of it. Everything that diverges is marked and
+    # skips here rather than failing, either by an xnedit-only file beside the
+    # fixture or by a skip in the test itself. Most of it is column
+    # arithmetic, where XNEdit counts characters and 5.7 counts bytes; two of
+    # the five fixture markers are encoding, which XNEdit added and 5.7
+    # predates. That is why this job has no continue-on-error. Now that the
+    # expected divergence is marked, a red run means something, and tolerating
+    # it would only teach people to stop looking.
     steps:
       - uses: actions/checkout@v7
 

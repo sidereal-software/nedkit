@@ -86,12 +86,18 @@ with [getting started](getting-started.md).
 ## Which editor
 
 These are written for [XNEdit](https://github.com/unixwork/xnedit) and tested
-against it on every release. They are ordinary NEdit macros, though, and CI
-also runs the suite through classic NEdit 5.7 to see how far they carry. The
-answer is: nearly all the way. The commands that depend on the fork are
-Normalize Characters and Fold Letters to ASCII, both of which work in UTF-8,
-and NEdit 5.7 predates it. Fold Letters also reports a Greek letter's column,
-which XNEdit counts as it is displayed and NEdit 5.7 counts in bytes.
+against it every week. They are ordinary NEdit macros, though, and the same run
+puts the suite through classic NEdit 5.7 to see how far they carry. The answer
+is: nearly all the way.
+
+Where they part company is mostly column arithmetic. XNEdit counts a column in
+characters and NEdit 5.7 counts it in bytes, so on a line holding an accented
+name Pad Columns, Pipe at Columns and Pipe at Cursor Column all land a place
+off, and the column Fold Letters to ASCII reports for a Greek letter is a
+different number. Two smaller differences are about encoding, which XNEdit
+added and 5.7 predates: Normalize Characters leaves a byte order mark where it
+found it, and Trim Trailing Blanks stops on a buffer XNEdit locked over a byte
+it could not decode.
 
 The two editors keep their settings in different places, `~/.xnedit/` against
 `~/.nedit/`, so instructions written for one will send you to the wrong

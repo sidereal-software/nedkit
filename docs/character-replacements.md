@@ -523,6 +523,22 @@ that list before the file goes any further. `σ` and `ς` both giving `s` also
 means word-final position is not recoverable, so do not reach for this macro on
 Greek prose; it is built for a data column.
 
+Two published schemes would have avoided the collisions altogether, and neither
+was taken:
+
+- **Beta Code** (`η` to `H`, `θ` to `Q`, `ω` to `W`) is bijective, so no two
+  letters share an answer and the original is always recoverable. It reads
+  wrong here: `Ω` coming out as `W` is not something anyone scanning an
+  astronomy file will parse as omega.
+- **ISO 843** (`β` to `v`, `η` to `i`) follows modern Greek pronunciation.
+  These letters turn up as symbols in a data column rather than as Greek words,
+  so a reader meeting `v` where the paper had `β` has to know the standard
+  before the file makes sense.
+
+Spelling the name out, `α` to `alpha`, was rejected for a different reason:
+one letter for one keeps the line the width it was, and the whole point of
+running this before the pipes go in is that nothing moves.
+
 Every Greek letter is in the table, including the fourteen that look like a
 Latin letter already. `Ο` U+039F is pixel-identical to `O`, and nothing
 downstream will match it, so leaving it alone would leave an invisible fault
@@ -585,12 +601,20 @@ and column. That arithmetic assumes every `grk[]` replacement is exactly one
 character, so a character that replaces to more or fewer belongs in `fix[]`
 whatever it is. `fix[]` runs first and nothing measures it.
 
-There is room. Normalize Characters uses about 45% of its instruction budget
-and Fold Letters to ASCII about 69%, which leaves the first with room for
-roughly 120 more two-line entries and the second for about 139 more one-line
-ones. Past that the editor refuses the macro with `macro too large` at the
-moment it is parsed, and the answer is a third command rather than a bigger
-table.
+Both macros still have room, but not the same amount of it. Normalize
+Characters uses about 45% of the 4096 instructions a macro gets, which is
+roughly 120 more two-line entries. Fold Letters to ASCII is at about 69%, and
+that headroom has been measured from both ends: 40 more assignments compile,
+139 do not.
+
+Do not work from a number written on a page, these included. Every edit to
+either macro moves them, and this page has carried a stale one before.
+`test_command_has_room_to_grow` asks the editor instead: it pads each command
+with 40 more assignments and fails if the result will not compile, which is
+early enough to do something about. What to do is a third command rather than a
+bigger table, the way Fold Letters to ASCII was split off in the first place.
+Past the limit the editor refuses the macro with `macro too large` the moment
+it is parsed.
 
 Get the bytes with:
 

@@ -56,8 +56,10 @@ something. If `xnedit` is already on your `$PATH`, `NEDKIT_XNEDIT` is optional.
 !!! warning "The tests are not headless"
 
     Each test opens a real XNEdit window for a second or two, so a full run
-    flickers windows on and off the screen and takes focus for about 45
-    seconds. macOS has no hidden display to run them on.
+    flickers windows on and off the screen and takes focus for a couple of
+    minutes. macOS has no hidden display to run them on. Nearly all of that
+    time is the editor starting up once per test, so the wait grows with the
+    suite rather than staying where this page last measured it.
 
 You do not need to start XQuartz first. `$DISPLAY` points at a socket that
 starts the server on demand the moment the first test connects.
@@ -87,11 +89,12 @@ screen.
 
 Two more jobs go with it. The first installs Ubuntu's packaged NEdit 5.7 and
 puts the same suite through that, which is how far the macros carry outside the
-editor they were written for. It cannot fail the run: NEdit 5.7 predates
-Unicode support, so the fixtures pinning XNEdit's encoding behaviour describe
-something classic NEdit does not do, and that divergence is expected rather
-than a bug. Anything failing there for another reason is worth reading. The
-second builds XNEdit on macOS exactly as this page tells you to, XQuartz
+editor they were written for. It is a gate like any other job: everything that
+diverges on 5.7 is marked and skips there, either by an `xnedit-only` file
+beside the fixture or by a skip in the test itself, so a red run means a real
+failure and tolerating one would only teach people to stop looking.
+
+The second builds XNEdit on macOS exactly as this page tells you to, XQuartz
 included: its headers are part of the build, not just the X server the editor
 later runs on. That job is watching Homebrew and the macOS toolchain rather
 than the macros.
@@ -132,10 +135,18 @@ and gets no fixture answer has to do nothing. That default is what stops the
 blanket tests hanging on it.
 
 Most cases need only the first two files. `xnedit-only` is for the handful that
-turn on something XNEdit added and NEdit 5.7 does not have, which in practice
-means encoding: a buffer locking on a byte it cannot convert, or a BOM living
-outside the buffer. Put the reason in the file and it appears in the skip
-message. Marking those is what keeps a real failure on NEdit worth reading.
+turn on something XNEdit added and NEdit 5.7 does not have. There are two such
+things, and the arithmetic one is the more common of the two:
+
+- A column is a character on XNEdit and a byte on NEdit 5.7, in `$column` and
+  in the regex engine alike, so any case putting a pipe or a pad on a line with
+  an accented name in it lands somewhere else there.
+- Encoding: a buffer locking on a byte it cannot convert, or a BOM that lives
+  outside the buffer.
+
+Put the reason in the file and it appears in the skip message. Reach for the
+marker only when a case genuinely turns on the fork, because every expected
+failure left unmarked is one more reason to stop reading the NEdit job.
 
 The two files are compared without being decoded, so trailing spaces, tabs and
 a missing final newline all count. That is deliberate. Write them with a

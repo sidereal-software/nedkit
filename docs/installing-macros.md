@@ -90,8 +90,17 @@ Save Defaults**. A command that belongs in both menus gets installed twice,
 once through each dialog, and the two copies are independent: editing one does
 not touch the other.
 
-What you add is merged with the built-in Undo/Redo/Cut/Copy/Paste rather than
-replacing them, so there is nothing to preserve by hand.
+Undo, Redo, Cut, Copy and Paste survive that, but not because they are built
+in. They are the default value of the `nedit.bgMenuCommands` resource, and a
+default only applies while the resource is unset. The dialog keeps them because
+it shows them: you add your command under the five already listed, and Save
+Defaults writes all six out. Importing an `.rc` fragment keeps them too, since
+an imported entry is added to the list already loaded, or replaces the one with
+the same name.
+
+Where they do disappear is if you write `~/.xnedit/nedit.rc` by hand. The
+resource is set from that point on, so the menu next startup is exactly the
+entries on that line and nothing else.
 
 ### Right-clicking does not move the cursor
 

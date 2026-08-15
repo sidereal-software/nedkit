@@ -55,7 +55,9 @@ their shape.
 ## Cleaning up a table pasted from a PDF
 
 1. Get rid of the tabs, by selecting the whole file and running it through
-   `expand` with **Shell > Filter Selection**.
+   `expand` with **Shell > Filter Selection**. `expand` puts a tab stop every 8
+   columns and so does XNEdit, so they agree until somebody changes
+   **Preferences > Tab Stops**; if yours is not 8, say so with `expand -t N`.
 2. **Normalize Characters** (`macros/commands/normalize-characters.nm`) rewrites
    the dashes, quotes, spaces and ligatures that only look like their ASCII
    counterparts, turns tabs into spaces, and reports whatever non-ASCII it

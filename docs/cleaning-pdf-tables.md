@@ -140,6 +140,12 @@ That is why `expand` comes before Normalize Characters rather than after it.
 Normalize takes tabs out too, but it writes one space for each, which closes
 the columns up and destroys the layout you were about to point at.
 
+The columns landing where they already were is a coincidence worth knowing
+about. `expand` puts a tab stop every 8 columns and XNEdit's tab distance is
+also 8, so the two agree until somebody changes **Preferences > Tab Stops**. If
+yours is not 8, pass the same number, as in `expand -t 4`, or the file comes
+back with every column somewhere new.
+
 !!! warning "`expand` needs a UTF-8 locale"
 
     Under `LANG=C` it does not count a character like an en dash at all, and
@@ -292,8 +298,14 @@ long, and stays that way until the next edit.
 
 **Trim Trailing Blanks** has nothing to do on this paste and leaves the buffer
 alone: every redshift here is six characters, so the last column needed no
-padding. It is the one command here with no report at all, so a run that does
-something and a run that does nothing look the same from the terminal.
+padding. It says so in the terminal:
+
+```
+trim: A13L.mod.before: nothing to trim
+```
+
+A run that did something would say `N line(s) trimmed` instead, so the two are
+told apart without reading the file.
 
 ## What Normalize Characters will not do
 

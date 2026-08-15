@@ -18,7 +18,10 @@ separated, and **Pipe at Cursor Column**, **Pipe at Columns** and **Pad
 Columns** all refuse a buffer with a tab in it: a tab is one character and any
 number of columns, so there is no saying what column anything is in. Select the
 whole file and run it through `expand` first, using
-**Shell > Filter Selection**.
+**Shell > Filter Selection**. `expand` and XNEdit both put a tab stop every 8
+columns by default, so the file comes back looking as it did; on a machine
+where **Preferences > Tab Stops** has been changed, pass the same number with
+`expand -t N` or every column moves.
 
 After that, **Normalize Characters** turns the en dashes into minus signs,
 piping the boundaries puts the delimiters in, and **Pad Columns** squares the
