@@ -1,0 +1,250 @@
+# Pad Columns
+#
+# Squares up a pipe-delimited table. Trims the spaces around every field, then
+# pads it back out to the width of the widest value in its column, so each row
+# comes out the same length and the pipes line up down the file.
+#
+#     Griffin        |12:29:46.7
+#     Smith         |12:36:44.0
+#
+# becomes
+#
+#     Griffin|12:29:46.7
+#     Smith  |12:36:44.0
+#
+# Run it last, because every edit before it changes a width. Normalize
+# Characters turns a ligature into the two letters it stands for, Fold Letters
+# to ASCII turns ß into ss, and a value fixed by hand is whatever length you
+# typed. So fix the characters, put the pipes in, read the file through, and
+# pad at the end.
+#
+# It splits on "|" and nothing else. A line with no pipe in it is not a table
+# row: it passes through verbatim, along with blank lines and the ##refcode
+# header block, and none of them count towards a column width. Nothing here
+# guesses where a boundary should go, so a file nobody has piped yet comes back
+# untouched.
+#
+# Widths are counted in characters rather than bytes, so a field measures what
+# it prints. Balázs is six wide, though it takes seven bytes.
+#
+# Every column is padded, the last one included, so each row ends in the same
+# place. Run Trim Trailing Blanks afterwards if you would rather the lines
+# stopped at the last real character.
+#
+# It refuses a buffer with a tab anywhere in it. A tab is one character and
+# however many columns it takes to reach the next tab stop, so every width
+# measured on a line holding one would be wrong. Replace the tabs with the
+# spaces they stand for first: select the whole file and run expand through
+# Shell > Filter Selection.
+#
+# Rows whose field count differs from the first data row are padded as far as
+# they go and then reported, by count and first line number. No empty field is
+# invented to make a row fit, because a short row usually means a value went
+# missing upstream.
+#
+# A second run finds the file already square and leaves it alone.
+#
+#   Menu Entry:         NED>Pad Columns
+#   Accelerator:        (none)
+#   Mnemonic:           (none)
+#   Requires Selection: no
+#   Install In:         Macro Menu
+#
+# Install the body below (everything under this comment) through
+# Preferences > Default Settings > Customize Menus > Macro Menu, then
+# Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
+
+original = get_range(0, $text_length)
+
+# split() on "\n" yields one element per line plus a trailing empty element
+# when the buffer ends in a newline, so joining the elements back with "\n"
+# reproduces the buffer exactly. That is what lets the no-change case below be
+# a plain string comparison.
+lines = split(original, "\n", "case")
+n_lines = lines[]
+
+# Arrays have to exist before "in" is used on them.
+keep = $empty_array
+cell = $empty_array
+clen = $empty_array
+count = $empty_array
+width = $empty_array
+
+ok = 1
+msg = ""
+n_rows = 0
+first_count = 0
+ragged = 0
+first_ragged = 0
+
+# A tab is one character and any number of columns, so a width measured on a
+# line holding one is not a width. Refusing here keeps tab stops out of every
+# measurement below.
+if (search_string(original, "\t", 0, "case") != -1) {
+    ok = 0
+    msg = $file_name " has a tab in it, so there is no telling which column "
+    msg = msg "anything is in: a tab is one character and however many "
+    msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
+    msg = msg "tabs with the spaces they stand for first: select the whole "
+    msg = msg "file and run expand through Shell > Filter Selection, which "
+    msg = msg "leaves the columns where they sit on screen. Normalize "
+    msg = msg "Characters takes tabs out too, but it writes one space for "
+    msg = msg "each, which usually closes the columns up."
+}
+
+# --- pass 1: split every row on "|" and measure each column -----------------
+
+if (ok == 1) {
+    for (i = 0; i < n_lines; i++) {
+        body = replace_in_string(lines[i], "^[ \t]+", "", "regex", "copy")
+        body = replace_in_string(body, "[ \t]+$", "", "regex", "copy")
+
+        # Blank lines and header lines are copied through verbatim,
+        # indentation and all, and take no part in the column widths.
+        if (body == "" || substring(body, 0, 1) == "#") {
+            keep[i] = lines[i]
+            continue
+        }
+
+        # Anything with no pipe in it goes the same way. A line with no
+        # delimiter is not a table row, and reading a boundary out of a run of
+        # spaces is the one thing this must never do.
+        if (search_string(body, "|", 0, "case") == -1) {
+            keep[i] = lines[i]
+            continue
+        }
+
+        f = split(body, "|", "case")
+        nf = f[]
+
+        for (j = 0; j < nf; j++) {
+            v = replace_in_string(f[j], "^[ \t]+", "", "regex", "copy")
+            v = replace_in_string(v, "[ \t]+$", "", "regex", "copy")
+            cell[i, j] = v
+
+            # Measure the field in characters. length() counts bytes, and a
+            # column holding an en dash or an accented name would then come out
+            # one place short for every extra byte.
+            #
+            # "[ -~]+" is every printable ASCII character, so a run of them is
+            # as many characters as it is bytes and measures in a single step.
+            # Anything else advances one character at a time through a bare
+            # ".", which is UTF-8 aware. Repetition is not: ".{n}", ".*" and
+            # ".+" all count bytes, so none of them can appear here.
+            p = 0
+            w = 0
+
+            while (p < length(v)) {
+                s = search_string(v, "[ -~]+", p, "regex")
+                if (s == p) {
+                    w = w + ($search_end - p)
+                } else {
+                    # "." matches everything except a newline, and split() has
+                    # already taken every newline out, so this always advances.
+                    search_string(v, ".", p, "regex")
+                    w++
+                }
+                p = $search_end
+            }
+
+            clen[i, j] = w
+            if (j in width) {
+                width[j] = max(width[j], w)
+            } else {
+                width[j] = w
+            }
+        }
+        count[i] = nf
+
+        if (n_rows == 0) {
+            first_count = nf
+        } else if (nf != first_count) {
+            if (ragged == 0) {
+                first_ragged = i + 1
+            }
+            ragged++
+        }
+        n_rows++
+    }
+}
+
+# --- pass 2: rebuild the buffer ---------------------------------------------
+
+if (ok == 1) {
+    # One run of spaces, long enough to pad the widest column with a single
+    # substring() rather than a loop per field. Doubling gets there in a few
+    # steps.
+    max_width = 0
+    for (j in width) {
+        max_width = max(max_width, width[j])
+    }
+    pad = " "
+    while (length(pad) < max_width) {
+        pad = pad pad
+    }
+
+    out = ""
+    chunk = ""
+
+    for (i = 0; i < n_lines; i++) {
+        if (i in keep) {
+            chunk = chunk keep[i]
+        } else {
+            nf = count[i]
+            for (j = 0; j < nf; j++) {
+                if (j > 0) {
+                    chunk = chunk "|"
+                }
+                chunk = chunk cell[i, j] substring(pad, 0, width[j] - clen[i, j])
+            }
+        }
+        if (i < n_lines - 1) {
+            chunk = chunk "\n"
+        }
+
+        # Appending every line straight onto one growing string is quadratic:
+        # each append copies everything written so far. Flushing a chunk every
+        # 200 lines keeps a few thousand rows instant instead of a visible
+        # stall.
+        if (i % 200 == 199) {
+            out = out chunk
+            chunk = ""
+        }
+    }
+    out = out chunk
+
+    if (out != original) {
+        saved_cursor = $cursor
+        replace_range(0, $text_length, out)
+
+        # Padding lengthens the buffer, but trimming the spaces a field came in
+        # with can shorten it.
+        if (saved_cursor > $text_length) {
+            saved_cursor = $text_length
+        }
+        set_cursor_pos(saved_cursor)
+    }
+}
+
+# --- report -----------------------------------------------------------------
+
+if (ok == 0) {
+    t_print("pad: " $file_name ": nothing changed\n")
+} else if (n_rows == 0) {
+    t_print("pad: " $file_name ": no rows with a | in them, nothing to pad\n")
+} else {
+    t_print("pad: " $file_name ": " n_rows " row(s), " width[] " column(s)\n")
+}
+
+if (ragged > 0) {
+    msg = $file_name " has " ragged " row(s) whose field count differs from "
+    msg = msg "the first data row, which has " first_count ". The first one is "
+    msg = msg "on line " first_ragged ".\n\nThey were padded as far as they go "
+    msg = msg "and no empty columns were invented. A short row usually means a "
+    msg = msg "value went missing upstream, so check those rows before this "
+    msg = msg "file goes anywhere."
+}
+
+if (msg != "") {
+    dialog(msg, "OK")
+}

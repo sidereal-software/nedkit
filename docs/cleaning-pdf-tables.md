@@ -8,16 +8,20 @@ downstream that expects a minus sign will match it.
 
 The order to work in:
 
-1. put the field boundaries in with **Pipe at Cursor Column** or **Pipe at
-   Columns**
+1. get rid of the tabs, with `expand` through **Shell > Filter Selection**
 2. **Normalize Characters**
 3. **Fold Letters to ASCII**, if the accented and Greek letters should go too
 4. read the file through and fix what needs fixing by hand
-5. **Trim Trailing Blanks**, last
+5. put the field boundaries in with **Pipe at Cursor Column** or **Pipe at
+   Columns**
+6. **Pad Columns**
+7. **Trim Trailing Blanks**, if you would rather the rows did not all end in
+   the same place
 
-Nothing in that list pads a column. The file comes out pipe delimited and no
-more square than it went in, and squaring it up is still done by hand or
-somewhere outside the editor.
+The order comes out of two facts. A replacement that changes how many
+characters are on a line moves every column to its right, so the letters get
+sorted out before the boundaries are chosen. And every edit changes a width, so
+the padding goes last.
 
 ## Where the pipes go
 
@@ -88,19 +92,53 @@ The first case is the one to watch. A column that is blank on almost every row
 can land inside a name like `NGC 4472` on the one row where it isn't, and the
 command has no way to tell that apart from a column you meant.
 
+## Squaring the table up
+
+Once the pipes are in, **Pad Columns** makes the file square. It splits every
+line on `|`, trims the spaces around each field, and pads the field back out to
+the width of the widest value in its column, so
+
+```
+Griffin        |12:29:46.7
+Smith         |12:36:44.0
+```
+
+becomes
+
+```
+Griffin|12:29:46.7
+Smith  |12:36:44.0
+```
+
+It splits on `|` and nothing else. A line with no pipe in it is not a table row
+and passes through verbatim, along with blank lines and the `##refcode` header
+block, so a file nobody has piped yet comes back untouched. Reading a boundary
+out of a run of spaces is the one thing it will not do.
+
+Widths are counted in characters rather than bytes, so `Balázs` is six wide
+though it takes seven, and a column holding an accented name comes out as wide
+as it looks on screen.
+
+Every column is padded, the last one included, so each row ends in the same
+place. `samples/A13L.mod.after` is laid out that way. A row whose field count
+differs from the first data row is padded as far as it goes and then reported,
+by count and first line number; no empty field is invented to make it fit.
+
 ## Tabs have to go first
 
-Both commands refuse a buffer with a tab anywhere in it. A tab is one character
-and however many columns it takes to reach the next tab stop, so on a line that
-contains one there is no answer to the question of what is in column 15.
+The two pipe commands refuse a buffer with a tab anywhere in it, and so does
+Pad Columns. A tab is one character and however many columns it takes to reach
+the next tab stop, so on a line that contains one there is no answer to the
+question of what is in column 15, or of how wide a field is.
 
 XNEdit has nothing that expands a tab to the spaces it stands for, so this goes
 through the shell. Select the whole file and run `expand` through
 **Shell > Filter Selection**, which replaces each tab with the spaces it was
 already displaying and leaves the columns where they sit on screen.
 
-Normalize Characters takes tabs out too, but it writes one space for each,
-which closes the columns up and destroys the layout you were about to point at.
+That is why `expand` comes before Normalize Characters rather than after it.
+Normalize takes tabs out too, but it writes one space for each, which closes
+the columns up and destroys the layout you were about to point at.
 
 !!! warning "`expand` needs a UTF-8 locale"
 
@@ -108,44 +146,55 @@ which closes the columns up and destroys the layout you were about to point at.
     pads as though it were not there. Everything to the right of one on that
     line then lands a column too far over, once per non-ASCII character.
 
-## Why the pipes go in first
+## Why the letters get fixed first
 
-The boundaries have to be nailed down while the layout is still on screen,
-which means before Normalize Characters turns the tabs into single spaces.
-
-Piping first is also the more forgiving order when a replacement changes a
-character count. Most of them do not: an en dash becomes a minus sign, one
+A replacement that changes how many characters are on a line moves every column
+to its right. Most of them do not: an en dash becomes a minus sign, one
 character for one, and nothing moves. Greek is deliberately one letter for one
 so that it cannot move anything either. A ligature becomes two letters, an
 ellipsis becomes three dots, and `ß` becomes `ss`, and those push the rest of
 their row right.
 
 ```
-Griﬀin         |12:29:46.7
-Smith          |12:36:44.0
+Griﬀin         12:29:46.7
+Smith          12:36:44.0
 ```
 
-After Normalize Characters:
+Both rows are 25 characters wide, because `ﬀ` is one character, and column 14
+is blank on both. Pipe there and then normalize, and the pipe on the widened
+row travels right along with everything else on it:
 
 ```
-Griffin         |12:29:46.7
-Smith          |12:36:44.0
+Griffin        |12:29:46.7
+Smith         |12:36:44.0
 ```
 
-The pipe still separates the same two fields, so the table is intact. That row
-is simply a character wider than the one below it now, and nothing puts it
-back. Look at the file again after normalizing, before you pipe the next
-boundary off a column number you read earlier.
+Those pipes are in columns 15 and 14, so the boundary is no longer a column at
+all. Normalize first and pipe afterwards and they stay together:
 
-## Why trimming comes last
+```
+Griffin       | 12:29:46.7
+Smith         |12:36:44.0
+```
 
-Trim Trailing Blanks only ever takes spaces and tabs off the end of a line, so
-it is the one command that cannot move a boundary. Anything else you do to the
-file can, which is why it goes at the end and gets run again after any later
-edit.
+The row that grew is still a character wider than the other, so its second
+field starts a place late. Pad Columns puts that right from either block. The
+difference is what happens to the next boundary: in the first there is no
+single column number that finds it on both rows, and in the second there is.
 
-Nothing in the sequence creates trailing whitespace. What it removes is
-whatever came in with the paste.
+## Why the padding comes last
+
+Pad Columns measures each column and pads every field out to the widest value
+in it, and that measurement is true only until the next edit. Change a value
+and you change the width of its column, whether the change came from a command
+or from typing. So the padding goes after everything else, including anything
+you fixed by hand, and gets run again after any later edit.
+
+Trim Trailing Blanks is optional, and when it runs at all it runs after the
+padding. Pad Columns pads the last column too, so every row ends in the same
+place; Trim Trailing Blanks trades that for lines that stop at the last real
+character. It is also the one command here that cannot move a boundary, since
+it only ever takes spaces and tabs off the end of a line.
 
 ## A worked example
 
@@ -161,7 +210,8 @@ SDSS004054	00:40:54.33	15:34:09.66	0.2832
 SDSS005527	00:55:27.46	–00:21:48.71	0.1674
 ```
 
-Pipe at Columns will not touch it while those tabs are in it:
+Pipe at Columns will not touch it while those tabs are in it, and neither will
+Pad Columns:
 
 > A13L.mod.before has a tab in it, so there is no telling which column anything
 > is in: a tab is one character and however many columns it takes to reach the
@@ -177,15 +227,37 @@ SDSS004054      00:40:54.33     15:34:09.66     0.2832
 SDSS005527      00:55:27.46     –00:21:48.71    0.1674
 ```
 
-The fields now start at columns 0, 16, 32 and 48, and columns 15, 31 and 47 are
-blank on every row. Answering `15, 31, 47` and choosing Overwrite:
+**Normalize Characters** replaces the en dashes and names what it did:
 
 ```
 ##refcode = 2026A+A...707A..13L
 
-SDSS001009     |00:10:09.97    |–00:46:03.66   |0.2431
+SDSS001009      00:10:09.97     -00:46:03.66    0.2431
+SDSS004054      00:40:54.33     15:34:09.66     0.2832
+SDSS005527      00:55:27.46     -00:21:48.71    0.1674
+```
+
+and in the terminal:
+
+```
+normalize: A13L.mod.before:
+  U+2013 EN DASH
+```
+
+An en dash and a minus sign are one character each, so nothing has moved and
+the columns are where `expand` left them. That is the point of doing this
+before the pipes go in rather than after.
+
+The fields start at columns 0, 16, 32 and 48, and columns 15, 31 and 47 are
+blank on every row. Answering `15, 31, 47` in **Pipe at Columns** and choosing
+Overwrite:
+
+```
+##refcode = 2026A+A...707A..13L
+
+SDSS001009     |00:10:09.97    |-00:46:03.66   |0.2431
 SDSS004054     |00:40:54.33    |15:34:09.66    |0.2832
-SDSS005527     |00:55:27.46    |–00:21:48.71   |0.1674
+SDSS005527     |00:55:27.46    |-00:21:48.71   |0.1674
 ```
 
 with a line in the terminal to say what it did:
@@ -197,32 +269,31 @@ pipe: A13L.mod.before: 42 pipe(s) into 14 row(s)
 The blank line and the `##refcode` header pass through untouched, and neither
 counts as a row.
 
-**Normalize Characters** replaces the en dashes and names what it did:
+**Pad Columns** measures the columns and pads each field to fit, which on this
+file means closing up most of the space `expand` left:
 
 ```
 ##refcode = 2026A+A...707A..13L
 
-SDSS001009     |00:10:09.97    |-00:46:03.66   |0.2431
-SDSS004054     |00:40:54.33    |15:34:09.66    |0.2832
-SDSS005527     |00:55:27.46    |-00:21:48.71   |0.1674
+SDSS001009|00:10:09.97|-00:46:03.66|0.2431
+SDSS004054|00:40:54.33|15:34:09.66 |0.2832
+SDSS005527|00:55:27.46|-00:21:48.71|0.1674
 ```
 
 and in the terminal:
 
 ```
-normalize: A13L.mod.before:
-  U+2013 EN DASH
+pad: A13L.mod.before: 14 row(s), 4 column(s)
 ```
 
-An en dash and a minus sign are one column each, so the pipes have not moved.
+The declination column is 12 wide because the southern rows carry a minus sign,
+so the northern ones pick up a trailing space. Every row is now 42 characters
+long, and stays that way until the next edit.
 
 **Trim Trailing Blanks** has nothing to do on this paste and leaves the buffer
-alone. It is the one command here with no report at all, so a run that does
+alone: every redshift here is six characters, so the last column needed no
+padding. It is the one command here with no report at all, so a run that does
 something and a run that does nothing look the same from the terminal.
-
-The columns line up here because `expand` lined them up and nothing since has
-changed a display width. No command measured them, so widen a value by hand and
-its row stays out of true.
 
 ## What Normalize Characters will not do
 
@@ -231,10 +302,10 @@ rest alone. Degree signs, Greek letters and accented names have no substitute
 it can pick on its own, and guessing at one would corrupt the data quietly,
 which is worse than leaving a character that at least looks wrong.
 
-That is not a problem for the pipe commands, which count columns as they are
-displayed: `Balázs` is six columns wide to them, whatever it takes in bytes.
-The count holds for anything XNEdit can decode, and a file it cannot decode is
-locked against editing anyway.
+That is not a problem for the pipe commands or for Pad Columns, all of which
+count characters as they are displayed: `Balázs` is six wide to them, whatever
+it takes in bytes. The count holds for anything XNEdit can decode, and a file
+it cannot decode is locked against editing anyway.
 
 Rather than fail silently, the command counts what it left, puts the cursor on
 the first one and lists them in a dialog with a count per character.
@@ -254,8 +325,9 @@ run **Fold Letters to ASCII**.
 
 `Balázs` becomes `Balazs` and `α` becomes `a`, keeping upper and lower case.
 Ten letters have no one-letter answer and widen the line instead, so `Weiß`
-becomes `Weiss` and `Æ` becomes `AE`; those move a boundary the same way a
-ligature does, and nothing else in the command changes a width.
+becomes `Weiss` and `Æ` becomes `AE`; those shift everything to their right the
+same way a ligature does, which is the reason this runs before the boundaries
+are chosen. Nothing else in the command changes a width.
 
 The Greek fold is the one to read the report on. Several letters share an
 answer, `ε` and `η` both giving `e` among them, so once it has run nothing can

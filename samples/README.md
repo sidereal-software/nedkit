@@ -14,14 +14,16 @@ bytes, so nothing fails if these two go stale. They are here to be read.
 ## What the commands already do
 
 Not much of it, and none of it straight off the disk. `A13L.mod.before` is tab
-separated, and **Pipe at Cursor Column** and **Pipe at Columns** both refuse a
-buffer with a tab in it: a tab is one character and any number of columns, so
-there is no saying what column anything is in. Select the whole file and run it
-through `expand` first, using **Shell > Filter Selection**.
+separated, and **Pipe at Cursor Column**, **Pipe at Columns** and **Pad
+Columns** all refuse a buffer with a tab in it: a tab is one character and any
+number of columns, so there is no saying what column anything is in. Select the
+whole file and run it through `expand` first, using
+**Shell > Filter Selection**.
 
-After that, piping the boundaries and then running **Normalize Characters**
-turns the en dashes into minus signs and gets to a pipe delimited table, which
-is still a long way from `A13L.mod.after`.
+After that, **Normalize Characters** turns the en dashes into minus signs,
+piping the boundaries puts the delimiters in, and **Pad Columns** squares the
+result up. That gets to a padded pipe-delimited table, which is still a long
+way from `A13L.mod.after`.
 [Cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
 works that through step by step, on exactly this file.
 
@@ -44,9 +46,9 @@ Everything that makes it a NED file, none of which any command here attempts:
   position is a separate quantity that lands nearby, so the names have to be
   looked up. Deriving them from the coordinates would produce a plausible
   identifier for the wrong object.
-- Every field in `A13L.mod.after` is padded out to the width of the widest
-  value in its column, and every row ends up the same length. Nothing in
-  `macros/commands/` pads anything.
+- The column widths in `A13L.mod.after` are measured over the finished values,
+  including the heading row and the explicit signs. Pad Columns will square the
+  file up once those are in, but it cannot invent them.
 
 That list is the gap between the two files, so it is also the most concrete
 statement in this repo of what a NED job actually involves. Anything added to

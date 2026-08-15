@@ -478,3 +478,124 @@ def test_pipe_at_columns_refuses_column_zero_without_piping_the_rest(
     assert "nothing changed" in run.messages
     assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
     assert "Column 0 is not a place a pipe can go" in run.dialogs[0]
+
+
+PAD = "pad-columns"
+
+#: Two rows of three fields, already delimited. What Pad Columns is handed.
+TWO_PIPED_ROWS = b"NGC 4472|12:29:46.7|0.003326\nIC 3583|12:36:44.0|0.001155\n"
+
+
+def test_pad_columns_counts_the_rows_and_the_columns(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    run = runner.run_on_bytes(body(PAD), TWO_PIPED_ROWS, tmp_path)
+    assert run.ok, run.describe()
+    assert "2 row(s), 3 column(s)" in run.messages
+    assert run.dialogs == []
+
+
+def test_pad_columns_does_not_count_header_or_blank_lines_as_rows(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """A header line carrying a pipe is prose, not a row, and its fields are
+    not columns. Counting one would widen the table to the length of a title."""
+    run = runner.run_on_bytes(
+        body(PAD),
+        b"##refcode 2024ApJ...900...1X\n"
+        b"## Table 3 | positions | of Smith et al. (2024)\n"
+        b"\n"
+        b"NGC 4472|12:29:46.7\n",
+        tmp_path,
+    )
+    assert run.ok, run.describe()
+    assert "1 row(s), 2 column(s)" in run.messages
+
+
+def test_pad_columns_says_so_when_no_line_has_a_pipe_in_it(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The file nobody has piped yet. Nothing happens, and saying so is the
+    only way the person running it learns that the boundaries come first."""
+    run = runner.run_on_bytes(
+        body(PAD), b"NGC 4472   12:29:46.7\nIC 3583    12:36:44.0\n", tmp_path
+    )
+    assert run.ok, run.describe()
+    assert "no rows with a | in them" in run.messages
+    assert run.dialogs == []
+
+
+def test_pad_columns_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """A tab is one character and however many columns, so a field holding one
+    has no width to measure. Same refusal, and same way out, as the two piping
+    commands."""
+    run = runner.run_on_bytes(
+        body(PAD),
+        b"NGC 4472\t12:29:46.7|0.003326\nIC 3583|12:36:44.0|0.001155\n",
+        tmp_path,
+    )
+    assert run.ok, run.describe()
+    assert "nothing changed" in run.messages
+    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+
+    message = run.dialogs[0]
+    assert "has a tab in it" in message
+    assert "Shell > Filter Selection" in message
+
+
+def test_pad_columns_reports_the_ragged_rows_by_count_and_first_line(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """A row with the wrong number of fields is a value that went missing
+    upstream, and the count is against the first data row rather than against
+    the widest one.
+
+    The header line is there to pin that the line number counts lines in the
+    file. Line 3 is the second data row, so a number counted among the rows
+    rather than among the lines would come back as 2.
+    """
+    run = runner.run_on_bytes(
+        body(PAD),
+        b"##refcode 2024ApJ...900...1X\n"
+        b"NGC 4472|12:29:46.7|0.003326\n"
+        b"IC 3583|12:36:44.0\n"
+        b"NGC 4486|12:30:49.4|0.004283|extra\n",
+        tmp_path,
+    )
+    assert run.ok, run.describe()
+    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+
+    message = run.dialogs[0]
+    assert "2 row(s) whose field count differs" in message
+    assert "which has 3" in message
+    assert "The first one is on line 3" in message
+
+
+#: Two rows with more space around the delimiter than the values need, so
+#: padding them comes out shorter than what went in.
+LOOSELY_PIPED = b"NGC 4472        |12:29:46.7\nIC 3583         |12:36:44.0\n"
+
+
+def test_pad_columns_leaves_the_cursor_where_it_was(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The command rewrites every character in the file, and whoever ran it
+    should not lose their place over it.
+
+    Dropping the save and restore around ``replace_range()`` puts the cursor at
+    0 rather than at 5, which is what this catches. The macro also clamps the
+    saved position in case the buffer came out shorter, and that clamp is not
+    what this asserts: XNEdit clamps ``set_cursor_pos()`` itself, so taking the
+    macro's own clamp out changes nothing measurable from here.
+    """
+    run = runner.run_on_bytes(
+        with_setup(PAD, "set_cursor_pos(5)") + "\n" + CURSOR_PROBE,
+        LOOSELY_PIPED,
+        tmp_path,
+    )
+    assert run.ok, run.describe()
+    assert run.output is not None
+    assert len(run.output) < len(LOOSELY_PIPED), "the buffer should have shrunk"
+    assert "cursor=5" in run.messages, run.messages

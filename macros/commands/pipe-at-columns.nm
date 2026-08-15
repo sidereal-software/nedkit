@@ -11,8 +11,11 @@
 #     NGC 4472  |12:29:46.7  |0.003326
 #     IC 3583   |12:36:44.0  |0.001155
 #
-# Nothing here pads the fields afterwards, so the file comes out delimited
-# rather than squared up.
+# Get the characters right first. A replacement that changes how many
+# characters are on a line moves every column to its right, so Normalize
+# Characters and Fold Letters to ASCII belong before this rather than after it.
+# Nothing here pads the fields either; Pad Columns does that, once every other
+# edit is done.
 #
 # Type the columns separated by spaces or commas, in any order; repeats are
 # ignored. They count from 0, the numbering the C: field of the statistics line

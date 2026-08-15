@@ -10,28 +10,6 @@ editor.
 <div class="nedkit-kit" markdown>
 
 <div markdown>
-:material-cursor-text:
-
-### [Pipe at Cursor Column](commands.md#pipe-at-cursor-column)
-
-For a fixed-width table with no delimiter in it.
-
-Writes a `|` down the column the cursor is in, on every line at once. It is on
-the right-click menu too, so you can do a boundary without leaving the text.
-</div>
-
-<div markdown>
-:material-table-column-plus-after:
-
-### [Pipe at Columns](commands.md#pipe-at-columns)
-
-For several boundaries in one pass.
-
-Asks which columns, and whether to write over the space there or push the rest
-of the line right, then does the whole file.
-</div>
-
-<div markdown>
 :material-bandage:
 
 ### [Normalize Characters](commands.md#normalize-characters)
@@ -54,6 +32,39 @@ letter it replaced, since those readings collide.
 </div>
 
 <div markdown>
+:material-cursor-text:
+
+### [Pipe at Cursor Column](commands.md#pipe-at-cursor-column)
+
+For a fixed-width table with no delimiter in it.
+
+Writes a `|` down the column the cursor is in, on every line at once. It is on
+the right-click menu too, so you can do a boundary without leaving the text.
+</div>
+
+<div markdown>
+:material-table-column-plus-after:
+
+### [Pipe at Columns](commands.md#pipe-at-columns)
+
+For several boundaries in one pass.
+
+Asks which columns, and whether to write over the space there or push the rest
+of the line right, then does the whole file.
+</div>
+
+<div markdown>
+:material-format-align-justify:
+
+### [Pad Columns](commands.md#pad-columns)
+
+For a pipe-delimited table that has gone out of true.
+
+Pads every field to the width of the widest value in its column, counting
+characters rather than bytes, so the pipes line up again.
+</div>
+
+<div markdown>
 :material-content-cut:
 
 ### [Trim Trailing Blanks](commands.md#trim-trailing-blanks)
@@ -66,7 +77,8 @@ nothing to remove.
 
 </div>
 
-Just pasted a table out of a paper and want to know what to run?
+They are in the order they are meant to be run. Just pasted a table out of a
+paper and want to know what that means in practice?
 [Cleaning up a pasted table](cleaning-pdf-tables.md) walks the whole sequence
 through on a real file. To get the commands installed in the first place, start
 with [getting started](getting-started.md).

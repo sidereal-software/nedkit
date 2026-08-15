@@ -1,0 +1,3 @@
+widths are counted in characters, and only XNEdit's regex engine walks
+a UTF-8 string a character at a time; NEdit 5.7 counts the bytes, so
+every column holding an accented name comes out a place too wide there
