@@ -54,13 +54,19 @@ statistics line.
 
 ### Overwrite or insert
 
-Pipe at Columns offers both. Overwrite writes the pipe over the character at
-that column and only where that character is a space, so every row stays the
-width it was. A second run finds the pipe already there and leaves it, which
-makes overwriting safe to repeat. Pipe at Cursor Column always overwrites.
+Pipe at Columns offers both, on the two buttons of its prompt. Pipe at Cursor
+Column always overwrites.
 
-Insert puts the pipe in and pushes the rest of the line right. Nothing is lost,
-so it reaches a row with no blank column to spare:
+| | Overwrite | Insert |
+| --- | --- | --- |
+| The character at that column | Written over, and only where it is a space | Pushed right, along with the rest of the line |
+| A row holding something else there | Left as it is, counted and reported | Piped anyway |
+| Row width | Unchanged | One character wider per pipe |
+| A second run over the same columns | Finds the pipe already there and leaves it | Adds a fresh pipe at every column but the leftmost |
+
+Overwrite is the one for a table already laid out in fixed-width columns, since
+it cannot move anything. Insert loses nothing, so it reaches a row with no
+blank column to spare:
 
 ```
 NGC4472 12:29:46.7
@@ -74,17 +80,18 @@ NGC4472| 12:29:46.7
 IC3583 | 12:36:44.0
 ```
 
-The price is a character of width on every row it touches, and a second run
-adds a second set of pipes.
-
 ### Read the report
 
 Both commands print a line per run in the terminal that launched `xnedit`, and
 raise a dialog when some rows did not get their pipe. Two cases are counted and
-left alone rather than guessed at: a row holding something other than a space
-at that column, because overwriting there would destroy a character, and a row
-that ends before the column, because padding it out would invent data. The
-dialog gives a count and the line number of the first one, and either case
+left alone rather than guessed at:
+
+| The row | Why it was skipped |
+| --- | --- |
+| Holds something other than a space where an overwrite would go | Writing there would destroy a character |
+| Ends before the column | Padding it out would invent data |
+
+The dialog gives a count and the line number of the first one, and either case
 usually means the column is a place or two off.
 
 Watch the first one. A column that is blank on almost every row can land inside

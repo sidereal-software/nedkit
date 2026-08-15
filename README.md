@@ -80,13 +80,17 @@ lists every character the two rewriting commands touch.
 
 ## Requirements
 
-macOS is the only platform in scope, running XNEdit 1.6 or newer on XQuartz.
+| Requirement | Detail |
+| --- | --- |
+| Platform | macOS. Nothing else is in scope |
+| Editor | [XNEdit](https://github.com/unixwork/xnedit) 1.6 or newer, built from source |
+| X server | XQuartz |
+| Python | 3.9, standard library only |
 
-This repo targets [unixwork/xnedit](https://github.com/unixwork/xnedit), a fork
-of NEdit 5.7 with Unicode support and antialiased text. It is a different
-program from classic NEdit and keeps its settings in `~/.xnedit/` rather than
-`~/.nedit/`. If a macro here misbehaves, check which editor is running before
-you start debugging the macro.
+XNEdit is a fork of NEdit 5.7 with Unicode support and antialiased text. It is
+a different program from classic NEdit and keeps its settings in `~/.xnedit/`
+rather than `~/.nedit/`, so if a macro here misbehaves, check which editor is
+running before you start debugging the macro.
 
 There are no prebuilt macOS binaries, so XNEdit gets built from source. The
 dependencies are all in Homebrew:
@@ -97,9 +101,9 @@ brew install openmotif
 make macos          # from a checkout of xnedit
 ```
 
-Python is capped at 3.9, standard library only. That is the newest interpreter
-on the team's machines, so no `match` statements, no `X | Y` unions in
-annotations, and nothing that needs an install the team can't perform.
+3.9 is the newest interpreter on the team's machines, so no `match` statements,
+no `X | Y` unions in annotations, and nothing that needs an install the team
+can't perform.
 
 ## Contributing
 

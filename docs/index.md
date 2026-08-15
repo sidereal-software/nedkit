@@ -77,18 +77,27 @@ them in the first place.
 
 ## Which editor
 
-These are written for [XNEdit](https://github.com/unixwork/xnedit) and tested
-against it every week. They are ordinary NEdit macros and run on classic NEdit
-5.7 too, give or take some column arithmetic on non-ASCII text. The two editors
-keep their settings in different places, `~/.xnedit/` against `~/.nedit/`, so
-instructions written for one send you to the wrong directory.
+Written for [XNEdit](https://github.com/unixwork/xnedit). They are ordinary
+NEdit macros, so classic NEdit 5.7 runs them too.
 
-Only XNEdit locks a file it cannot read as UTF-8, and all six commands refuse a
-locked buffer rather than write into one. [When the file is
-locked](cleaning-pdf-tables.md#when-the-file-is-locked) is what that looks like
-and what to do about it.
+| | XNEdit | NEdit 5.7 |
+| --- | --- | --- |
+| Tested against | every week | every week |
+| Settings live in | `~/.xnedit/` | `~/.nedit/` |
+| A column counts | characters | bytes |
+| A file it cannot read as UTF-8 | locks, and every command refuses it | opens as if nothing were wrong |
 
-XNEdit runs under XQuartz on the Macs, which explains some behavior that
-otherwise looks like a bug: the menu bar sits inside the window, copy and paste
-go through the X selection rather than the macOS clipboard, and `t_print()`
-output lands in the terminal that launched `xnedit`.
+The column row is the one that bites. `Balázs` is six columns wide on XNEdit
+and seven on 5.7, so anything that counts columns lands a place out. [When the
+file is locked](cleaning-pdf-tables.md#when-the-file-is-locked) covers the
+other row.
+
+## Under XQuartz
+
+XNEdit is an X11 application, which explains three things that look like bugs.
+
+| What you see | Why |
+| --- | --- |
+| The menu bar is inside the window | X11 draws its own, rather than using the Mac one |
+| Copy and paste do not reach other Mac apps | They go through the X selection |
+| `t_print()` prints nothing | It lands in the terminal that launched `xnedit` |

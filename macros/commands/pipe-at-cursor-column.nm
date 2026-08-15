@@ -24,23 +24,25 @@
 #
 # Five things it refuses rather than guesses at:
 #
-#   - A locked buffer. Nothing written to one lands. XNEdit locks a file it
-#     cannot read as UTF-8; File > Read Only and a file you cannot write lock
-#     one too.
-#   - Column 0. A pipe at the start of a line opens the table with an empty
-#     field, which is never what a fixed-width table wants.
-#   - A row holding anything but a space at that column. Overwriting there
-#     would destroy a character, and a column that is blank on most rows can
-#     land inside a name like NGC 4472 on one. Those rows are counted and the
-#     first is named.
-#   - A row that ends before that column. Padding it out would invent data.
-#   - A buffer with a tab anywhere in it, because a tab is one byte wide and
-#     any number of columns wide. Replace the tabs with the spaces they stand
-#     for first: select the whole file and run expand through
-#     Shell > Filter Selection.
+# | What it refuses | Why |
+# | --- | --- |
+# | A locked buffer | Nothing written to one lands |
+# | Column 0 | A pipe there opens the table with an empty field |
+# | A tab anywhere in the buffer | One byte wide, any number of columns wide |
+# | A row with anything but a space there | Overwriting destroys a character |
+# | A row that ends before the column | Padding it out invents data |
 #
-# So read the report before you go on. A skipped row usually means the column
-# is a place or two off.
+# The first three stop the command before it writes anything. The last two are
+# per row: the rest of the file is piped, and the rows that were skipped are
+# counted with the first of them named. So read the report before you go on. A
+# skipped row usually means the column is a place or two off, and a column that
+# is blank on most rows can land inside a name like NGC 4472 on the one row
+# where it is not.
+#
+# XNEdit locks a file it cannot read as UTF-8; File > Read Only and a file you
+# cannot write lock one too. For tabs, replace them with the spaces they
+# stand for first: select the whole file and run expand through
+# Shell > Filter Selection.
 #
 # Columns are counted as they are displayed, so an en dash counts as one column
 # though it takes three bytes.

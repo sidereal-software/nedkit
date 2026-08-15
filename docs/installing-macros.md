@@ -145,15 +145,13 @@ nedit.macroCommands: \
 
 The format is unforgiving:
 
-- Each entry starts with four colon-separated fields: menu path, accelerator,
-  mnemonic, flags. `R` in the flags field means the command requires a
-  selection. Empty fields still need their colons, hence `::::`.
-- Every line of the body ends with a literal `\n\`, an escaped newline followed
-  by the resource-file line continuation.
-- The last line of the resource ends with `\n` and no trailing backslash.
-- Indentation is tabs, not spaces.
-- **Backslashes double.** A macro that contains `"[ \t]+$"` is written
-  `"[ \\t]+$"` here, and `"\\w"` becomes `"\\\\w"`.
+| Part of an entry | Rule |
+| --- | --- |
+| The four fields before the body | Menu path, accelerator, mnemonic, flags, separated by colons. `R` in the flags field means the command requires a selection, and an empty field still needs its colon, hence `::::` |
+| Every line of the body | Ends with a literal `\n\`, an escaped newline followed by the resource file's line continuation |
+| The last line of the resource | Ends with `\n` and no trailing backslash |
+| Indentation | Tabs, not spaces |
+| Backslashes | They double. A macro containing `"[ \t]+$"` is written `"[ \\t]+$"` here, and `"\\w"` becomes `"\\\\w"` |
 
 Background menu commands sit in a second resource, `nedit.bgMenuCommands`, in
 the identical format. One `-import` reads both, so a file carrying both
@@ -198,27 +196,16 @@ antialiased text.
 
 ## Troubleshooting
 
-**The command is not in the menu.** It went into `autoload.nm` instead of the
-Macro menu. `autoload.nm` defines subroutines; it does not create menu entries.
+| What you see | Why, and what to do |
+| --- | --- |
+| The command is not in the menu | It went into `autoload.nm` instead. That file defines subroutines and creates no menu entries |
+| It is in the Macro menu but not on right-click | Those are two dialogs, not one. Customize Menus > Macro Menu... fills the Macro menu, Customize Menus > Window Background Menu... fills the right-click menu, and a command belonging in both is pasted into both |
+| It was there yesterday and now it is gone | Save Defaults was skipped |
+| It works for you and for nobody else | It calls a subroutine from `autoload.nm` that only you have installed |
+| The command is greyed out | Requires Selection is ticked and nothing is selected |
+| Nothing happens and there is no error | Start XNEdit from a terminal and put `t_print()` calls in the macro. That output goes to the terminal, not to any window |
+| It says the file is locked, so nothing was changed | A locked buffer takes no writes, so the command stopped before doing anything. XNEdit locks a file it cannot read as UTF-8, which on NED data is the usual reason |
 
-**It's in the Macro menu but not on right-click.** Those are two dialogs, not
-one. Customize Menus > Macro Menu... fills the Macro menu; Customize Menus > Window Background Menu... fills the right-click menu. A command that belongs in
-both is pasted into both.
-
-**It was there yesterday and now it's gone.** Save Defaults was skipped.
-
-**It works for you and not for anyone else.** It calls a subroutine from
-`autoload.nm` that only you have installed.
-
-**Nothing happens and there's no error.** Start XNEdit from a terminal and add
-`t_print()` calls to the macro. That output goes to the terminal, not to any
-window.
-
-**It says the file is locked, so nothing was changed.** A locked buffer takes
-no writes, so the command stopped before doing anything. XNEdit locks a file it
-cannot read as UTF-8, which on NED data is the usual reason;
-[when the file is locked](cleaning-pdf-tables.md#when-the-file-is-locked) goes
-through the rest of what the window is telling you.
-
-**The command is greyed out.** Requires Selection is ticked and nothing is
-selected.
+[When the file is locked](cleaning-pdf-tables.md#when-the-file-is-locked) goes
+through the rest of what the window is telling you on that last one, including
+how to get the buffer unlocked.

@@ -382,6 +382,13 @@ personality there.
 
 Never use an em dash. Headings are sentence case.
 
+**Prefer a table to paragraphs whenever the content is really a list of facts.**
+Two things compared, symptoms against causes, options against what each one
+costs: all of those read faster as a table and are easier to keep true, because
+a missing cell is obvious where a missing clause is not. Keep prose for
+reasoning, where the connective tissue between sentences is the point. A table
+of arguments is not a table.
+
 **`>` separates menu levels and `→` means "becomes".** So
 `Preferences > Default Settings > Customize Menus`, and `α → a`. Menus take the
 plain character because a macro header cannot sensibly use anything else, and

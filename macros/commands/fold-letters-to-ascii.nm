@@ -11,11 +11,20 @@
 # change a line's width.
 #
 # Greek letters become a single Latin letter, so α becomes a and Δ becomes D.
-# Five readings collide: ε and η both give e, ο and ω give o, σ and ς give s,
-# τ and θ give t, and υ and μ give u. Nothing can tell a pair apart afterwards,
-# so every Greek letter gets listed in a dialog with the line and column it was
-# on, and the cursor lands on the first one. Read that list before the file
-# goes any further.
+# Five readings collide:
+#
+# | Letters | Both give |
+# | --- | --- |
+# | ε η | e |
+# | ο ω | o |
+# | σ ς | s |
+# | τ θ | t |
+# | υ μ | u |
+#
+# The capitals collide the same way, apart from the sigmas. Nothing can tell a
+# pair apart afterwards, so every Greek letter gets listed in a dialog with the
+# line and column it was on, and the cursor lands on the first one. Read that
+# list before the file goes any further.
 #
 # μ, Μ and the micro sign µ give u rather than m, so that 24 µm stays a
 # wavelength instead of turning into 24 mm.

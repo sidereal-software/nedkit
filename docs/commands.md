@@ -36,11 +36,20 @@ instead: Weiß becomes Weiss, Ærø becomes AEro. Those are the only ones that
 change a line's width.
 
 Greek letters become a single Latin letter, so α becomes a and Δ becomes D.
-Five readings collide: ε and η both give e, ο and ω give o, σ and ς give s,
-τ and θ give t, and υ and μ give u. Nothing can tell a pair apart afterwards,
-so every Greek letter gets listed in a dialog with the line and column it was
-on, and the cursor lands on the first one. Read that list before the file
-goes any further.
+Five readings collide:
+
+| Letters | Both give |
+| --- | --- |
+| ε η | e |
+| ο ω | o |
+| σ ς | s |
+| τ θ | t |
+| υ μ | u |
+
+The capitals collide the same way, apart from the sigmas. Nothing can tell a
+pair apart afterwards, so every Greek letter gets listed in a dialog with the
+line and column it was on, and the cursor lands on the first one. Read that
+list before the file goes any further.
 
 μ, Μ and the micro sign µ give u rather than m, so that 24 µm stays a
 wavelength instead of turning into 24 mm.
@@ -1182,39 +1191,44 @@ straight off the screen.
 
 Two buttons, two ways of putting the pipe in:
 
-  - Overwrite writes over the character at that column, and only where that
-    character is a space. Use this on a table already laid out in fixed-width
-    columns, since it leaves every row the width it was.
-  - Insert puts the pipe in and pushes the rest of the line right. Nothing is
-    lost, so it reaches rows with no blank column to spare, at the price of
-    one character of width on every row it touches.
+| | Overwrite | Insert |
+| --- | --- | --- |
+| Needs a space at the column | yes | no |
+| Row width | unchanged | one character wider per pipe |
+| A second run | leaves the pipe alone | puts in more pipes |
 
-Insert works through the columns right to left, so every pipe lands at the
-column you named rather than each one shifting the next along. A second run
-still inserts a second set of pipes; overwrite is the one that repeats
-safely.
+So overwrite is the one for a table already laid out in fixed-width columns,
+since it cannot move anything, and it is the one that repeats safely. Insert
+loses nothing, so it reaches rows with no blank column to spare. It works
+through the columns right to left, so every pipe lands at the column you
+named rather than each one shifting the next along.
+
+A second insert run does not settle. The leftmost pipe is found and left
+alone, but every column after it has slid along by then, so each of those
+gets a fresh pipe beside the one already there.
 
 Five things it refuses rather than guesses at:
 
-  - A locked buffer. Nothing written to one lands. XNEdit locks a file it
-    cannot read as UTF-8; File > Read Only and a file you cannot write lock
-    one too. The check runs before the prompt, so it does not ask which
-    columns to pipe first.
-  - Column 0. A pipe at the start of a line opens the table with an empty
-    field, which is never what a fixed-width table wants.
-  - Under Overwrite, a row holding anything but a space at one of those
-    columns. Overwriting there would destroy a character, and a column that
-    is blank on most rows can land inside a name like NGC 4472 on one. Those
-    rows are counted and the first is named.
-  - A row that ends before one of those columns. Padding it out would invent
-    data.
-  - A buffer with a tab anywhere in it, because a tab is one byte wide and
-    any number of columns wide. Replace the tabs with the spaces they stand
-    for first: select the whole file and run expand through
-    Shell > Filter Selection.
+| What it refuses | Why |
+| --- | --- |
+| A locked buffer | Nothing written to one lands |
+| Column 0 | A pipe there opens the table with an empty field |
+| A tab anywhere in the buffer | One byte wide, any number of columns wide |
+| Overwriting anything but a space | It would destroy that character |
+| A row that ends before a column | Padding it out invents data |
 
-So read the report before you go on. A skipped row usually means a column is
-a place or two off.
+The first three stop the command before it writes anything, and the locked
+check runs before the prompt, so it does not ask which columns to pipe first.
+The last two are per row: the rest of the file is piped, and the rows that
+were skipped are counted with the first of them named. So read the report
+before you go on. A skipped row usually means a column is a place or two off,
+and a column that is blank on most rows can land inside a name like NGC 4472
+on the one row where it is not.
+
+XNEdit locks a file it cannot read as UTF-8; File > Read Only and a file you
+cannot write lock one too. For tabs, replace them with the spaces they
+stand for first: select the whole file and run expand through
+Shell > Filter Selection.
 
 Columns are counted as they are displayed, so an en dash counts as one column
 though it takes three bytes.
@@ -1575,23 +1589,25 @@ you run this from the background menu.
 
 Five things it refuses rather than guesses at:
 
-  - A locked buffer. Nothing written to one lands. XNEdit locks a file it
-    cannot read as UTF-8; File > Read Only and a file you cannot write lock
-    one too.
-  - Column 0. A pipe at the start of a line opens the table with an empty
-    field, which is never what a fixed-width table wants.
-  - A row holding anything but a space at that column. Overwriting there
-    would destroy a character, and a column that is blank on most rows can
-    land inside a name like NGC 4472 on one. Those rows are counted and the
-    first is named.
-  - A row that ends before that column. Padding it out would invent data.
-  - A buffer with a tab anywhere in it, because a tab is one byte wide and
-    any number of columns wide. Replace the tabs with the spaces they stand
-    for first: select the whole file and run expand through
-    Shell > Filter Selection.
+| What it refuses | Why |
+| --- | --- |
+| A locked buffer | Nothing written to one lands |
+| Column 0 | A pipe there opens the table with an empty field |
+| A tab anywhere in the buffer | One byte wide, any number of columns wide |
+| A row with anything but a space there | Overwriting destroys a character |
+| A row that ends before the column | Padding it out invents data |
 
-So read the report before you go on. A skipped row usually means the column
-is a place or two off.
+The first three stop the command before it writes anything. The last two are
+per row: the rest of the file is piped, and the rows that were skipped are
+counted with the first of them named. So read the report before you go on. A
+skipped row usually means the column is a place or two off, and a column that
+is blank on most rows can land inside a name like NGC 4472 on the one row
+where it is not.
+
+XNEdit locks a file it cannot read as UTF-8; File > Read Only and a file you
+cannot write lock one too. For tabs, replace them with the spaces they
+stand for first: select the whole file and run expand through
+Shell > Filter Selection.
 
 Columns are counted as they are displayed, so an en dash counts as one column
 though it takes three bytes.
