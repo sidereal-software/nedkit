@@ -70,6 +70,21 @@ PIPED = (
     b"NGC 4486  |12 30 49.4  |-0.004283\n"
 )
 
+#: A paste that is still not pure ASCII once the whole sequence has run, which
+#: is what the re-run test needs and what ``PASTE`` cannot give it. The
+#: declination is written the way NED prints one and there is a reference author
+#: in a fourth column, so both tables have work to do on the way through: the en
+#: dash, the prime and the double prime are Normalize Characters', the ``é`` is
+#: Fold Letters to ASCII's, and the degree sign belongs to neither and comes out
+#: the other end. Every one of those replacements is one character for one, so
+#: nothing on a row moves and the same column numbers still find the boundaries
+#: after the letters have been sorted out.
+DEGREES = (
+    "NGC 4472   +08°00′02″   –0.003326   Véron-Cetty\n"
+    "IC 3583    +13°15′32″   –0.00115    Huchra\n"
+    "NGC 4486   +12°23′28″   –0.004283   Falco\n"
+).encode()
+
 #: Two rows of 25 characters each, with column 14 blank on both. ``ﬀ`` is one
 #: character that Normalize Characters turns into two, so the first row is the
 #: one that grows.
@@ -92,6 +107,9 @@ def asked(columns: str) -> str:
 
 #: The columns of the fixed-width paste above that are blank on every row.
 COLUMNS = asked("10, 23")
+
+#: The same, for ``DEGREES``, which has one more column in it.
+DEGREE_COLUMNS = asked("10, 23, 35")
 
 
 def apply(
@@ -135,6 +153,16 @@ def pipe_columns(data: bytes) -> list[list[int]]:
         for line in data.decode("utf-8").split("\n")
         if "|" in line
     ]
+
+
+def non_ascii(data: bytes) -> set[str]:
+    """Which characters in the file are not ASCII, ignoring how many there are.
+
+    A high byte is exactly what the two table commands look for before they
+    decide whether to run their table at all, so this is also the answer to
+    whether the file gets past that guard.
+    """
+    return {character for character in data.decode("utf-8") if not character.isascii()}
 
 
 def widths(data: bytes) -> set[int]:
@@ -327,6 +355,16 @@ def test_running_the_cleanup_commands_again_changes_nothing(
 ) -> None:
     """Every command that takes no aim is re-runnable, so the run of them is.
 
+    The file handed to the second pass has to still hold a character that is
+    not ASCII, or two of the three commands are not being asked anything.
+    Normalize Characters and Fold Letters to ASCII each open with one scan for
+    a high byte and skip their table outright when the buffer has none, so a
+    settled file that is pure ASCII sends both of them down that short-circuit
+    and neither table is ever reached. ``DEGREES`` is what stops that: the
+    degree sign has no answer in either table, which
+    ``tests/test_character_table.py`` pins, so it comes through the first pass
+    intact and the second pass runs both tables in full against it.
+
     The piping step is left out because its answer is a set of column numbers,
     and those describe the file it was pointed at. Once the padding has closed
     the columns up, the same numbers point at the middle of a value, and the
@@ -336,8 +374,17 @@ def test_running_the_cleanup_commands_again_changes_nothing(
     something.
     """
     settled = apply(
-        runner, PIPELINE, PASTE, tmp_path, setup={"pipe-at-columns": COLUMNS}
+        runner, PIPELINE, DEGREES, tmp_path, setup={"pipe-at-columns": DEGREE_COLUMNS}
     )
+
+    assert non_ascii(settled) == {"°"}, (
+        "the first pass should have left the degree sign and nothing else, or "
+        "the second one proves less than it looks like it does. Anything else "
+        "here is a character a table was supposed to replace and did not, and "
+        "nothing at all is a second pass that skips both tables on the high-"
+        f"byte guard: {settled!r}"
+    )
+
     again = apply(runner, CLEANUP, settled, tmp_path)
 
     assert again == settled
