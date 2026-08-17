@@ -62,6 +62,21 @@ markdown_extensions:
 
 plugins:
   - search
+  # The API reference comes from the docstrings rather than being written out
+  # again by hand, the same principle tools/gen_docs.py applies to the macros.
+  - mkdocstrings:
+      handlers:
+        python:
+          # nedtransients ships as a directory the team copies, not as an
+          # installed package, so it is not importable without this.
+          paths: [python]
+          options:
+            docstring_style: numpy
+            show_source: false
+            show_root_heading: true
+            heading_level: 3
+            members_order: source
+            separate_signature: true
 
 extra_css:
   - stylesheets/nedkit.css
@@ -72,11 +87,13 @@ nav:
   - Guides:
       - Cleaning up a pasted table: cleaning-pdf-tables.md
       - Installing macros: installing-macros.md
+      - Preparing a SNe, FRB and GRB load: transients.md
   - Reference:
       - Commands: commands.md
       - Subroutines: subroutines.md
       - Character replacements: character-replacements.md
       - Macro language: xnedit-macro-reference.md
+      - ned-transients API: transients-api.md
   - Contributing:
       - Running the tests: testing.md
 

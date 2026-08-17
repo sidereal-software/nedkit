@@ -6,8 +6,7 @@ Small tools for the NED team at IPAC.
 
 Most of it is XNEdit macros. Reshaping a data file by hand is slow and easy to
 get subtly wrong, and a macro does the same edit the same way every time.
-Python utilities belong here too, for the jobs too big to run inside the
-editor.
+Python utilities live here too, for the jobs too big to run inside the editor.
 
 ## Layout
 
@@ -15,10 +14,39 @@ editor.
 | --- | --- |
 | `macros/commands/` | One file per XNEdit **Macro** menu command |
 | `macros/lib/` | Shared subroutines, loaded at startup through `autoload.nm` |
+| `python/` | `ned-transients`, which prepares the monthly SNe, FRB and GRB load |
 | `docs/` | Sources for the documentation site |
 | `samples/` | A real job, before and after, and the list of what is still done by hand |
 | `tools/` | `gen_docs.py`, which regenerates the reference pages from the macros |
 | `src/nedkit/`, `tests/` | The test harness, which nobody on the team runs |
+
+## ned-transients
+
+Fetches the new supernovae, fast radio bursts and gamma-ray bursts from the
+Transient Name Server and Swift XRT, and writes the loadstatus file, the
+ptables, the directory tree and the Jira ticket body that the procedure
+otherwise asks someone to build by copying last year's.
+
+One command per step, so you can run the parts that help:
+
+```sh
+B="--root /nedefs/Project/Production/dev/data.tables --batch a"
+
+python3 python/ned-transients scaffold   $B
+python3 python/ned-transients fetch      $B --since 2025-08-01 --until 2026-02-05
+python3 python/ned-transients ptable     $B
+python3 python/ned-transients loadstatus $B
+python3 python/ned-transients jira       $B
+```
+
+`prepare` runs all five at once. They chain through the batch directory, so any
+one can be re-run alone or skipped and done by hand, and only `fetch` touches
+the network.
+
+Nothing needs installing: copy the `python/` directory and run it. It loads
+nothing and chooses nothing, which matters most for FRBs, where a human keeps
+roughly a quarter of the candidates for reasons the source data does not
+record. [Full guide](https://nedkit.sidereal.software/transients/).
 
 ## Installing the macros
 

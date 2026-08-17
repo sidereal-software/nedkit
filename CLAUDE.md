@@ -8,7 +8,9 @@ Tools for the NED team at IPAC (NASA/IPAC Extragalactic Database). Their work
 is largely reading and reshaping text files by hand. Two kinds of deliverable:
 
 1. **XNEdit macros** (the main one) in `macros/`
-2. **Python utilities** for jobs too large to run inside the editor
+2. **Python utilities** in `python/`, for jobs too large to run inside the
+   editor. So far one: `ned-transients`, which prepares the monthly SNe, FRB
+   and GRB load. See [the transients page](docs/transients.md).
 
 ## The editor is XNEdit, not NEdit
 
@@ -181,9 +183,58 @@ runs and which `pyproject.toml` puts on a current Python.
 `src/nedkit/` and `tests/` is compiled by a real 3.9 that uv fetches. Move the
 harness and that test tells you to update it.
 
+**No console entry points**, for the same reason. `python/ned-transients` is a
+shim that puts its own directory on `sys.path` and calls `main()`, so the whole
+`python/` directory copies anywhere and works. Tests import it by inserting
+`python/` on the path, and mkdocstrings reaches it through `paths: [python]`
+in `mkdocs.yml`.
+
+**One command per step of the procedure**, so a step that does not help can be
+skipped and done by hand: `scaffold`, `fetch`, `ptable`, `loadstatus`, `jira`,
+with `prepare` calling the same five functions in order through the `STEPS`
+table. They communicate through the batch directory rather than through each
+other, which is what keeps them independently runnable:
+
+- `fetch` records its date range in `_raw/window.txt`, and `ptable` reads it
+  back. TNS filters server-side but Swift publishes one undated table, so a
+  `ptable` run that guessed a different window would silently build the wrong
+  file.
+- `loadstatus` derives which refcodes to register from which `.mod` files
+  exist. `--only` narrows that and never widens it: a refcode with no ptable
+  behind it registers an empty load and then asks for a Jira ticket giving it
+  an author.
+
+When adding a step, put it in `STEPS` and give it a subparser; a test asserts
+the two agree.
+
+### What the transients tool learned the hard way
+
+Four findings that cost real investigation and are not recoverable from the
+code alone:
+
+- **TNS 403s on a non-browser User-Agent.** It is a UA filter, not
+  authentication: the same URLs return 200 with an ordinary browser string.
+  The failure looks exactly like the site being down.
+- **TNS paginates**, and taking the first page silently truncates. A
+  ten-month window is thousands of rows against a 500-row page.
+- **The refcode month is the download date, not the window.** The real
+  `FRB.2026.03.31.mod` covers December 2024 to September 2025 and loads under
+  `2026FRB...C...0000.`, where `C` is March.
+- **FRB row selection cannot be derived from the TNS export.** The real file
+  keeps 33 of 142 candidates and six candidate rules were tried and rejected;
+  the list is in `sources.Cluster`'s docstring. Do not add a seventh on a
+  hunch. GRBs, by contrast, need no selection at all: the real GRB file is a
+  gapless contiguous slice of the Swift table.
+
 ## Tests
 
 `uv run pytest`. Add `-m "not xnedit"` for the static checks alone.
+
+Two markers, and they behave differently. `xnedit` runs by default and skips
+without a binary. **`network` is deselected by default** through `addopts` in
+`pyproject.toml`, because it reaches the live TNS and Swift sites; run it with
+`uv run pytest -m network` when the question is whether either has changed its
+export out from under `python/nedtransients/`.
 
 ### Getting an XNEdit to test against
 

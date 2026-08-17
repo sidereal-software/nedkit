@@ -75,6 +75,14 @@ They are in the order they are meant to be run.
 on a real file, and [getting started](getting-started.md) covers installing
 them in the first place.
 
+## Beyond the editor
+
+Some jobs are too big to run inside XNEdit.
+[`ned-transients`](transients.md) prepares the monthly supernova, fast radio
+burst and gamma-ray burst load: it fetches the lists from the Transient Name
+Server and Swift XRT and writes the loadstatus file, the ptables, the directory
+tree and the Jira ticket. It loads nothing and chooses nothing.
+
 ## Which editor
 
 Written for [XNEdit](https://github.com/unixwork/xnedit). They are ordinary
