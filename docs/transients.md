@@ -238,6 +238,41 @@ unlocks the bulk daily-delta files and would be worth setting up. If the
 current approach ever stops working, `--tns-csv` is the fallback: export the
 CSV from the search page yourself and point `fetch` at the file.
 
+## Other ways of getting the data
+
+Checked, and none of them replaces the two sources in use:
+
+| Alternative | Verdict |
+| --- | --- |
+| TNS bulk `tns_public_objects` files | **403 without credentials.** Genuinely needs a bot account, unlike the search export |
+| TNS bot API | The right upgrade, not a different source. See below |
+| HEASARC `swiftgrb` via TAP | **Stops at December 2012.** 872 rows against swift.ac.uk's 1765 |
+| Other HEASARC GRB tables | All historical or mission-specific. No live XRT position feed |
+| FRBSTATS | **Gone.** The domain is parked and for sale |
+| Alert brokers (ALeRCE, Lasair, Fink) | Not evaluated in depth, because of provenance. See below |
+
+**Provenance is the reason this list is short.** The refcodes record where the
+data came from: `2026TNS...C......0.` is credited to the "Transient Name Server
+Collaboration" and its Jira ticket says *obtained from wis-tns.weizmann.ac.il*,
+and the GRB refcode credits the "Neil Gehrels Swift Observatory Science Data
+Centre". Pulling the same objects from a broker would make what NED records
+about their origin untrue. So the question is not really which site to read,
+it is how best to read the two that the refcodes already name.
+
+For Swift there is nothing better: `swift.ac.uk/xrt_positions` is the UK Swift
+Science Data Centre's own live table of enhanced positions, it needs no
+account, and it is the thing the refcode cites.
+
+For TNS the better route is a **bot account**, which is free to professional
+astronomers and gives three things the anonymous search export does not:
+
+- The bulk daily-delta files, which answer "what changed since the last load"
+  directly instead of by date-range query.
+- A documented API contract, rather than a search page's export that can be
+  changed without notice.
+- A higher rate limit. The anonymous quota is small, and `fetch` already trips
+  it if you re-run it in a loop.
+
 TNS also paginates. `fetch` follows every page, because stopping at the first
 one silently truncates the list, and a truncated list looks exactly like a
 quiet month.

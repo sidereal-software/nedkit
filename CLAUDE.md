@@ -225,6 +225,15 @@ code alone:
 - **The refcode month is the download date, not the window.** The real
   `FRB.2026.03.31.mod` covers December 2024 to September 2025 and loads under
   `2026FRB...C...0000.`, where `C` is March.
+- **Alternative sources were surveyed and rejected.** HEASARC's `swiftgrb`
+  stops at December 2012; no other HEASARC GRB table is a live position feed;
+  FRBSTATS is gone, its domain parked; the TNS bulk `tns_public_objects` files
+  really do need credentials, unlike the search export. And the refcodes record
+  provenance (`obtained from wis-tns.weizmann.ac.il`, credited to the TNS
+  Collaboration and the Swift SDC), so reading the same objects off a broker
+  would make NED's own record of their origin untrue. The upgrade path is a TNS
+  bot account, not a different site. Full table in
+  [the transients page](docs/transients.md).
 - **FRB row selection cannot be derived from the TNS export.** The real file
   keeps 33 of 142 candidates and six candidate rules were tried and rejected;
   the list is in `sources.Cluster`'s docstring. Do not add a seventh on a
