@@ -272,6 +272,36 @@ def test_the_format_is_sniffed_not_assumed():
     assert sources.parse_tns(read("tns-frb-page.html"), "FRB")
 
 
+def test_columns_can_move_without_breaking_the_parse():
+    """Cells are found by their class, not by their position in the row.
+
+    Worth pinning, because the obvious way to scrape a table is a regex over
+    the row, and that hardcodes the column order. ``transientNamer`` scrapes
+    this same page that way and would need editing if TNS reordered anything.
+    Reordering is exactly the kind of change a site makes without announcing.
+    """
+    cells = {
+        "id": "216498",
+        "name": "SN 2026wyz",
+        "ra": "13:52:35.451",
+        "decl": "+19:07:55.39",
+        "discoverydate": "2026-07-31 06:04:07.104",
+        "redshift": "0.072",
+    }
+
+    def page(order):
+        row = "".join(
+            '<td class="cell-{}">{}</td>'.format(key, cells[key]) for key in order
+        )
+        return "<table><tbody><tr>{}</tr></tbody></table>".format(row)
+
+    forwards = sources.parse_tns(page(list(cells)), "TNS")
+    backwards = sources.parse_tns(page(list(reversed(list(cells)))), "TNS")
+    assert forwards == backwards
+    assert forwards[0].name == "SN 2026wyz"
+    assert forwards[0].redshift == "0.072"
+
+
 def test_nested_detail_rows_do_not_become_objects():
     """TNS puts sub-rows under each result, and they are not results.
 

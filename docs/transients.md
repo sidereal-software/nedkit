@@ -298,11 +298,27 @@ with `display[...]=1` rather than trusting the default view, which is a trick
 worth copying and now is. Its changelog carries a *"fix TNS search after TNS API
 update"* entry, which is a fair warning about how durable any of this is.
 
-**nedkit cannot use it.** It needs `requests` and BeautifulSoup, and the NED
-team's machines have no way to install packages. That constraint, not a gap in
-the ecosystem, is why the scraper here is hand-rolled, and it is about eighty
-lines of standard library. Anyone without that constraint should reach for
-`transientNamer` first.
+It still would not do this job, for reasons that have nothing to do with
+whether packages can be installed:
+
+- **No object-type filter.** Its search sends `ra`, `decl`, `radius`, `name`,
+  `internal_name` and a period, and that is all. It cannot ask for FRBs
+  (`objtype[]=130`) or restrict to classified supernovae, which are exactly
+  the two queries `fetch` makes.
+- **Relative windows only.** It takes `discInLastDays`, so "the last 90 days",
+  not "1 December 2024 to 30 September 2025". A load window that moves with
+  the calendar cannot rebuild an old batch, and `--obtained` exists precisely
+  so an old batch can be rebuilt.
+- **It parses with one large regex** over the row, which fixes the column
+  order. The parser here keys on each cell's class, so a reordered table still
+  reads correctly; there is a test for that.
+
+For the record, its TNS search does not use BeautifulSoup at all: `requests`
+and `re`. BeautifulSoup appears elsewhere in the package, for a different
+feature.
+
+So the hand-rolled eighty lines are not a workaround for a missing dependency.
+They do something the library does not.
 
 TNS also paginates. `fetch` follows every page, because stopping at the first
 one silently truncates the list, and a truncated list looks exactly like a

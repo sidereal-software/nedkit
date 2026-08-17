@@ -249,10 +249,15 @@ code alone:
   object against a quota. Only the bulk daily-delta files would replace
   scraping, and those need the bot account. As for a library,
   [`transientNamer`](https://github.com/thespacedoctor/transientNamer) already
-  scrapes the same endpoint and is maintained; the only reason not to depend on
-  it is that it needs `requests` and BeautifulSoup, which the team cannot
-  install. That constraint is the whole justification for the eighty lines in
-  `sources.py`, so if it ever lifts, drop them.
+  scrapes the same endpoint and is maintained, but it could not do this job
+  even with `pip` available: its search takes no object-type filter, so it
+  cannot ask for FRBs or for classified supernovae, and its window is
+  `discInLastDays` rather than two dates, so it cannot rebuild a past batch.
+  It also parses with one regex over the row, which fixes the column order;
+  `sources.py` keys on each cell's class instead and has a test proving a
+  reordered table still reads. **Installing BeautifulSoup would change
+  nothing** - `transientNamer`'s TNS search uses `requests` and `re`, and the
+  parser here needs no third-party anything.
 - **FRB row selection cannot be derived from the TNS export.** The real file
   keeps 33 of 142 candidates and six candidate rules were tried and rejected;
   the list is in `sources.Cluster`'s docstring. Do not add a seventh on a
