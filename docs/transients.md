@@ -265,10 +265,44 @@ Science Data Centre's own live table of enhanced positions, it needs no
 account, and it is the thing the refcode cites.
 
 For TNS, scraping is the route, and it is made as sturdy as scraping gets by
-having two independent ways in rather than one. If the team ever does want a
-**bot account**, it is free to professional astronomers and would add the bulk
-daily-delta files, a documented contract, and a higher rate limit. Nothing here
-depends on that happening.
+having two independent ways in rather than one.
+
+### Would a bot account remove the need to scrape?
+
+Only through one of its two doors, and not the one you would expect.
+
+The TNS **API** is built for "tell me about this object": `/api/get/search`
+takes a name or a position and hands back identifiers, and `/api/get/object`
+returns the detail for one object at a time. There is no "every object
+discovered between these dates, with coordinates". Getting a month that way
+would be one request per object against a quota, where the search export is one
+request for the lot. **The API is the wrong shape for this job**, which is why
+`tns-api` on PyPI does single-object lookups and why GOATS does too.
+
+What *would* replace scraping is the **bulk daily-delta files**, which do carry
+full rows and answer "what changed since yesterday" directly. Those need the
+bot account. If one ever appears, that is the route to take, and it is a
+smaller change than it sounds: a different `fetch`, the same parser.
+
+### Libraries that already do this
+
+| | |
+| --- | --- |
+| [`transientNamer`](https://github.com/thespacedoctor/transientNamer) | Scrapes the same `/search` endpoint. Maintained, last release February 2025 |
+| [`tns-api`](https://github.com/temuller/Tns_api) | Wraps the official API. Needs bot credentials, single-object lookups |
+| [`tom_tns`](https://github.com/TOMToolkit/tom_tns) | Report submission, which is the opposite direction |
+
+`transientNamer` is the closest match and independently validates the approach:
+it reads the same page, sends its own honest User-Agent, and asks for columns
+with `display[...]=1` rather than trusting the default view, which is a trick
+worth copying and now is. Its changelog carries a *"fix TNS search after TNS API
+update"* entry, which is a fair warning about how durable any of this is.
+
+**nedkit cannot use it.** It needs `requests` and BeautifulSoup, and the NED
+team's machines have no way to install packages. That constraint, not a gap in
+the ecosystem, is why the scraper here is hand-rolled, and it is about eighty
+lines of standard library. Anyone without that constraint should reach for
+`transientNamer` first.
 
 TNS also paginates. `fetch` follows every page, because stopping at the first
 one silently truncates the list, and a truncated list looks exactly like a

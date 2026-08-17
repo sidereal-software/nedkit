@@ -242,6 +242,17 @@ code alone:
   quota covers both. [GOATS](https://github.com/gemini-hlsw/goats) scrapes TNS
   the same way and sends `GOATS.TNSClient/1.0`, which independently confirms
   the honest-User-Agent finding.
+- **Do not replace the scraper with the TNS API, and do not extract it into a
+  library.** The API is shaped for "tell me about this object": `get/search`
+  takes a name or a position, `get/object` returns one object. There is no
+  date-range-with-full-rows endpoint, so a month would cost one request per
+  object against a quota. Only the bulk daily-delta files would replace
+  scraping, and those need the bot account. As for a library,
+  [`transientNamer`](https://github.com/thespacedoctor/transientNamer) already
+  scrapes the same endpoint and is maintained; the only reason not to depend on
+  it is that it needs `requests` and BeautifulSoup, which the team cannot
+  install. That constraint is the whole justification for the eighty lines in
+  `sources.py`, so if it ever lifts, drop them.
 - **FRB row selection cannot be derived from the TNS export.** The real file
   keeps 33 of 142 candidates and six candidate rules were tried and rejected;
   the list is in `sources.Cluster`'s docstring. Do not add a seventh on a
