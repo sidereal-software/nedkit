@@ -245,7 +245,8 @@ Checked, and none of them replaces the two sources in use:
 | Alternative | Verdict |
 | --- | --- |
 | TNS bulk `tns_public_objects` files | **403 without credentials.** Genuinely needs a bot account, unlike the search export |
-| TNS bot API | The right upgrade, not a different source. See below |
+| TNS results page | **Adopted**, as the fallback route. See above |
+| TNS per-object pages, as GOATS scrapes | One object per request, so no way to ask "what is new" |
 | HEASARC `swiftgrb` via TAP | **Stops at December 2012.** 872 rows against swift.ac.uk's 1765 |
 | Other HEASARC GRB tables | All historical or mission-specific. No live XRT position feed |
 | FRBSTATS | **Gone.** The domain is parked and for sale |
@@ -263,15 +264,11 @@ For Swift there is nothing better: `swift.ac.uk/xrt_positions` is the UK Swift
 Science Data Centre's own live table of enhanced positions, it needs no
 account, and it is the thing the refcode cites.
 
-For TNS the better route is a **bot account**, which is free to professional
-astronomers and gives three things the anonymous search export does not:
-
-- The bulk daily-delta files, which answer "what changed since the last load"
-  directly instead of by date-range query.
-- A documented API contract, rather than a search page's export that can be
-  changed without notice.
-- A higher rate limit. The anonymous quota is small, and `fetch` already trips
-  it if you re-run it in a loop.
+For TNS, scraping is the route, and it is made as sturdy as scraping gets by
+having two independent ways in rather than one. If the team ever does want a
+**bot account**, it is free to professional astronomers and would add the bulk
+daily-delta files, a documented contract, and a higher rate limit. Nothing here
+depends on that happening.
 
 TNS also paginates. `fetch` follows every page, because stopping at the first
 one silently truncates the list, and a truncated list looks exactly like a
@@ -279,6 +276,49 @@ quiet month.
 
 Only `fetch` goes to the network. Every other step works from `_raw/`, so once
 a batch is fetched you can rebuild it offline as many times as you like.
+
+### Two routes in, because there is no API key
+
+Without a bot account the only way to get the list is to read the site, so the
+guard against TNS changing is knowing two ways in rather than one. `fetch`
+tries them in order:
+
+| | Route | |
+| --- | --- | --- |
+| 1 | The CSV export, `&format=csv` | Structured, and about 50 KB for a month |
+| 2 | The ordinary results page | Same query, same rows, about 3.9 MB |
+
+The results page marks every cell with `class="cell-name"`, `cell-ra`,
+`cell-decl` and so on, and those carry the same values as the CSV columns.
+Checked against each other over a live month: **132 records each, identical
+record for record.** The fixture test keeps them honest offline.
+
+The CSV route is tried first because it is a tenth of a percent of the size.
+If it fails, `fetch` says so and carries on:
+
+```
+  ! TNS CSV export failed (ValueError: ...). Falling back to the results
+    page. The run is fine; the CSV route needs looking at.
+fetched   FRB     17 objects -> .../_raw/tns-frb.html
+```
+
+The fallback is never silent. The run succeeding does not mean nothing is
+wrong, and the cached file's extension records which route answered, so
+`_raw/tns-frb.html` is itself the sign that route 1 needs attention.
+
+A rate limit does **not** trigger the fallback, since the quota covers both
+routes and asking the same server the same question a different way would only
+spend more of it.
+
+`--tns-csv` accepts either format too, so a page saved out of a browser works
+as well as a CSV export.
+
+This is roughly what the [GOATS project](https://github.com/gemini-hlsw/goats)
+does for TNS, and its client is worth knowing about: it scrapes
+`wis-tns.org/object/<name>` for one object at a time and identifies itself as
+`GOATS.TNSClient/1.0`, which is independent confirmation that a plain honest
+User-Agent is all TNS wants. Its per-object route does not answer "everything
+in this date range", which is why it is not what `fetch` uses.
 
 ## After it runs
 

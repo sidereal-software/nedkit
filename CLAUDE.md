@@ -231,9 +231,17 @@ code alone:
   really do need credentials, unlike the search export. And the refcodes record
   provenance (`obtained from wis-tns.weizmann.ac.il`, credited to the TNS
   Collaboration and the Swift SDC), so reading the same objects off a broker
-  would make NED's own record of their origin untrue. The upgrade path is a TNS
-  bot account, not a different site. Full table in
+  would make NED's own record of their origin untrue. Full table in
   [the transients page](docs/transients.md).
+- **There is no API key, so TNS has two scrape routes, not one.** The CSV
+  export first, the ordinary results page second; the page marks its cells
+  `class="cell-name"` and friends, and the two were checked against a live
+  month at 132 records each, identical. The fallback announces itself and the
+  cached file's extension records which route answered, so `_raw/tns-frb.html`
+  is itself the sign that the CSV route broke. A 429 does not fall back: the
+  quota covers both. [GOATS](https://github.com/gemini-hlsw/goats) scrapes TNS
+  the same way and sends `GOATS.TNSClient/1.0`, which independently confirms
+  the honest-User-Agent finding.
 - **FRB row selection cannot be derived from the TNS export.** The real file
   keeps 33 of 142 candidates and six candidate rules were tried and rejected;
   the list is in `sources.Cluster`'s docstring. Do not add a seventh on a

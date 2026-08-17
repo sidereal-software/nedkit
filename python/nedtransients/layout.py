@@ -22,12 +22,41 @@ from typing import List, Optional, Sequence
 #: Subdirectories every batch gets, whichever sources are being loaded.
 FIXED = ("flt", "lbl", "_raw")
 
-#: Where the raw response from each source is cached.
-RAW_NAMES = {
-    "TNS": "tns-sne.csv",
-    "FRB": "tns-frb.csv",
-    "GRB": "swift-xrt.txt",
+#: Base name of each source's cached response, without an extension.
+#:
+#: The extension records which of the two TNS routes answered, because ``_raw``
+#: is there to be read by a person and a file called ``.csv`` holding a web
+#: page is a small lie that costs someone ten minutes.
+RAW_STEMS = {
+    "TNS": "tns-sne",
+    "FRB": "tns-frb",
+    "GRB": "swift-xrt",
 }
+
+#: Extensions a cached response may carry, in the order they are looked for.
+RAW_SUFFIXES = (".csv", ".html", ".txt")
+
+
+def raw_name(kind: str, text: str) -> str:
+    """Return the filename a freshly fetched response should be saved under.
+
+    Parameters
+    ----------
+    kind : str
+        ``"TNS"``, ``"FRB"`` or ``"GRB"``.
+    text : str
+        The response, so the extension can describe it.
+
+    Returns
+    -------
+    str
+        For example ``"tns-frb.csv"`` or, when the fallback route answered,
+        ``"tns-frb.html"``.
+    """
+    if kind == "GRB":
+        return RAW_STEMS[kind] + ".txt"
+    return RAW_STEMS[kind] + (".html" if "cell-name" in text else ".csv")
+
 
 #: Records the window ``fetch`` used, next to the responses it describes.
 #:
@@ -100,9 +129,17 @@ def read_window(root: str, year: int, batch: str):
 
 
 def cached(root: str, year: int, batch: str, kind: str) -> "Optional[str]":
-    """Return the path of a cached response, or ``None`` if it is not there."""
-    path = os.path.join(raw_dir(root, year, batch), RAW_NAMES[kind])
-    return path if os.path.isfile(path) else None
+    """Return the path of a cached response, or ``None`` if it is not there.
+
+    Looks under every extension, since which one is present records which
+    route answered when the batch was fetched.
+    """
+    directory = raw_dir(root, year, batch)
+    for suffix in RAW_SUFFIXES:
+        path = os.path.join(directory, RAW_STEMS[kind] + suffix)
+        if os.path.isfile(path):
+            return path
+    return None
 
 
 def ptables(root: str, year: int, batch: str) -> "List[str]":

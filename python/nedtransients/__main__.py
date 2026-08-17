@@ -275,7 +275,7 @@ def cmd_scaffold(args: argparse.Namespace) -> int:
 
 
 def download(
-    kind: str, since: dt.date, until: dt.date, tns_csv: "Optional[str]"
+    kind: str, since: dt.date, until: dt.date, tns_csv: "Optional[str]", out=None
 ) -> str:
     """Get one source's list as text, without parsing it.
 
@@ -287,7 +287,11 @@ def download(
         The window. TNS applies it server-side; Swift publishes one whole
         table and is filtered later.
     tns_csv : str or None
-        A hand-downloaded CSV to read instead of fetching.
+        A hand-downloaded file to read instead of fetching. Either the CSV
+        export or a saved results page;
+        :func:`~nedtransients.sources.parse_tns` reads both.
+    out : file-like, optional
+        Where to report a fallback to the second route.
 
     Returns
     -------
@@ -299,7 +303,13 @@ def download(
             return handle.read()
     if kind == "GRB":
         return sources.fetch(sources.SWIFT_XRT)
-    return sources.fetch_tns(since, until, frb=(kind == "FRB"))
+
+    def warn(message):
+        print("  ! {}".format(message), file=out if out is not None else sys.stdout)
+
+    return sources.fetch_tns_resilient(
+        since, until, frb=(kind == "FRB"), on_fallback=warn
+    )
 
 
 def cmd_fetch(args: argparse.Namespace) -> int:
@@ -344,15 +354,24 @@ def cmd_fetch(args: argparse.Namespace) -> int:
         os.makedirs(raw)
 
     for kind in kinds:
-        target = os.path.join(raw, layout.RAW_NAMES[kind])
-        if os.path.exists(target) and not args.force:
-            print("exists, left alone   {}".format(target), file=out)
+        existing = layout.cached(args.root, year, args.batch, kind)
+        if existing and not args.force:
+            print("exists, left alone   {}".format(existing), file=out)
             continue
-        text = download(kind, since, until, args.tns_csv)
+        text = download(kind, since, until, args.tns_csv, out)
+        target = os.path.join(raw, layout.raw_name(kind, text))
         with open(target, "w", encoding="utf-8") as handle:
             handle.write(text)
-        rows = max(0, len(text.splitlines()) - 1)
-        print("fetched   {:<4s} {:5d} rows -> {}".format(kind, rows, target), file=out)
+        # Count what parses, not what has a newline in it: the fallback route
+        # returns a web page, whose line count means nothing.
+        if kind == "GRB":
+            found = len(sources.parse_swift(text))
+        else:
+            found = len(sources.parse_tns(text, kind))
+        print(
+            "fetched   {:<4s} {:5d} objects -> {}".format(kind, found, target),
+            file=out,
+        )
 
     layout.write_window(args.root, year, args.batch, since, until)
     print("", file=out)

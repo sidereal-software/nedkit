@@ -20,6 +20,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+from html.parser import HTMLParser
 from typing import List, NamedTuple, Optional, Sequence
 
 #: What we tell TNS and Swift we are.
@@ -154,6 +155,7 @@ def tns_url(
     frb: bool = False,
     page: int = 0,
     page_size: int = TNS_PAGE_SIZE,
+    as_csv: bool = True,
 ) -> str:
     """Build the TNS search URL for one window, kind and page.
 
@@ -167,14 +169,17 @@ def tns_url(
         Zero-based page number.
     page_size : int, optional
         Rows per page.
+    as_csv : bool, optional
+        Ask for the CSV export. With ``False`` the same query returns the
+        ordinary results page, which :func:`parse_tns` can also read. See
+        :func:`fetch_tns`.
 
     Returns
     -------
     str
-        A URL whose response is CSV.
+        A URL whose response is CSV, or HTML if ``as_csv`` is false.
     """
     params = [
-        ("format", "csv"),
         ("num_page", str(page_size)),
         ("page", str(page)),
         ("date_start[date]", since.isoformat()),
@@ -186,6 +191,8 @@ def tns_url(
         # Only classified supernovae. An unclassified AT is not something NED
         # loads, and including them multiplies the list by roughly ten.
         params.append(("classified_sne", "1"))
+    if as_csv:
+        params.insert(0, ("format", "csv"))
     return TNS_SEARCH + "?" + urllib.parse.urlencode(params)
 
 
@@ -200,12 +207,17 @@ def fetch_tns(
     until: dt.date,
     frb: bool = False,
     page_size: int = TNS_PAGE_SIZE,
+    as_csv: bool = True,
 ) -> str:
-    """Fetch every page of a TNS search and return them as one CSV.
+    """Fetch every page of a TNS search and return them as one document.
 
     TNS paginates, and a window wider than a month easily exceeds one page.
     Taking only the first page would silently drop the rest, which reads
     exactly like there being nothing more to load.
+
+    There is no API key here, so this reads the site the way a person would.
+    That means two routes to the same query, and :func:`fetch_tns_resilient`
+    uses the second when the first stops working.
 
     Parameters
     ----------
@@ -215,11 +227,14 @@ def fetch_tns(
         Ask for fast radio bursts rather than classified supernovae.
     page_size : int, optional
         Rows per page.
+    as_csv : bool, optional
+        Use the CSV export. With ``False``, collect the results pages instead.
 
     Returns
     -------
     str
-        One CSV: the heading row once, then every page's rows in order.
+        One CSV with the heading row once, or the concatenated results pages.
+        Either is something :func:`parse_tns` can read.
 
     Raises
     ------
@@ -229,8 +244,19 @@ def fetch_tns(
     """
     heading = ""
     body = []
+    pages = []
     for page in range(TNS_MAX_PAGES):
-        text = fetch(tns_url(since, until, frb=frb, page=page, page_size=page_size))
+        text = fetch(
+            tns_url(
+                since, until, frb=frb, page=page, page_size=page_size, as_csv=as_csv
+            )
+        )
+        if not as_csv:
+            pages.append(text)
+            # The results page has no row count to read, so count the rows.
+            if len(_parse_tns_html(text, "TNS")) < page_size:
+                return "\n".join(pages)
+            continue
         lines = text.splitlines()
         if not lines:
             break
@@ -245,13 +271,137 @@ def fetch_tns(
     )
 
 
+def fetch_tns_resilient(
+    since: dt.date,
+    until: dt.date,
+    frb: bool = False,
+    page_size: int = TNS_PAGE_SIZE,
+    on_fallback=None,
+) -> str:
+    """Fetch a TNS search, falling back to the results page if the CSV fails.
+
+    Without an API key the only way in is to read the site, so the guard
+    against it changing is to know two ways in rather than one. The CSV export
+    is tried first because it is structured and cheap; the results page is the
+    same query rendered for a person, and its cells carry the same fields.
+    Both were checked against each other and agree row for row.
+
+    A fallback is not silent. It means the primary route has broken and
+    somebody should look, even though the run itself succeeded.
+
+    Parameters
+    ----------
+    since, until : datetime.date
+        Inclusive discovery-date bounds.
+    frb : bool, optional
+        Ask for fast radio bursts rather than classified supernovae.
+    page_size : int, optional
+        Rows per page.
+    on_fallback : callable, optional
+        Called with a message when the CSV route fails and the page route is
+        used instead.
+
+    Returns
+    -------
+    str
+        Whichever document was obtained.
+
+    Raises
+    ------
+    Exception
+        If both routes fail, the second route's error is raised. A rate limit
+        is not retried on the other route, since the quota covers both.
+    """
+    try:
+        text = fetch_tns(since, until, frb=frb, page_size=page_size)
+        parse_tns(text, "FRB" if frb else "TNS")
+        return text
+    except RuntimeError:
+        # Either the page cap or the rate limit. Neither is fixed by asking
+        # the same server the same question a different way.
+        raise
+    except Exception as error:
+        if on_fallback is not None:
+            on_fallback(
+                "TNS CSV export failed ({}: {}). Falling back to the results "
+                "page. The run is fine; the CSV route needs looking at.".format(
+                    type(error).__name__, error
+                )
+            )
+        return fetch_tns(since, until, frb=frb, page_size=page_size, as_csv=False)
+
+
+class _ResultRows(HTMLParser):
+    """Pull the result rows out of a TNS search page.
+
+    The results table marks every cell with ``class="cell-<field>"``, and the
+    field names match the CSV export's columns closely enough to map one to
+    one. A row counts as a result when it has both a name and a position;
+    that is what separates it from the nested detail rows TNS puts underneath
+    each object, which a regex over ``<tr>`` cannot tell apart.
+
+    ``html.parser`` rather than BeautifulSoup, because the NED team's machines
+    have no way to install packages.
+    """
+
+    def __init__(self) -> None:
+        HTMLParser.__init__(self, convert_charrefs=True)
+        self.rows = []  # type: List[dict]
+        self._open = []  # type: List[dict]
+        self._field = None  # type: Optional[str]
+        self._text = []  # type: List[str]
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "tr":
+            self._open.append({})
+        elif tag == "td" and self._open:
+            for name in (dict(attrs).get("class") or "").split():
+                if name.startswith("cell-"):
+                    self._field = name[len("cell-") :]
+                    self._text = []
+
+    def handle_data(self, data):
+        if self._field is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag == "td" and self._field is not None and self._open:
+            # setdefault: a nested table's cell must not overwrite the row's.
+            self._open[-1].setdefault(self._field, "".join(self._text).strip())
+            self._field = None
+        elif tag == "tr" and self._open:
+            row = self._open.pop()
+            if row.get("name") and row.get("ra"):
+                self.rows.append(row)
+
+
+#: Maps the CSV export's column names onto the search page's cell classes, so
+#: one parser can read either.
+HTML_COLUMNS = {
+    "ID": "id",
+    "Name": "name",
+    "RA": "ra",
+    "DEC": "decl",
+    "Obj. Type": "objtype_name",
+    "Redshift": "redshift",
+    "Host Name": "hostname",
+    "Reporting Group/s": "reporting_group_name",
+    "Discovery Date (UT)": "discoverydate",
+}
+
+
 def parse_tns(text: str, kind: str) -> "List[Transient]":
-    """Parse a TNS CSV export into records.
+    """Parse a TNS response into records, in either format it comes in.
+
+    TNS serves the same query two ways, and this reads both: the CSV export,
+    and the ordinary results page. Which one arrived is sniffed from the
+    content rather than tracked alongside it, so a cached response is
+    self-describing and ``--tns-csv`` keeps working whichever a person saved.
 
     Parameters
     ----------
     text : str
-        The CSV body, including its heading row.
+        A CSV body including its heading row, or a search results page.
     kind : str
         ``"TNS"`` for supernovae or ``"FRB"`` for fast radio bursts. TNS itself
         does not distinguish these in the export; the caller knows which query
@@ -265,9 +415,21 @@ def parse_tns(text: str, kind: str) -> "List[Transient]":
     Raises
     ------
     ValueError
-        If the expected columns are missing, which is how a change to the TNS
-        export surfaces.
+        If the text is neither format, or the expected columns are missing.
+        That is how a change at TNS surfaces, rather than as an empty list
+        that reads like a quiet month.
     """
+    if "cell-name" in text:
+        return _parse_tns_html(text, kind)
+    heading = text.split("\n", 1)[0]
+    # A quoted, comma-separated heading is the CSV export. Sniffing only that
+    # far leaves a CSV with the wrong columns to the column check below, whose
+    # message names what is missing.
+    if not (heading.startswith('"') and '","' in heading):
+        raise ValueError(
+            "TNS response is neither the CSV export nor a results page; the "
+            "site may have changed, or this may be an error page"
+        )
     reader = csv.DictReader(io.StringIO(text))
     required = {"ID", "Name", "RA", "DEC", "Discovery Date (UT)"}
     missing = required - set(reader.fieldnames or ())
@@ -278,26 +440,74 @@ def parse_tns(text: str, kind: str) -> "List[Transient]":
             )
         )
 
+    return [record for record in (_record(row, kind) for row in reader) if record]
+
+
+def _parse_tns_html(text: str, kind: str) -> "List[Transient]":
+    """Parse a TNS search results page into records.
+
+    The fallback route. Its cells are renamed to the CSV export's column names
+    so both formats build records the same way, which is the only thing
+    keeping the two from drifting apart.
+
+    Parameters
+    ----------
+    text : str
+        A search results page.
+    kind : str
+        ``"TNS"`` or ``"FRB"``.
+
+    Returns
+    -------
+    list of Transient
+        In the order the page listed them.
+    """
+    parser = _ResultRows()
+    parser.feed(text)
     found = []
-    for row in reader:
-        discovered = row["Discovery Date (UT)"][:10]
-        if not discovered:
-            continue
-        found.append(
-            Transient(
-                kind=kind,
-                name=row["Name"].strip(),
-                ra=row["RA"].strip(),
-                dec=row["DEC"].strip(),
-                discovered=dt.date.fromisoformat(discovered),
-                tns_id=row["ID"].strip(),
-                obj_type=row.get("Obj. Type", "").strip(),
-                redshift=row.get("Redshift", "").strip(),
-                host=row.get("Host Name", "").strip(),
-                group=row.get("Reporting Group/s", "").strip(),
-            )
-        )
+    for row in parser.rows:
+        renamed = {column: row.get(cell, "") for column, cell in HTML_COLUMNS.items()}
+        record = _record(renamed, kind)
+        if record:
+            found.append(record)
     return found
+
+
+def _record(row: dict, kind: str) -> "Optional[Transient]":
+    """Build one record from a row keyed by the CSV export's column names.
+
+    Parameters
+    ----------
+    row : dict
+        One row, however it was parsed.
+    kind : str
+        ``"TNS"`` or ``"FRB"``.
+
+    Returns
+    -------
+    Transient or None
+        ``None`` for a row with no usable discovery date, which is not
+        something to load and not something to complain about either.
+    """
+    discovered = (row.get("Discovery Date (UT)") or "")[:10]
+    if not discovered:
+        return None
+    try:
+        day = dt.date.fromisoformat(discovered)
+    except ValueError:
+        return None
+    return Transient(
+        kind=kind,
+        name=row["Name"].strip(),
+        ra=row["RA"].strip(),
+        dec=row["DEC"].strip(),
+        discovered=day,
+        tns_id=(row.get("ID") or "").strip(),
+        obj_type=(row.get("Obj. Type") or "").strip(),
+        redshift=(row.get("Redshift") or "").strip(),
+        host=(row.get("Host Name") or "").strip(),
+        group=(row.get("Reporting Group/s") or "").strip(),
+    )
 
 
 def parse_swift(text: str) -> "List[Transient]":

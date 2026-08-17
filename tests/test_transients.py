@@ -226,6 +226,137 @@ def test_a_missing_tns_column_is_an_error_not_a_silent_empty_list():
         sources.parse_tns('"Name","RA"\n"SN 2026a","00:00:00"\n', "TNS")
 
 
+# --------------------------------------------------------------------------
+# The second route into TNS
+# --------------------------------------------------------------------------
+
+
+def test_the_results_page_parses_too():
+    """There is no API key, so the guard against TNS changing is two routes.
+
+    The CSV export is one. The ordinary results page is the other, and its
+    cells carry the same fields under ``class="cell-*"``.
+    """
+    records = sources.parse_tns(read("tns-frb-page.html"), "FRB")
+    assert len(records) == 17
+    first = records[0]
+    assert first.name.startswith("FRB ")
+    assert first.tns_id.isdigit()
+    assert ":" in first.ra and ":" in first.dec
+
+
+def test_both_routes_agree_record_for_record(frb_records):
+    """The whole point of the fallback: same objects, same values.
+
+    The HTML fixture's window sits inside the CSV fixture's, so every record
+    it produces has a counterpart to check against. A fallback that quietly
+    produced slightly different values would be worse than no fallback.
+    """
+    by_name = {record.name: record for record in frb_records}
+    from_page = sources.parse_tns(read("tns-frb-page.html"), "FRB")
+    assert from_page, "fixture is empty"
+
+    checked = 0
+    for record in from_page:
+        assert record.name in by_name, "{} is not in the CSV fixture".format(
+            record.name
+        )
+        assert record == by_name[record.name]
+        checked += 1
+    assert checked == 17
+
+
+def test_the_format_is_sniffed_not_assumed():
+    """A cached response is self-describing, so either can be handed back in."""
+    assert sources.parse_tns(read("tns-frb.csv"), "FRB")
+    assert sources.parse_tns(read("tns-frb-page.html"), "FRB")
+
+
+def test_nested_detail_rows_do_not_become_objects():
+    """TNS puts sub-rows under each result, and they are not results.
+
+    This is what a regex over ``<tr>`` gets wrong: it cannot tell an object's
+    row from the reporting detail nested inside it.
+    """
+    page = """
+    <table><tbody>
+      <tr class="row-odd">
+        <td class="cell-id">1</td><td class="cell-name">SN 2026aaa</td>
+        <td class="cell-ra">01:02:03.45</td><td class="cell-decl">+10:20:30.4</td>
+        <td class="cell-discoverydate">2026-07-01 00:00:00</td>
+        <td class="cell-notes">
+          <table><tbody>
+            <tr class="row-even"><td class="cell-name">not an object</td></tr>
+          </tbody></table>
+        </td>
+      </tr>
+    </tbody></table>
+    """
+    records = sources.parse_tns(page, "TNS")
+    assert [r.name for r in records] == ["SN 2026aaa"]
+
+
+def test_an_unrecognisable_response_raises(monkeypatch):
+    """Neither format means something changed, and that is not an empty month."""
+    with pytest.raises(ValueError, match="neither"):
+        sources.parse_tns("<html><body>maintenance</body></html>", "TNS")
+
+
+def test_the_fallback_fires_and_says_so(monkeypatch):
+    """A fallback is not silent: the run works, the primary route is broken."""
+    calls = []
+    said = []
+
+    def fake(since, until, frb=False, page_size=500, as_csv=True):
+        calls.append(as_csv)
+        if as_csv:
+            raise ValueError("TNS export is missing Name")
+        return read("tns-frb-page.html")
+
+    monkeypatch.setattr(sources, "fetch_tns", fake)
+    text = sources.fetch_tns_resilient(
+        dt.date(2025, 7, 1), dt.date(2025, 9, 30), frb=True, on_fallback=said.append
+    )
+    assert calls == [True, False], "should try the CSV route first"
+    assert len(sources.parse_tns(text, "FRB")) == 17
+    assert said and "results page" in said[0]
+
+
+def test_a_rate_limit_does_not_trigger_the_fallback(monkeypatch):
+    """The quota covers both routes, so retrying the other way just wastes it."""
+    calls = []
+
+    def fake(since, until, frb=False, page_size=500, as_csv=True):
+        calls.append(as_csv)
+        raise RuntimeError("TNS rate limit hit (429)")
+
+    monkeypatch.setattr(sources, "fetch_tns", fake)
+    with pytest.raises(RuntimeError, match="rate limit"):
+        sources.fetch_tns_resilient(dt.date(2025, 7, 1), dt.date(2025, 9, 30))
+    assert calls == [True], "should not have tried the second route"
+
+
+def test_the_csv_route_is_preferred_when_it_works(monkeypatch):
+    calls = []
+
+    def fake(since, until, frb=False, page_size=500, as_csv=True):
+        calls.append(as_csv)
+        return read("tns-frb.csv")
+
+    monkeypatch.setattr(sources, "fetch_tns", fake)
+    sources.fetch_tns_resilient(dt.date(2025, 1, 1), dt.date(2025, 10, 1), frb=True)
+    assert calls == [True], "fell back when the CSV route was fine"
+
+
+def test_the_two_routes_ask_the_same_question():
+    """Same URL bar the format, so they cannot drift onto different queries."""
+    since, until = dt.date(2026, 7, 1), dt.date(2026, 7, 31)
+    as_csv = sources.tns_url(since, until, frb=True)
+    as_html = sources.tns_url(since, until, frb=True, as_csv=False)
+    assert as_csv.replace("format=csv&", "") == as_html
+    assert "format=csv" not in as_html
+
+
 def test_swift_table_parses(grb_records):
     assert grb_records
     first = grb_records[0]
@@ -523,6 +654,24 @@ def test_no_recorded_window_reads_as_missing(tmp_path):
     assert layout.read_window(str(tmp_path), 2026, "a") is None
 
 
+def test_the_cache_extension_records_which_route_answered():
+    """``_raw`` is read by people, so a .csv holding a web page is a lie."""
+    assert layout.raw_name("FRB", read("tns-frb.csv")) == "tns-frb.csv"
+    assert layout.raw_name("FRB", read("tns-frb-page.html")) == "tns-frb.html"
+    assert layout.raw_name("GRB", read("swift-xrt.txt")) == "swift-xrt.txt"
+
+
+def test_a_cached_response_is_found_under_either_extension(tmp_path):
+    root = str(tmp_path)
+    layout.create(layout.planned(root, 2026, "a", ["FRB"]))
+    assert layout.cached(root, 2026, "a", "FRB") is None
+
+    page = os.path.join(layout.raw_dir(root, 2026, "a"), "tns-frb.html")
+    with open(page, "w", encoding="utf-8") as handle:
+        handle.write(read("tns-frb-page.html"))
+    assert layout.cached(root, 2026, "a", "FRB") == page
+
+
 def test_ptables_reports_only_sources_that_have_one(tmp_path, grb_records):
     root = str(tmp_path)
     layout.create(layout.planned(root, 2026, "a", ["FRB", "GRB"]))
@@ -557,7 +706,7 @@ def run_cli(argv):
 def offline(monkeypatch):
     """Serve the saved fixtures instead of going to the network."""
 
-    def fake(kind, since, until, tns_csv):
+    def fake(kind, since, until, tns_csv, out=None):
         return read("tns-frb.csv") if kind == "FRB" else read("swift-xrt.txt")
 
     monkeypatch.setattr("nedtransients.__main__.download", fake)
