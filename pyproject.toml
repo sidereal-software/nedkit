@@ -17,6 +17,7 @@ docs = [
     # MkDocs 2.0 drops the plugin and theming systems with no migration path,
     # so an unpinned build breaks the day it lands.
     "mkdocs>=1.6,<2",
+    "mkdocstrings[python]>=0.26",
 ]
 
 [build-system]
@@ -30,7 +31,11 @@ packages = ["src/nedkit"]
 testpaths = ["tests"]
 markers = [
     "xnedit: needs a real XNEdit binary and an X display (see tests/conftest.py)",
+    "network: reaches the live TNS and Swift sites; deselected by default",
 ]
+# The network test exists to catch an upstream format change, which is a thing
+# to go looking for rather than something an ordinary run should depend on.
+addopts = "-m 'not network'"
 
 [tool.ruff]
 # The NED team's ceiling, not the harness's. Ruff applies one target version to
