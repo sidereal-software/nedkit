@@ -28,25 +28,45 @@ uv run pytest -m "not xnedit"   # just the conventions, deliberately
 `python/nedtransients/` is covered by the first half. Its tests read saved
 responses out of `tests/fixtures/transients/` and never touch the network.
 
-### The one test that does use the network
+### The tests that use the network
 
-`test_the_upstream_sources_still_answer_in_the_expected_shape` checks the live
-TNS and Swift sites for a changed export. It skips unless you ask for it:
+`tests/test_sources_live.py` checks the live TNS and Swift sites. It skips
+unless you ask for it:
 
 ```sh
 NEDKIT_NETWORK=1 uv run pytest -m network
 ```
 
-It stays out of CI on purpose. It depends on two sites nobody here controls, so
-a red build would mean "TNS is having a day" about as often as it means a real
-break.
+These are **corpus** tests. The objects in `tests/fixtures/transients/` came
+off a real load, their values are known, and they are still published, so
+re-fetching them and getting something different means an upstream format
+moved. The strongest one rebuilds `GRB.2026.03.31.mod` from today's Swift
+table and compares it byte for byte against the real file.
 
-The environment variable is the real guard, not the marker. Deselecting a
-marker through `addopts` in `pyproject.toml` looks like it works and does not:
-a `-m` on the command line replaces the one in `addopts` rather than combining
-with it, so CI's `pytest -m "not xnedit"` quietly opted the test back in, and
-the build went red. Why it 403s from a GitHub runner is not settled: the same
-request succeeds from a laptop, so it is not the User-Agent. An explicit skip on an environment variable is the thing no
+`.github/workflows/sources.yml` runs them nightly. They are kept out of the
+per-push build because they depend on two sites nobody here controls, and a
+red build for someone else's outage is one people learn to ignore.
+
+**"Cannot reach" is not "has changed."** A 403, a 429 or a timeout skips; only
+a site that answers and says something different fails.
+
+That distinction matters more than it sounds, because **TNS refuses GitHub's
+runners.** From a runner, with the same User-Agent that gets 200 from a laptop:
+
+```
+200  https://www.swift.ac.uk/xrt_positions/...
+403  https://www.wis-tns.org/search?format=csv&num_page=1
+```
+
+The block is by origin, not by client. So the nightly job genuinely watches
+Swift, and reports TNS as unreachable rather than pretending. **The TNS half is
+only really checked when someone runs it from an ordinary network.**
+
+The environment variable is the guard, not the marker. Deselecting a marker
+through `addopts` in `pyproject.toml` looks like it works and does not: a `-m`
+on the command line replaces the one in `addopts` rather than combining with
+it, so CI's `pytest -m "not xnedit"` quietly opted the tests back in and the
+build went red. An explicit skip on an environment variable is the thing no
 invocation can override.
 
 ## Building an XNEdit to test against

@@ -261,16 +261,28 @@ marker alone. `xnedit` skips without a binary unless `NEDKIT_REQUIRE_XNEDIT=1`.
 NEDKIT_NETWORK=1 uv run pytest -m network
 ```
 
-Run it when the question is whether either site has changed its export out from
-under `python/nedtransients/`. It has no business gating CI either way: it
-depends on two sites nobody here controls, so a red build would mean "TNS is
-having a day" as often as it means a real break.
+`.github/workflows/sources.yml` runs them nightly, and `tests/test_sources_live.py`
+is where they live. They check the live sites against a corpus: the objects in
+`tests/fixtures/transients/` came off a real load and are still published, so
+re-fetching them and getting different values means an upstream format moved.
 
-It also does not currently pass there. The CI run that caught this fetched
-Swift fine and then got 403 from TNS while sending a User-Agent that returns
-200 from a laptop, so the User-Agent is not the explanation. The runner's
-origin is the obvious suspect and **is unverified**; do not write it down as
-fact without testing it from a runner.
+**"Cannot reach" is not "has changed."** A 403, a 429 or a timeout skips; only
+a site that answers and says something different fails. A job that reddens for
+someone else's outage is one people learn to ignore.
+
+That distinction is load-bearing, because **TNS refuses GitHub's runners**.
+Measured from a runner with the same `nedkit/0.1` User-Agent that gets 200 from
+a laptop:
+
+```
+200  https://www.swift.ac.uk/xrt_positions/...
+403  https://www.wis-tns.org/search?format=csv&num_page=1
+```
+
+So the block is by origin, not by client. The consequence is that **CI watches
+Swift and cannot watch TNS**; the TNS half of the corpus is only checked when
+somebody runs `NEDKIT_NETWORK=1 uv run pytest -m network` from an ordinary
+network. A runner inside IPAC would close that gap if it ever matters enough.
 
 **Do not deselect a marker through `addopts`.** It reads as though it works and
 does not: a `-m` on the command line *replaces* the one in `addopts` rather than
