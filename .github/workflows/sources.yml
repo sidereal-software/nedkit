@@ -1,0 +1,63 @@
+name: sources
+
+# Watches the two sites python/nedtransients/ reads.
+#
+# There is no API key for TNS, so what the tool depends on is a search page's
+# CSV export and, as a fallback, that page's markup. Neither is a contract.
+# Either can change without notice, and the first sign would otherwise be a
+# month's load built from a short list.
+#
+# So this fetches for real every night and compares against the objects in
+# tests/fixtures/transients/, which came off a real load and whose values are
+# known. Nightly rather than per-push: nothing here depends on a commit
+# landing, and a night is soon enough to hear that an upstream format moved.
+#
+# Reachability is not a format change. The tests skip on a refusal, a timeout
+# or a rate limit, and fail only when a site answers and says something
+# different. A job that goes red for someone else's outage is a job people
+# learn to ignore.
+
+on:
+  schedule:
+    # 04:23 UTC, off the hour because GitHub delays scheduled runs most at the
+    # top of one. Late evening in California, so a break is waiting in the
+    # morning rather than landing mid-run.
+    - cron: "23 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sources
+  cancel-in-progress: false
+
+jobs:
+  live:
+    name: Live TNS and Swift
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v9.0.0
+        with:
+          enable-cache: true
+
+      # Reported before the tests so a skipped run still says which site was
+      # unreachable and with what status, rather than only that it skipped.
+      - name: Check both sites answer
+        run: |
+          for url in \
+            "https://www.swift.ac.uk/xrt_positions/index.php?basic=none&txt=1" \
+            "https://www.wis-tns.org/search?format=csv&num_page=1"
+          do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 \
+              -A "nedkit/0.1 (+https://nedkit.sidereal.software)" "$url" || echo "000")
+            printf '%s  %s\n' "$code" "$url"
+          done
+
+      - name: Compare the live sources against the saved corpus
+        env:
+          NEDKIT_NETWORK: "1"
+        run: uv run pytest -m network -v
