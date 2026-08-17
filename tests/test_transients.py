@@ -349,12 +349,43 @@ def test_the_csv_route_is_preferred_when_it_works(monkeypatch):
 
 
 def test_the_two_routes_ask_the_same_question():
-    """Same URL bar the format, so they cannot drift onto different queries."""
+    """The same query, so they cannot drift onto different sets of objects."""
     since, until = dt.date(2026, 7, 1), dt.date(2026, 7, 31)
     as_csv = sources.tns_url(since, until, frb=True)
     as_html = sources.tns_url(since, until, frb=True, as_csv=False)
-    assert as_csv.replace("format=csv&", "") == as_html
+
+    def query(url):
+        from urllib.parse import parse_qsl, urlsplit
+
+        return {
+            key: value
+            for key, value in parse_qsl(urlsplit(url).query)
+            # display[] only affects which columns a *view* renders.
+            if not key.startswith("display[") and key != "format"
+        }
+
+    assert query(as_csv) == query(as_html)
     assert "format=csv" not in as_html
+
+
+def test_the_page_route_asks_for_the_columns_it_reads():
+    """A view can omit columns; the export cannot.
+
+    So the fallback names what it needs rather than trusting the default
+    view, which is what transientNamer does against the same page. The CSV
+    export ignores these, so they are not sent there.
+    """
+    as_html = sources.tns_url(dt.date(2026, 7, 1), dt.date(2026, 7, 31), as_csv=False)
+    for column in ("discoverydate", "redshift", "hostname"):
+        assert "display%5B{}%5D=1".format(column) in as_html
+    assert "display%5B" not in sources.tns_url(
+        dt.date(2026, 7, 1), dt.date(2026, 7, 31)
+    )
+
+
+def test_every_requested_column_is_one_the_parser_reads():
+    """A display flag nobody parses is noise that outlives its reason."""
+    assert set(sources.HTML_DISPLAY) <= set(sources.HTML_COLUMNS.values())
 
 
 def test_swift_table_parses(grb_records):

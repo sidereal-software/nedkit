@@ -193,7 +193,27 @@ def tns_url(
         params.append(("classified_sne", "1"))
     if as_csv:
         params.insert(0, ("format", "csv"))
+    else:
+        # The CSV export always returns all 28 columns, so these change
+        # nothing there and are not sent. The results page is a *view*, and a
+        # view can omit columns; asking for the ones we read means the
+        # fallback does not quietly lose a field if the default view changes.
+        # Borrowed from transientNamer, which scrapes the same page.
+        params.extend((("display[{}]".format(name), "1") for name in HTML_DISPLAY))
     return TNS_SEARCH + "?" + urllib.parse.urlencode(params)
+
+
+#: Columns the results page is explicitly asked to show.
+#:
+#: Exactly the optional ones :data:`HTML_COLUMNS` reads, and no more. The
+#: identity and position cells are always rendered, so they are not listed;
+#: asking for a column nobody parses is noise that outlives its reason.
+HTML_DISPLAY = (
+    "discoverydate",
+    "redshift",
+    "hostname",
+    "reporting_group_name",
+)
 
 
 #: Stop paging after this many, so a mistaken window cannot spin forever. A
