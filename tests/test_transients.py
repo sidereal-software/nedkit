@@ -772,6 +772,52 @@ def test_every_step_is_reachable_as_its_own_command():
     assert "prepare" in actions
 
 
+def test_the_user_agent_identifies_the_tool_rather_than_faking_a_browser():
+    """TNS blocks a few tool names, not everything that is not a browser.
+
+    Measured: ``curl/*`` and ``python-requests/*`` get 403, while urllib's own
+    default, an honest ``nedkit/...`` and a Chrome string all get 200. The
+    first version of this spoofed Chrome on the strength of a ``curl`` 403
+    generalised into "it wants a browser", which was never measured and was
+    wrong.
+
+    So this pins the honest identifier. It works, it says who we are, and it
+    gives TNS something to contact if the traffic is ever a problem.
+    """
+    agent = sources.USER_AGENT
+    assert agent.startswith("nedkit/")
+    assert "https://" in agent, "no contact URL for TNS to follow"
+    for faked in ("Mozilla", "AppleWebKit", "Chrome", "Safari", "Gecko"):
+        assert faked not in agent, "do not impersonate a browser: {}".format(agent)
+    # And not a name TNS is known to refuse.
+    for blocked in ("curl/", "python-requests/"):
+        assert blocked not in agent
+
+
+def test_a_rate_limit_is_reported_as_a_quota_not_an_outage(monkeypatch):
+    """429 means wait a minute, and saying so beats a bare HTTPError."""
+    import urllib.error
+
+    def limited(*args, **kwargs):
+        raise urllib.error.HTTPError("u", sources.TOO_MANY, "Too Many", None, None)
+
+    monkeypatch.setattr("urllib.request.urlopen", limited)
+    with pytest.raises(RuntimeError, match="rate limit"):
+        sources.fetch("https://example.invalid/")
+
+
+def test_other_http_errors_are_not_swallowed(monkeypatch):
+    """Only the quota gets reinterpreted; a 500 stays a 500."""
+    import urllib.error
+
+    def broken(*args, **kwargs):
+        raise urllib.error.HTTPError("u", 500, "Server Error", None, None)
+
+    monkeypatch.setattr("urllib.request.urlopen", broken)
+    with pytest.raises(urllib.error.HTTPError):
+        sources.fetch("https://example.invalid/")
+
+
 # --------------------------------------------------------------------------
 # Live sources
 # --------------------------------------------------------------------------

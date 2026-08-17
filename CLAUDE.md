@@ -212,9 +212,14 @@ the two agree.
 Four findings that cost real investigation and are not recoverable from the
 code alone:
 
-- **TNS 403s on a non-browser User-Agent.** It is a UA filter, not
-  authentication: the same URLs return 200 with an ordinary browser string.
-  The failure looks exactly like the site being down.
+- **TNS blocks a few tool names by User-Agent, and nothing more.** `curl/*`
+  and `python-requests/*` get 403; urllib's own default, an honest
+  `nedkit/0.1 (+url)`, and a Chrome string all get 200. The first version of
+  this code spoofed Chrome on the strength of a `curl` 403 generalised into
+  "it wants a browser", which was never measured and was wrong. Do not
+  reintroduce a fake User-Agent. Separately, TNS answers **429** past its
+  60-second request quota, which `sources.fetch` reports as a quota rather
+  than as an outage.
 - **TNS paginates**, and taking the first page silently truncates. A
   ten-month window is thousands of rows against a 500-row page.
 - **The refcode month is the download date, not the window.** The real
@@ -240,8 +245,15 @@ NEDKIT_NETWORK=1 uv run pytest -m network
 ```
 
 Run it when the question is whether either site has changed its export out from
-under `python/nedtransients/`. It cannot pass in CI regardless, because TNS
-answers 403 to GitHub's runners whatever User-Agent they send.
+under `python/nedtransients/`. It has no business gating CI either way: it
+depends on two sites nobody here controls, so a red build would mean "TNS is
+having a day" as often as it means a real break.
+
+It also does not currently pass there. The CI run that caught this fetched
+Swift fine and then got 403 from TNS while sending a User-Agent that returns
+200 from a laptop, so the User-Agent is not the explanation. The runner's
+origin is the obvious suspect and **is unverified**; do not write it down as
+fact without testing it from a runner.
 
 **Do not deselect a marker through `addopts`.** It reads as though it works and
 does not: a `-m` on the command line *replaces* the one in `addopts` rather than

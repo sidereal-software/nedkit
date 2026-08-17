@@ -211,16 +211,32 @@ Neither source needs an account.
 
 Swift's position table is available as plain text and needs nothing special.
 
-TNS answers **403** to a request that does not look like a browser, which is a
-User-Agent filter rather than a login wall: the tool sends an ordinary browser
-string and the same URLs return 200. The failure mode is worth knowing, because
-a 403 reads exactly like the site being down.
+TNS answers **403** to some clients, and it is worth being precise about which,
+because the obvious conclusion is wrong. Measured against the live search
+endpoint:
 
-That is not the sanctioned route. TNS's supported path is a registered bot
-account, which also unlocks the bulk daily-delta files and would be worth
-setting up. At three requests a month the current approach is not a burden on
-them, but it can break without warning, which is what `--tns-csv` is for:
-export the CSV from the search page yourself and point the tool at the file.
+| `User-Agent` | |
+| --- | --- |
+| `curl/8.7.1` | 403 |
+| `python-requests/2.32` | 403 |
+| `Python-urllib/3.x`, the default | 200 |
+| `nedkit/0.1 (+…)`, what the tool sends | 200 |
+| a Chrome string | 200 |
+
+So it is a blocklist of a few well-known tool names rather than a demand to
+look like a browser, and an honest identifier passes. The tool says who it is
+and gives TNS something to contact if the traffic ever becomes a problem. A
+plain `curl` command against the same URL will 403, which is worth knowing
+before concluding the site is down.
+
+TNS also applies a request quota over a 60-second window and answers **429**
+past it. Three requests a month is nowhere near that; a loop under development
+is. The tool names the quota rather than reporting a bare HTTP error.
+
+The sanctioned route for heavier use is a registered bot account, which also
+unlocks the bulk daily-delta files and would be worth setting up. If the
+current approach ever stops working, `--tns-csv` is the fallback: export the
+CSV from the search page yourself and point `fetch` at the file.
 
 TNS also paginates. `fetch` follows every page, because stopping at the first
 one silently truncates the list, and a truncated list looks exactly like a

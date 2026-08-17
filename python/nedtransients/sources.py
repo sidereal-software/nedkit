@@ -7,8 +7,8 @@ Two very different sources behind one record type:
 - **Swift XRT** (`<https://www.swift.ac.uk/xrt_positions/>`_) covers gamma-ray
   bursts, as one pipe-delimited ASCII table with no filtering at all.
 
-Neither needs an account, but TNS blocks requests that do not look like a
-browser. See :data:`BROWSER_UA`.
+Neither needs an account. TNS blocks a short list of well-known tool names by
+User-Agent, which an honest identifier is not on. See :data:`USER_AGENT`.
 """
 
 from __future__ import annotations
@@ -17,23 +17,41 @@ import csv
 import datetime as dt
 import io
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import List, NamedTuple, Optional, Sequence
 
-#: TNS answers **403** to urllib's default User-Agent, and to curl's, and to an
-#: empty one. It is a User-Agent filter rather than authentication: the same
-#: URLs return 200 with an ordinary browser string. This is load-bearing, and
-#: without it the failure looks exactly like the site being down.
+#: What we tell TNS and Swift we are.
 #:
-#: The sanctioned route is a registered bot ID plus a ``tns_marker`` header,
-#: which also unlocks the bulk daily-delta CSVs. See :func:`tns_url` for where
-#: that would slot in. At three requests a month this is not a burden on them
-#: either way.
-BROWSER_UA = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
-)
+#: TNS blocks some clients by User-Agent, and it is worth being precise about
+#: which, because the obvious conclusion is the wrong one. Measured against the
+#: live search endpoint:
+#:
+#: ==============================  ======  =======================
+#: ``User-Agent``                  Result
+#: ==============================  ======  =======================
+#: ``curl/8.7.1``                  403     blocked
+#: ``python-requests/2.32``        403     blocked
+#: ``Python-urllib/3.x`` (default) 200     fine
+#: ``nedkit/...`` (this one)       200     fine
+#: a Chrome string                 200     fine
+#: ==============================  ======  =======================
+#:
+#: So it is a blocklist of two or three well-known tool names, not a demand to
+#: look like a browser. An honest identifier passes, which means there is no
+#: reason to impersonate Chrome: this says who we are and gives them something
+#: to contact if the traffic is ever a problem.
+#:
+#: The sanctioned route for heavier use is a registered bot ID plus a
+#: ``tns_marker`` header, which also unlocks the bulk daily-delta CSVs. See
+#: :func:`tns_url` for where that would slot in.
+USER_AGENT = "nedkit/0.1 (+https://nedkit.sidereal.software)"
+
+#: TNS applies a request quota over a 60-second window and answers **429** when
+#: it is exceeded. Three requests a month is nowhere near it, but a loop under
+#: development easily is, so the error says which it was.
+TOO_MANY = 429
 
 TNS_SEARCH = "https://www.wis-tns.org/search"
 SWIFT_XRT = "https://www.swift.ac.uk/xrt_positions/index.php?basic=none&txt=1"
@@ -109,10 +127,25 @@ def fetch(url: str, timeout: int = 60) -> str:
         The response body, decoded as UTF-8 with replacement. NED data is not
         reliably UTF-8 and a mangled character is better than a crash here,
         because the raw response is cached to disk for inspection either way.
+
+    Raises
+    ------
+    RuntimeError
+        On 429, with what to do about it. Left as a plain ``HTTPError`` this
+        reads as a site outage rather than as a quota, and the fix is to wait
+        rather than to investigate.
     """
-    request = urllib.request.Request(url, headers={"User-Agent": BROWSER_UA})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return response.read().decode("utf-8", "replace")
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as error:
+        if error.code == TOO_MANY:
+            raise RuntimeError(
+                "TNS rate limit hit (429). It resets within a minute; wait and "
+                "re-run. Nothing already fetched is lost."
+            ) from error
+        raise
 
 
 def tns_url(

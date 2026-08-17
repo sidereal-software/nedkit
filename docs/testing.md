@@ -37,12 +37,16 @@ TNS and Swift sites for a changed export. It skips unless you ask for it:
 NEDKIT_NETWORK=1 uv run pytest -m network
 ```
 
+It stays out of CI on purpose. It depends on two sites nobody here controls, so
+a red build would mean "TNS is having a day" about as often as it means a real
+break.
+
 The environment variable is the real guard, not the marker. Deselecting a
 marker through `addopts` in `pyproject.toml` looks like it works and does not:
 a `-m` on the command line replaces the one in `addopts` rather than combining
-with it, so CI's `pytest -m "not xnedit"` quietly opted the test back in. It
-then failed, because TNS answers 403 to GitHub's runners whatever User-Agent
-they send. An explicit skip on an environment variable is the thing no
+with it, so CI's `pytest -m "not xnedit"` quietly opted the test back in, and
+the build went red. Why it 403s from a GitHub runner is not settled: the same
+request succeeds from a laptop, so it is not the User-Agent. An explicit skip on an environment variable is the thing no
 invocation can override.
 
 ## Building an XNEdit to test against
