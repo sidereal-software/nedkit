@@ -14,6 +14,7 @@ Everything except the ``network`` test runs offline from
 from __future__ import annotations
 
 import datetime as dt
+import os
 import re
 import sys
 from pathlib import Path
@@ -780,8 +781,19 @@ def test_every_step_is_reachable_as_its_own_command():
 def test_the_upstream_sources_still_answer_in_the_expected_shape():
     """Catches TNS or Swift changing their export.
 
-    Deselected by default: ``uv run pytest -m network`` to run it.
+    Off unless ``NEDKIT_NETWORK=1``, and the guard is an explicit skip rather
+    than only the marker. A marker deselected through ``addopts`` looks like it
+    works and does not: passing any ``-m`` on the command line replaces the one
+    in ``addopts`` instead of combining with it, so CI's ``-m "not xnedit"``
+    silently opted this test back in. It then failed, because TNS answers 403
+    to GitHub's runners whatever User-Agent they send.
+
+    This is a test to go looking for an answer with, not one an ordinary run
+    should depend on.
     """
+    if not os.environ.get("NEDKIT_NETWORK"):
+        pytest.skip("set NEDKIT_NETWORK=1 to check the live sources")
+
     swift = sources.parse_swift(sources.fetch(sources.SWIFT_XRT))
     assert len(swift) > 100
     assert all(":" in record.ra for record in swift[:5])

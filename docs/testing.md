@@ -25,6 +25,26 @@ green. That result says the macros are tidy, not that they work.
 uv run pytest -m "not xnedit"   # just the conventions, deliberately
 ```
 
+`python/nedtransients/` is covered by the first half. Its tests read saved
+responses out of `tests/fixtures/transients/` and never touch the network.
+
+### The one test that does use the network
+
+`test_the_upstream_sources_still_answer_in_the_expected_shape` checks the live
+TNS and Swift sites for a changed export. It skips unless you ask for it:
+
+```sh
+NEDKIT_NETWORK=1 uv run pytest -m network
+```
+
+The environment variable is the real guard, not the marker. Deselecting a
+marker through `addopts` in `pyproject.toml` looks like it works and does not:
+a `-m` on the command line replaces the one in `addopts` rather than combining
+with it, so CI's `pytest -m "not xnedit"` quietly opted the test back in. It
+then failed, because TNS answers 403 to GitHub's runners whatever User-Agent
+they send. An explicit skip on an environment variable is the thing no
+invocation can override.
+
 ## Building an XNEdit to test against
 
 There are no prebuilt macOS binaries, so this is a one-time build from source.

@@ -31,11 +31,8 @@ packages = ["src/nedkit"]
 testpaths = ["tests"]
 markers = [
     "xnedit: needs a real XNEdit binary and an X display (see tests/conftest.py)",
-    "network: reaches the live TNS and Swift sites; deselected by default",
+    "network: reaches the live TNS and Swift sites; needs NEDKIT_NETWORK=1",
 ]
-# The network test exists to catch an upstream format change, which is a thing
-# to go looking for rather than something an ordinary run should depend on.
-addopts = "-m 'not network'"
 
 [tool.ruff]
 # The NED team's ceiling, not the harness's. Ruff applies one target version to

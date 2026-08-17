@@ -230,11 +230,25 @@ code alone:
 
 `uv run pytest`. Add `-m "not xnedit"` for the static checks alone.
 
-Two markers, and they behave differently. `xnedit` runs by default and skips
-without a binary. **`network` is deselected by default** through `addopts` in
-`pyproject.toml`, because it reaches the live TNS and Swift sites; run it with
-`uv run pytest -m network` when the question is whether either has changed its
-export out from under `python/nedtransients/`.
+Two markers, and both are backed by an environment variable rather than by the
+marker alone. `xnedit` skips without a binary unless `NEDKIT_REQUIRE_XNEDIT=1`.
+`network` reaches the live TNS and Swift sites and skips unless
+`NEDKIT_NETWORK=1`:
+
+```sh
+NEDKIT_NETWORK=1 uv run pytest -m network
+```
+
+Run it when the question is whether either site has changed its export out from
+under `python/nedtransients/`. It cannot pass in CI regardless, because TNS
+answers 403 to GitHub's runners whatever User-Agent they send.
+
+**Do not deselect a marker through `addopts`.** It reads as though it works and
+does not: a `-m` on the command line *replaces* the one in `addopts` rather than
+combining with it, so `ci.yml`'s `pytest -m "not xnedit"` silently opted the
+network test back in and CI went red. An explicit `pytest.skip` on an
+environment variable is the thing no invocation can override, which is why both
+markers use one.
 
 ### Getting an XNEdit to test against
 
