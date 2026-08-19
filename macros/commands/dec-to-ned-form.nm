@@ -1,0 +1,151 @@
+# Dec to NED Form
+#
+# Rewrites the declinations in the selection the way a ptable wants them: the
+# colons come out and the sign is always written.
+#
+#     -00:46:03.66        -004603.66
+#     15:34:09.66    ->   +153409.66
+#     +01:55:50.7         +015550.7
+#
+# There is no arithmetic here and no rounding. Every digit is the one the source
+# published, because the precision differs between sources and picking a number
+# of decimal places would be wrong for one of them whichever number was picked.
+#
+# The sign is the part worth care. A declination between 0 and -1 degrees has
+# 00 in its degrees field, so the sign is the only thing telling north from
+# south, and sources are not consistent about writing + on a positive value.
+# This writes one when it is missing rather than passing the value through.
+#
+# Select the declination column first. A rectangular selection is the way to
+# take one column out of a table: hold Ctrl while dragging, or Alt on some
+# window managers. An ordinary selection works too and is read a line at a
+# time. Lines the rectangle does not reach are left alone, so the ## header
+# block above a table comes to no harm.
+#
+# The values get shorter, so anything to the right of them shifts left. Run
+# Pad Columns afterwards to square the file back up, which is the order it
+# expects anyway.
+#
+# It converts nothing unless it can convert everything. A value that is not a
+# declination stops the whole command and is named, because a column half in
+# one format and half in another is worse than a column that was never touched.
+#
+# It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+# a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+# lock one too.
+#
+#   Menu Entry:         NED>Dec to NED Form
+#   Accelerator:        (none)
+#   Mnemonic:           (none)
+#   Requires Selection: yes
+#   Install In:         Macro Menu
+#
+# Install the body below (everything under this comment) through
+# Preferences > Default Settings > Customize Menus > Macro Menu, then
+# Preferences > Save Defaults. See https://nedkit.sidereal.software/installing-macros/
+
+ok = 1
+msg = ""
+n_done = 0
+bad_value = ""
+bad_line = 0
+
+# A locked buffer takes no writes. replace_selection() on one does nothing and
+# says nothing, so everything below would be computed and thrown away and the
+# summary would name an edit that never happened. $read_only is the test and
+# not $locked: $locked misses a file with no write permission, while $read_only
+# is the same condition replace_selection() itself refuses on.
+if ($read_only == 1) {
+    ok = 0
+    msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+    msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+    msg = msg "File > Read Only locks a buffer too, and so does a file with "
+    msg = msg "no write permission."
+}
+
+if (ok == 1 && $selection_start == -1) {
+    ok = 0
+    msg = "Select the declination column first.\n\nA rectangular selection is "
+    msg = msg "the way to take one column out of a table: hold Ctrl while "
+    msg = msg "dragging, or Alt on some window managers. An ordinary selection "
+    msg = msg "works too and is read a line at a time."
+}
+
+if (ok == 1) {
+    original = get_selection()
+
+    # A rectangular selection comes back as its lines joined with newlines, the
+    # same shape an ordinary one has, so both are read the same way from here.
+    lines = split(original, "\n", "case")
+    n_lines = lines[]
+
+    out = ""
+
+    for (i = 0; i < n_lines; i++) {
+        v = replace_in_string(lines[i], "^[ \t]+", "", "regex", "copy")
+        v = replace_in_string(v, "[ \t]+$", "", "regex", "copy")
+
+        if (v == "") {
+            # A rectangle wider than a line, a blank line, or the gap above a
+            # table. Passed through with its blanks intact.
+            out = out lines[i]
+        } else {
+            stripped = replace_in_string(v, ":", "", "case", "copy")
+
+            sign = "+"
+            first = substring(stripped, 0, 1)
+            if (first == "+" || first == "-") {
+                sign = first
+                stripped = substring(stripped, 1, length(stripped))
+            }
+
+            # What is left has to be digits and decimal points and nothing
+            # else. "^" and "$" anchor to line boundaries rather than string
+            # boundaries, but split() has already taken every newline out, so
+            # here they are the ends of the value.
+            if (stripped == "" || \
+                search_string(stripped, "^[0-9.]+$", 0, "regex") == -1) {
+                if (bad_value == "") {
+                    bad_value = v
+                    bad_line = i + 1
+                }
+                out = out lines[i]
+            } else {
+                out = out sign stripped
+                n_done++
+            }
+        }
+
+        if (i < n_lines - 1) {
+            out = out "\n"
+        }
+    }
+
+    # All or nothing. A column half converted is harder to spot and harder to
+    # undo than a column that was never touched.
+    if (bad_value != "") {
+        ok = 0
+        n_done = 0
+        msg = "Line " bad_line " of the selection is not a declination: "
+        msg = msg "\"" bad_value "\"\n\nNothing was changed. A declination is "
+        msg = msg "digits, colons and an optional leading + or -, as in "
+        msg = msg "-00:46:03.66. Check the selection covers the right column "
+        msg = msg "and try again."
+    } else if (out != original) {
+        replace_selection(out)
+    }
+}
+
+# --- report -----------------------------------------------------------------
+
+if (ok == 0) {
+    t_print("dec: " $file_name ": nothing changed\n")
+} else if (n_done == 0) {
+    t_print("dec: " $file_name ": nothing in the selection to convert\n")
+} else {
+    t_print("dec: " $file_name ": " n_done " declination(s) converted\n")
+}
+
+if (msg != "") {
+    dialog(msg, "OK")
+}

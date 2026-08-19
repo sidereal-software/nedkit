@@ -1,0 +1,1 @@
+select_rectangle(0, $text_length, 4, 15)

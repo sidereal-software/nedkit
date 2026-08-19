@@ -183,6 +183,11 @@ REWRITES: dict[str, tuple[str, bytes]] = {
     "pad-columns": ("", "NGC 4151|25° C\nsecond|x\n".encode()),
     "normalize-characters": ("", "NGC 4151 – 25° C\n".encode()),
     "fold-letters-to-ascii": ("", "Balázs 25° C\n".encode()),
+    "expand-tabs": ("", "NGC 4151\t25° C\n".encode()),
+    # The selection stops before the degree sign, because a degree sign inside
+    # it is not a coordinate and would stop the command instead of rewriting.
+    "ra-to-ned-form": ("select(0, 11)", "03:28:45.99 25° C\n".encode()),
+    "dec-to-ned-form": ("select(0, 12)", "-00:46:03.66 25° C\n".encode()),
     "pipe-at-cursor-column": (
         "set_cursor_pos(10)",
         "NGC 4472   25° C\nIC 3583    25° C\n".encode(),

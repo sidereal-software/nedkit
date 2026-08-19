@@ -375,9 +375,9 @@ def test_pipe_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them(
     """A tab is one character and however many columns, so no column arithmetic
     on the buffer means anything until the tabs are gone.
 
-    XNEdit has no untabify of its own, so the message points at ``expand``
-    through Shell > Filter Selection, which is the only route that keeps the
-    columns where they are on screen.
+    So the message points at Expand Tabs, which writes the spaces each tab
+    stands for and is the route that keeps the columns where they are on
+    screen.
     """
     run = runner.run_on_bytes(
         with_setup("pipe-at-cursor-column", AT_COLUMN_10),
@@ -390,7 +390,7 @@ def test_pipe_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them(
 
     message = run.dialogs[0]
     assert "has a tab in it" in message
-    assert "Shell > Filter Selection" in message
+    assert "Expand Tabs" in message
 
 
 def test_pipe_reports_the_rows_it_could_not_overwrite(
@@ -567,7 +567,7 @@ def test_pad_columns_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them
 
     message = run.dialogs[0]
     assert "has a tab in it" in message
-    assert "Shell > Filter Selection" in message
+    assert "Expand Tabs" in message
 
 
 def test_pad_columns_reports_the_ragged_rows_by_count_and_first_line(

@@ -80,8 +80,8 @@ smallest working examples of each kind, so copy their shape.
 
 ## Cleaning up a table pasted from a PDF
 
-1. Get rid of the tabs: select the whole file and run it through `expand` with
-   **Shell > Filter Selection**.
+1. **Expand Tabs** writes the spaces each tab stands for, leaving the columns
+   where they sit on screen.
 2. **Normalize Characters** rewrites the dashes, quotes, spaces and ligatures
    that only look like their ASCII counterparts, and reports whatever non-ASCII
    it deliberately left alone.
@@ -91,7 +91,12 @@ smallest working examples of each kind, so copy their shape.
 4. Read the file through and fix whatever needs fixing by hand.
 5. Put the field boundaries in with **Pipe at Cursor Column**, one column at a
    time, or **Pipe at Columns**, several in one pass.
-6. **Pad Columns** pads every field out to the width of the widest value in its
+6. **RA to NED Form** and **Dec to NED Form** on the two coordinate columns,
+   picked out with a rectangular selection. `00:10:09.97` becomes `001009.97`,
+   and `15:34:09.66` becomes `+153409.66` with the sign written out. Do the
+   rightmost column first, since converting one shortens it and shifts
+   everything to its right.
+7. **Pad Columns** pads every field out to the width of the widest value in its
    column, so the finished file is square.
 7. **Trim Trailing Blanks**, if you would rather the rows did not all end in
    the same place.

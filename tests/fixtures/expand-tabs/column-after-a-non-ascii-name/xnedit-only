@@ -1,0 +1,1 @@
+NEdit 5.7 counts a column in bytes, so it pads to 7 not 8

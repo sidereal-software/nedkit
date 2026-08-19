@@ -32,7 +32,7 @@ Handled by Normalize Characters, outside the character table.
 
 | What | Becomes | Note |
 | --- | --- | --- |
-| Tab | One space | Not tab-stop aware, so the columns close up. XNEdit has no command that expands a tab: when the layout has to survive, select the whole file and run `expand` through **Shell > Filter Selection** instead. See [cleaning up a pasted table](cleaning-pdf-tables.md#tabs-have-to-go-first). |
+| Tab | One space | Not tab-stop aware, so the columns close up. When the layout has to survive, run [Expand Tabs](commands.md#expand-tabs) instead: it writes the spaces each tab stands for. See [cleaning up a pasted table](cleaning-pdf-tables.md#tabs-have-to-go-first). |
 | CR LF | LF | A DOS-format file never shows these, because XNEdit strips carriage returns on open and restores them on save. A pasted block can still carry them into a Unix-format buffer. |
 | Lone CR | LF | Same reason. |
 

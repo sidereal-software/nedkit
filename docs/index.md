@@ -9,6 +9,16 @@ editor.
 
 <div class="grid cards" markdown>
 
+-   :material-keyboard-tab:{ .lg .middle } __Expand Tabs__
+
+    ---
+
+    For a table pasted out of a paper or a spreadsheet. Writes the spaces each
+    tab stands for, at the editor's own tab width, so nothing moves on screen
+    and the commands that refuse a tab will take the file.
+
+    [:octicons-arrow-right-24: Expand Tabs](commands.md#expand-tabs)
+
 -   :material-bandage:{ .lg .middle } __Normalize Characters__
 
     ---
@@ -48,6 +58,26 @@ editor.
     the whole file.
 
     [:octicons-arrow-right-24: Pipe at Columns](commands.md#pipe-at-columns)
+
+-   :material-ray-start-arrow:{ .lg .middle } __RA to NED Form__
+
+    ---
+
+    For the right ascension column, picked out with a rectangular selection.
+    Takes the colons out and changes nothing else, so `00:10:09.97` becomes
+    `001009.97` at whatever precision the source published.
+
+    [:octicons-arrow-right-24: RA to NED Form](commands.md#ra-to-ned-form)
+
+-   :material-ray-start-vertex-end:{ .lg .middle } __Dec to NED Form__
+
+    ---
+
+    For the declination column. Takes the colons out and always writes the
+    sign, so `15:34:09.66` becomes `+153409.66` and a value between 0 and -1
+    degrees cannot lose the one character telling north from south.
+
+    [:octicons-arrow-right-24: Dec to NED Form](commands.md#dec-to-ned-form)
 
 -   :material-format-align-justify:{ .lg .middle } __Pad Columns__
 

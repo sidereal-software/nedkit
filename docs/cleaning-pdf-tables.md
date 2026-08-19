@@ -8,15 +8,20 @@ downstream that expects a minus sign will match it.
 
 The order to work in:
 
-1. get rid of the tabs, with `expand` through **Shell > Filter Selection**
+1. get rid of the tabs, with **Expand Tabs**
 2. **Normalize Characters**
 3. **Fold Letters to ASCII**, if the accented and Greek letters should go too
 4. read the file through and fix what needs fixing by hand
 5. put the field boundaries in with **Pipe at Cursor Column** or **Pipe at
    Columns**
-6. **Pad Columns**
-7. **Trim Trailing Blanks**, if you would rather the rows did not all end in
+6. **RA to NED Form** and **Dec to NED Form** on the coordinate columns
+7. **Pad Columns**
+8. **Trim Trailing Blanks**, if you would rather the rows did not all end in
    the same place
+
+The coordinates come after the pipes rather than before. Converting one
+shortens it, which moves every column to its right, so doing it first would
+mean reading the column positions off the screen twice.
 
 Two facts fix that order. A replacement that changes how many characters are on
 a line moves every column to its right, so the letters get sorted out before
@@ -144,14 +149,18 @@ in it. A tab is one character and however many columns it takes to reach the
 next tab stop, so on a line holding one there is no answer to what is in column
 15, or to how wide a field is.
 
-XNEdit cannot expand a tab, so this goes through the shell. Select the whole
-file and run `expand` through **Shell > Filter Selection**, which writes the
-spaces the tab was already displaying and leaves the columns where they sit on
-screen.
+**Expand Tabs** writes the spaces the tab was already displaying, at the tab
+width set in **Preferences > Tab Stops**, so the columns end up where they sit
+on screen. Nothing moves.
 
-That is why `expand` comes before Normalize Characters rather than after.
-Normalize takes tabs out too, but it writes one space for each, which closes
-the columns up.
+That is why it comes before Normalize Characters rather than after. Normalize
+takes tabs out too, but it writes one space for each, which closes the columns
+up.
+
+`expand` through **Shell > Filter Selection** does the same job and is still
+there if you want it. The reason to prefer the command is that it counts a
+column in characters, so an accented name carries the following tab to the stop
+it appears to reach rather than the one its byte count suggests.
 
 The columns come back where they were only because `expand` and XNEdit both put
 a tab stop every 8 columns. If **Preferences > Tab Stops** has been changed,
@@ -205,8 +214,8 @@ SDSS005527	00:55:27.46	–00:21:48.71	0.1674
 ```
 
 While those tabs are in it, Pipe at Columns and Pad Columns both refuse it. So
-select the whole file, filter it through `expand`, and run **Normalize
-Characters**, which names what it replaced in the terminal:
+run **Expand Tabs**, which reports `42 tab(s) expanded at width 8`, then
+**Normalize Characters**, which names what it replaced in the terminal:
 
 ```
 normalize: A13L.mod.before:
@@ -214,7 +223,7 @@ normalize: A13L.mod.before:
 ```
 
 An en dash and a minus sign are one character each, so nothing has moved and
-the columns are where `expand` left them: the fields start at 0, 16, 32 and 48,
+the columns are where Expand Tabs left them: the fields start at 0, 16, 32 and 48,
 and columns 15, 31 and 47 are blank on every row. Answering `15, 31, 47` in
 **Pipe at Columns** and choosing Overwrite:
 
@@ -230,21 +239,45 @@ with `pipe: A13L.mod.before: 42 pipe(s) into 14 row(s)` in the terminal. The
 blank line and the `##refcode` header pass through untouched, and neither
 counts as a row.
 
-**Pad Columns** then measures the columns and pads each field to fit, which on
-this file means closing up most of the space `expand` left:
+Now the coordinates. Select the declination column with a rectangular selection,
+holding Ctrl while dragging, starting at the first data row so the `##refcode`
+line stays out of it. Run **Dec to NED Form**, then do the right ascension
+column with **RA to NED Form**:
 
 ```
 ##refcode = 2026A+A...707A..13L
 
-SDSS001009|00:10:09.97|-00:46:03.66|0.2431
-SDSS004054|00:40:54.33|15:34:09.66 |0.2832
-SDSS005527|00:55:27.46|-00:21:48.71|0.1674
+SDSS001009     |001009.97|-004603.66|0.2431
+SDSS004054     |004054.33|+153409.66|0.2832
+SDSS005527     |005527.46|-002148.71|0.1674
+```
+
+They report `14 declination(s) converted` and `14 right ascension(s)
+converted`. Declination first, because converting a column shortens it and
+shifts every column to its right, so the right ascension would have to be found
+again. Note what happened to row 2: the paper prints `15:34:09.66` unsigned and
+a ptable never does, so it comes out `+153409.66`.
+
+If a rectangle catches something that is not a coordinate, neither command
+converts anything at all. It names the line and the value and stops, because a
+column half in one format and half in the other is harder to spot than one that
+was never touched.
+
+**Pad Columns** then measures the columns and pads each field to fit, which on
+this file means closing up the space the conversion left behind:
+
+```
+##refcode = 2026A+A...707A..13L
+
+SDSS001009|001009.97|-004603.66|0.2431
+SDSS004054|004054.33|+153409.66|0.2832
+SDSS005527|005527.46|-002148.71|0.1674
 ```
 
 It reports `pad: A13L.mod.before: 14 row(s), 4 column(s)`. The declination
-column is 12 wide because the southern rows carry a minus sign, so the northern
-ones pick up a trailing space. Every row is now 42 characters long, and stays
-that way until the next edit.
+column is 10 wide and needs no padding at all, because writing the sign out has
+made every value in it the same length. Every row is now 38 characters long,
+and stays that way until the next edit.
 
 **Trim Trailing Blanks** has nothing to do on this paste and leaves the buffer
 alone, since every redshift here is six characters and the last column needed

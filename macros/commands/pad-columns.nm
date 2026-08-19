@@ -32,9 +32,9 @@
 #
 # It refuses a buffer with a tab anywhere in it. A tab is one character and
 # however many columns it takes to reach the next tab stop, so every width
-# measured on a line holding one would be wrong. Replace the tabs with the
-# spaces they stand for first: select the whole file and run expand through
-# Shell > Filter Selection.
+# measured on a line holding one would be wrong. Run NED>Expand Tabs first,
+# which writes the spaces each tab stands for and leaves the columns where they
+# sit on screen.
 #
 # It refuses a locked buffer too, since nothing written to one lands. XNEdit
 # locks a file it cannot read as UTF-8; File > Read Only and a file you cannot
@@ -101,10 +101,9 @@ if (ok == 1) {
         ok = 0
         msg = $file_name " has a tab in it, so there is no telling which column "
         msg = msg "anything is in: a tab is one character and however many "
-        msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
-        msg = msg "tabs with the spaces they stand for first: select the whole "
-        msg = msg "file and run expand through Shell > Filter Selection, which "
-        msg = msg "leaves the columns where they sit on screen. Normalize "
+        msg = msg "columns it takes to reach the next tab stop.\n\nRun NED>"
+        msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "
+        msg = msg "so the columns stay where they sit on screen. Normalize "
         msg = msg "Characters takes tabs out too, but it writes one space for "
         msg = msg "each, which usually closes the columns up."
     }

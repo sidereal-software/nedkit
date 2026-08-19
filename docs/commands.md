@@ -15,6 +15,363 @@ cannot drift away from what the macros actually do.
 
 <!-- BEGIN GENERATED: commands -->
 
+## Dec to NED Form
+
+| Setting | Value |
+| --- | --- |
+| Menu entry | `NED>Dec to NED Form` |
+| Installed in | Macro Menu |
+| Accelerator | (none) |
+| Requires a selection | yes |
+| Source | [`macros/commands/dec-to-ned-form.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/dec-to-ned-form.nm) |
+
+Rewrites the declinations in the selection the way a ptable wants them: the
+colons come out and the sign is always written.
+
+    -00:46:03.66        -004603.66
+    15:34:09.66    ->   +153409.66
+    +01:55:50.7         +015550.7
+
+There is no arithmetic here and no rounding. Every digit is the one the source
+published, because the precision differs between sources and picking a number
+of decimal places would be wrong for one of them whichever number was picked.
+
+The sign is the part worth care. A declination between 0 and -1 degrees has
+00 in its degrees field, so the sign is the only thing telling north from
+south, and sources are not consistent about writing + on a positive value.
+This writes one when it is missing rather than passing the value through.
+
+Select the declination column first. A rectangular selection is the way to
+take one column out of a table: hold Ctrl while dragging, or Alt on some
+window managers. An ordinary selection works too and is read a line at a
+time. Lines the rectangle does not reach are left alone, so the ## header
+block above a table comes to no harm.
+
+The values get shorter, so anything to the right of them shifts left. Run
+Pad Columns afterwards to square the file back up, which is the order it
+expects anyway.
+
+It converts nothing unless it can convert everything. A value that is not a
+declination stops the whole command and is named, because a column half in
+one format and half in another is worse than a column that was never touched.
+
+It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+lock one too.
+
+??? example "The macro body, ready to paste"
+
+    ```
+    ok = 1
+    msg = ""
+    n_done = 0
+    bad_value = ""
+    bad_line = 0
+
+    # A locked buffer takes no writes. replace_selection() on one does nothing and
+    # says nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_selection() itself refuses on.
+    if ($read_only == 1) {
+        ok = 0
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    }
+
+    if (ok == 1 && $selection_start == -1) {
+        ok = 0
+        msg = "Select the declination column first.\n\nA rectangular selection is "
+        msg = msg "the way to take one column out of a table: hold Ctrl while "
+        msg = msg "dragging, or Alt on some window managers. An ordinary selection "
+        msg = msg "works too and is read a line at a time."
+    }
+
+    if (ok == 1) {
+        original = get_selection()
+
+        # A rectangular selection comes back as its lines joined with newlines, the
+        # same shape an ordinary one has, so both are read the same way from here.
+        lines = split(original, "\n", "case")
+        n_lines = lines[]
+
+        out = ""
+
+        for (i = 0; i < n_lines; i++) {
+            v = replace_in_string(lines[i], "^[ \t]+", "", "regex", "copy")
+            v = replace_in_string(v, "[ \t]+$", "", "regex", "copy")
+
+            if (v == "") {
+                # A rectangle wider than a line, a blank line, or the gap above a
+                # table. Passed through with its blanks intact.
+                out = out lines[i]
+            } else {
+                stripped = replace_in_string(v, ":", "", "case", "copy")
+
+                sign = "+"
+                first = substring(stripped, 0, 1)
+                if (first == "+" || first == "-") {
+                    sign = first
+                    stripped = substring(stripped, 1, length(stripped))
+                }
+
+                # What is left has to be digits and decimal points and nothing
+                # else. "^" and "$" anchor to line boundaries rather than string
+                # boundaries, but split() has already taken every newline out, so
+                # here they are the ends of the value.
+                if (stripped == "" || \
+                    search_string(stripped, "^[0-9.]+$", 0, "regex") == -1) {
+                    if (bad_value == "") {
+                        bad_value = v
+                        bad_line = i + 1
+                    }
+                    out = out lines[i]
+                } else {
+                    out = out sign stripped
+                    n_done++
+                }
+            }
+
+            if (i < n_lines - 1) {
+                out = out "\n"
+            }
+        }
+
+        # All or nothing. A column half converted is harder to spot and harder to
+        # undo than a column that was never touched.
+        if (bad_value != "") {
+            ok = 0
+            n_done = 0
+            msg = "Line " bad_line " of the selection is not a declination: "
+            msg = msg "\"" bad_value "\"\n\nNothing was changed. A declination is "
+            msg = msg "digits, colons and an optional leading + or -, as in "
+            msg = msg "-00:46:03.66. Check the selection covers the right column "
+            msg = msg "and try again."
+        } else if (out != original) {
+            replace_selection(out)
+        }
+    }
+
+    # --- report -----------------------------------------------------------------
+
+    if (ok == 0) {
+        t_print("dec: " $file_name ": nothing changed\n")
+    } else if (n_done == 0) {
+        t_print("dec: " $file_name ": nothing in the selection to convert\n")
+    } else {
+        t_print("dec: " $file_name ": " n_done " declination(s) converted\n")
+    }
+
+    if (msg != "") {
+        dialog(msg, "OK")
+    }
+    ```
+
+## Expand Tabs
+
+| Setting | Value |
+| --- | --- |
+| Menu entry | `NED>Expand Tabs` |
+| Installed in | Macro Menu |
+| Accelerator | (none) |
+| Requires a selection | no |
+| Source | [`macros/commands/expand-tabs.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/expand-tabs.nm) |
+
+Replaces every tab with the spaces it stands for, so the columns you see on
+screen are the columns in the file.
+
+    name→ra→dec
+    NGC 4151→12:10:32.6→+39:24:21
+
+becomes, at a tab width of 8,
+
+    name    ra      dec
+    NGC 4151        12:10:32.6      +39:24:21
+
+Nothing moves on screen. A tab carries the text to the next tab stop, and the
+spaces written here carry it to the same place.
+
+This is the command to reach for first on a table pasted out of a paper or a
+spreadsheet, because those arrive tab separated and Pad Columns, Pipe at
+Columns and Pipe at Cursor Column all refuse a buffer with a tab in it. They
+refuse because a tab is one character and however many columns it takes to
+reach the next stop, so no width measured on a line holding one is a width.
+Run this and they will take the file.
+
+The tab width is the editor's own, from Preferences > Tab Stops, so the
+spaces land where the tabs looked. It reports which width it used, since a
+file that arrived from somewhere else was very likely written against 8.
+
+Columns are counted in characters rather than bytes, so an accented name
+carries the following tab to the stop it appears to reach. Balázs is six
+columns though it takes seven bytes.
+
+Only tabs change. Spaces already in the file are left exactly where they are,
+so this will not tidy up a file that was never tabbed, and a second run finds
+no tabs and leaves the buffer alone.
+
+It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+lock one too.
+
+??? example "The macro body, ready to paste"
+
+    ```
+    ok = 1
+    msg = ""
+    n_tabs = 0
+
+    # A locked buffer takes no writes. replace_range() on one does nothing and says
+    # nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_range() itself refuses on.
+    if ($read_only == 1) {
+        ok = 0
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    }
+
+    # The editor's tab width, which is what makes the spaces land where the tabs
+    # looked. $tab_dist cannot sensibly be zero, but a zero would make every gap
+    # below a division by it, so fall back to the usual 8 rather than trust it.
+    stop = 8
+    if (ok == 1) {
+        if ($tab_dist > 0) {
+            stop = $tab_dist
+        }
+    }
+
+    if (ok == 1) {
+        original = get_range(0, $text_length)
+
+        # split() on "\n" yields one element per line plus a trailing empty element
+        # when the buffer ends in a newline, so joining the elements back with "\n"
+        # reproduces the buffer exactly. That is what lets the no-change case below
+        # be a plain string comparison.
+        lines = split(original, "\n", "case")
+        n_lines = lines[]
+
+        # One run of spaces, long enough for the widest gap a single tab can leave,
+        # so each one is filled by a substring() rather than a loop.
+        pad = " "
+        while (length(pad) < stop) {
+            pad = pad pad
+        }
+
+        out = ""
+        chunk = ""
+
+        for (i = 0; i < n_lines; i++) {
+            line = lines[i]
+
+            # Most lines in a pasted table have a tab in them, but the header block
+            # above it does not, and neither does a file that is already expanded.
+            # Copying those through untouched is what makes a second run free.
+            if (search_string(line, "\t", 0, "case") == -1) {
+                chunk = chunk line
+            } else {
+                # Splitting on the tabs leaves the text between them. Every gap
+                # then sits between two neighbouring elements, and a line ending in
+                # a tab leaves a trailing empty element, so the count is right
+                # either way.
+                seg = split(line, "\t", "case")
+                n_seg = seg[]
+                col = 0
+                built = ""
+
+                for (k = 0; k < n_seg; k++) {
+                    v = seg[k]
+                    built = built v
+
+                    # Measure the segment in characters. length() counts bytes, and
+                    # a line holding an en dash or an accented name would then send
+                    # the following tab to the wrong stop.
+                    #
+                    # "[ -~]+" is every printable ASCII character, so a run of them
+                    # is as many characters as it is bytes and measures in a single
+                    # step. Anything else advances one character at a time through a
+                    # bare ".", which is UTF-8 aware. Repetition is not: ".{n}",
+                    # ".*" and ".+" all count bytes, so none of them can appear here.
+                    p = 0
+
+                    while (p < length(v)) {
+                        s = search_string(v, "[ -~]+", p, "regex")
+                        if (s == p) {
+                            col = col + ($search_end - p)
+                        } else {
+                            # "." matches everything except a newline, and split()
+                            # has already taken every newline out, so this always
+                            # advances.
+                            search_string(v, ".", p, "regex")
+                            col++
+                        }
+                        p = $search_end
+                    }
+
+                    # Every element but the last had a tab after it. A tab always
+                    # advances at least one column, so a tab sitting exactly on a
+                    # stop writes a full width rather than nothing.
+                    if (k < n_seg - 1) {
+                        gap = stop - (col % stop)
+                        built = built substring(pad, 0, gap)
+                        col = col + gap
+                        n_tabs++
+                    }
+                }
+
+                chunk = chunk built
+            }
+
+            if (i < n_lines - 1) {
+                chunk = chunk "\n"
+            }
+
+            # Appending every line straight onto one growing string is quadratic:
+            # each append copies everything written so far. Flushing a chunk every
+            # 200 lines keeps a few thousand rows instant instead of a visible
+            # stall.
+            if (i % 200 == 199) {
+                out = out chunk
+                chunk = ""
+            }
+        }
+        out = out chunk
+
+        if (out != original) {
+            saved_cursor = $cursor
+            replace_range(0, $text_length, out)
+
+            # Expanding only ever lengthens the buffer, so the old offset is still
+            # inside it. Belt and braces: set_cursor_pos() clamps to the end of the
+            # buffer itself, on XNEdit and on NEdit 5.7 alike, so no test can reach
+            # the line below.
+            if (saved_cursor > $text_length) {
+                saved_cursor = $text_length
+            }
+            set_cursor_pos(saved_cursor)
+        }
+    }
+
+    # --- report -----------------------------------------------------------------
+
+    if (ok == 0) {
+        t_print("expand: " $file_name ": nothing changed\n")
+    } else if (n_tabs == 0) {
+        t_print("expand: " $file_name ": no tabs, nothing to expand\n")
+    } else {
+        t_print("expand: " $file_name ": " n_tabs " tab(s) expanded at width " stop "\n")
+    }
+
+    if (msg != "") {
+        dialog(msg, "OK")
+    }
+    ```
+
 ## Fold Letters to ASCII
 
 | Setting | Value |
@@ -792,9 +1149,8 @@ lock one too.
         }
 
         # Tabs. One tab becomes one space, which does not preserve column
-        # alignment. XNEdit has nothing that expands a tab to the spaces it stands
-        # for, so when the columns have to survive, select the file and run expand
-        # through Shell > Filter Selection instead of this.
+        # alignment. When the columns have to survive, run NED>Expand Tabs instead
+        # of this: it writes the spaces each tab stands for.
         if (search_string(cleaned, "\t", 0, "case") != -1) {
             cleaned = replace_in_string(cleaned, "\t", " ", "case", "copy")
             fixed = fixed "  tab -> space\n"
@@ -927,9 +1283,9 @@ stopped at the last real character.
 
 It refuses a buffer with a tab anywhere in it. A tab is one character and
 however many columns it takes to reach the next tab stop, so every width
-measured on a line holding one would be wrong. Replace the tabs with the
-spaces they stand for first: select the whole file and run expand through
-Shell > Filter Selection.
+measured on a line holding one would be wrong. Run NED>Expand Tabs first,
+which writes the spaces each tab stands for and leaves the columns where they
+sit on screen.
 
 It refuses a locked buffer too, since nothing written to one lands. XNEdit
 locks a file it cannot read as UTF-8; File > Read Only and a file you cannot
@@ -989,10 +1345,9 @@ A second run finds the file already square and leaves it alone.
             ok = 0
             msg = $file_name " has a tab in it, so there is no telling which column "
             msg = msg "anything is in: a tab is one character and however many "
-            msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
-            msg = msg "tabs with the spaces they stand for first: select the whole "
-            msg = msg "file and run expand through Shell > Filter Selection, which "
-            msg = msg "leaves the columns where they sit on screen. Normalize "
+            msg = msg "columns it takes to reach the next tab stop.\n\nRun NED>"
+            msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "
+            msg = msg "so the columns stay where they sit on screen. Normalize "
             msg = msg "Characters takes tabs out too, but it writes one space for "
             msg = msg "each, which usually closes the columns up."
         }
@@ -1226,9 +1581,9 @@ and a column that is blank on most rows can land inside a name like NGC 4472
 on the one row where it is not.
 
 XNEdit locks a file it cannot read as UTF-8; File > Read Only and a file you
-cannot write lock one too. For tabs, replace them with the spaces they
-stand for first: select the whole file and run expand through
-Shell > Filter Selection.
+cannot write lock one too. For tabs, run NED>Expand Tabs first, which writes
+the spaces each tab stands for and leaves the columns where they sit on
+screen.
 
 Columns are counted as they are displayed, so an en dash counts as one column
 though it takes three bytes.
@@ -1378,10 +1733,9 @@ For one column with no dialog in the way, use Pipe at Cursor Column.
             ok = 0
             msg = $file_name " has a tab in it, so there is no telling which column "
             msg = msg "anything is in: a tab is one character and however many "
-            msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
-            msg = msg "tabs with the spaces they stand for first: select the whole "
-            msg = msg "file and run expand through Shell > Filter Selection, which "
-            msg = msg "leaves the columns where they sit on screen. Normalize "
+            msg = msg "columns it takes to reach the next tab stop.\n\nRun NED>"
+            msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "
+            msg = msg "so the columns stay where they sit on screen. Normalize "
             msg = msg "Characters takes tabs out too, but it writes one space for "
             msg = msg "each, which usually closes the columns up."
         }
@@ -1605,9 +1959,9 @@ is blank on most rows can land inside a name like NGC 4472 on the one row
 where it is not.
 
 XNEdit locks a file it cannot read as UTF-8; File > Read Only and a file you
-cannot write lock one too. For tabs, replace them with the spaces they
-stand for first: select the whole file and run expand through
-Shell > Filter Selection.
+cannot write lock one too. For tabs, run NED>Expand Tabs first, which writes
+the spaces each tab stands for and leaves the columns where they sit on
+screen.
 
 Columns are counted as they are displayed, so an en dash counts as one column
 though it takes three bytes.
@@ -1689,10 +2043,9 @@ over the space, use Pipe at Columns.
             ok = 0
             msg = $file_name " has a tab in it, so there is no telling which column "
             msg = msg "anything is in: a tab is one character and however many "
-            msg = msg "columns it takes to reach the next tab stop.\n\nReplace the "
-            msg = msg "tabs with the spaces they stand for first: select the whole "
-            msg = msg "file and run expand through Shell > Filter Selection, which "
-            msg = msg "leaves the columns where they sit on screen. Normalize "
+            msg = msg "columns it takes to reach the next tab stop.\n\nRun NED>"
+            msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "
+            msg = msg "so the columns stay where they sit on screen. Normalize "
             msg = msg "Characters takes tabs out too, but it writes one space for "
             msg = msg "each, which usually closes the columns up."
         }
@@ -1864,6 +2217,169 @@ over the space, use Pipe at Columns.
         dialog(msg, "OK")
     }
     # --- end shared ---
+    ```
+
+## RA to NED Form
+
+| Setting | Value |
+| --- | --- |
+| Menu entry | `NED>RA to NED Form` |
+| Installed in | Macro Menu |
+| Accelerator | (none) |
+| Requires a selection | yes |
+| Source | [`macros/commands/ra-to-ned-form.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/ra-to-ned-form.nm) |
+
+Rewrites the right ascensions in the selection the way a ptable wants them,
+which means taking the colons out and changing nothing else.
+
+    03:28:45.99        032845.99
+    20:31:06.360  ->   203106.360
+    13:40:25.49        134025.49
+
+There is no arithmetic here and no rounding. Every digit is the one the source
+published, because the precision differs between sources and picking a number
+of decimal places would be wrong for one of them whichever number was picked.
+
+A right ascension is never signed, so a value with a leading + or - stops the
+command. That almost always means the declination column was selected by
+mistake, or that the two columns are the other way round from what you
+expected, and both are worth knowing before the file goes anywhere.
+
+Select the right ascension column first. A rectangular selection is the way to
+take one column out of a table: hold Ctrl while dragging, or Alt on some
+window managers. An ordinary selection works too and is read a line at a
+time. Lines the rectangle does not reach are left alone, so the ## header
+block above a table comes to no harm.
+
+The values get shorter, so anything to the right of them shifts left. Run
+Pad Columns afterwards to square the file back up, which is the order it
+expects anyway.
+
+It converts nothing unless it can convert everything. A value that is not a
+right ascension stops the whole command and is named, because a column half
+in one format and half in another is worse than one that was never touched.
+
+It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+lock one too.
+
+??? example "The macro body, ready to paste"
+
+    ```
+    ok = 1
+    msg = ""
+    n_done = 0
+    bad_value = ""
+    bad_line = 0
+    bad_signed = 0
+
+    # A locked buffer takes no writes. replace_selection() on one does nothing and
+    # says nothing, so everything below would be computed and thrown away and the
+    # summary would name an edit that never happened. $read_only is the test and
+    # not $locked: $locked misses a file with no write permission, while $read_only
+    # is the same condition replace_selection() itself refuses on.
+    if ($read_only == 1) {
+        ok = 0
+        msg = $file_name " is locked, so nothing was changed.\n\nXNEdit locks a "
+        msg = msg "file it cannot read as UTF-8, which is the usual reason. "
+        msg = msg "File > Read Only locks a buffer too, and so does a file with "
+        msg = msg "no write permission."
+    }
+
+    if (ok == 1 && $selection_start == -1) {
+        ok = 0
+        msg = "Select the right ascension column first.\n\nA rectangular selection "
+        msg = msg "is the way to take one column out of a table: hold Ctrl while "
+        msg = msg "dragging, or Alt on some window managers. An ordinary selection "
+        msg = msg "works too and is read a line at a time."
+    }
+
+    if (ok == 1) {
+        original = get_selection()
+
+        # A rectangular selection comes back as its lines joined with newlines, the
+        # same shape an ordinary one has, so both are read the same way from here.
+        lines = split(original, "\n", "case")
+        n_lines = lines[]
+
+        out = ""
+
+        for (i = 0; i < n_lines; i++) {
+            v = replace_in_string(lines[i], "^[ \t]+", "", "regex", "copy")
+            v = replace_in_string(v, "[ \t]+$", "", "regex", "copy")
+
+            if (v == "") {
+                # A rectangle wider than a line, a blank line, or the gap above a
+                # table. Passed through with its blanks intact.
+                out = out lines[i]
+            } else {
+                stripped = replace_in_string(v, ":", "", "case", "copy")
+
+                # A leading sign is reported separately from ordinary rubbish,
+                # because it has a specific and likely cause.
+                first = substring(stripped, 0, 1)
+
+                # What is left has to be digits and decimal points and nothing
+                # else. "^" and "$" anchor to line boundaries rather than string
+                # boundaries, but split() has already taken every newline out, so
+                # here they are the ends of the value.
+                if (stripped == "" || \
+                    search_string(stripped, "^[0-9.]+$", 0, "regex") == -1) {
+                    if (bad_value == "") {
+                        bad_value = v
+                        bad_line = i + 1
+                        if (first == "+" || first == "-") {
+                            bad_signed = 1
+                        }
+                    }
+                    out = out lines[i]
+                } else {
+                    out = out stripped
+                    n_done++
+                }
+            }
+
+            if (i < n_lines - 1) {
+                out = out "\n"
+            }
+        }
+
+        # All or nothing. A column half converted is harder to spot and harder to
+        # undo than a column that was never touched.
+        if (bad_value != "") {
+            ok = 0
+            n_done = 0
+            if (bad_signed == 1) {
+                msg = "Line " bad_line " of the selection is signed: "
+                msg = msg "\"" bad_value "\"\n\nNothing was changed. A right "
+                msg = msg "ascension is never signed, so this is almost certainly "
+                msg = msg "the declination column. Use Dec to NED Form on it, or "
+                msg = msg "check the two columns are the way round you expect."
+            } else {
+                msg = "Line " bad_line " of the selection is not a right "
+                msg = msg "ascension: \"" bad_value "\"\n\nNothing was changed. A "
+                msg = msg "right ascension is digits and colons, as in "
+                msg = msg "03:28:45.99. Check the selection covers the right "
+                msg = msg "column and try again."
+            }
+        } else if (out != original) {
+            replace_selection(out)
+        }
+    }
+
+    # --- report -----------------------------------------------------------------
+
+    if (ok == 0) {
+        t_print("ra: " $file_name ": nothing changed\n")
+    } else if (n_done == 0) {
+        t_print("ra: " $file_name ": nothing in the selection to convert\n")
+    } else {
+        t_print("ra: " $file_name ": " n_done " right ascension(s) converted\n")
+    }
+
+    if (msg != "") {
+        dialog(msg, "OK")
+    }
     ```
 
 ## Trim Trailing Blanks
