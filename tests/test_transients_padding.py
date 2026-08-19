@@ -1,12 +1,30 @@
-"""The Python padder and the Pad Columns macro have to agree.
+"""Where the Python padder and the Pad Columns macro agree, and where they don't.
 
-``ptable.render`` squares up a GRB table in Python, and
-``macros/commands/pad-columns.nm`` does the same job inside the editor. Two
-implementations of one rule drift, and the drift is invisible until someone
-runs a generated file through the macro and gets a diff.
+``ptable.render`` squares up a table in Python and ``macros/commands/pad-columns.nm``
+does a similar job inside the editor. Two implementations of one rule drift, and
+the drift is invisible until someone runs a generated file through the macro and
+gets a diff.
 
-So this feeds the same table to both and compares. It needs a real XNEdit, and
-skips without one like the rest of the macro suite.
+They do not implement the same rule everywhere, and that is deliberate. The real
+files use two conventions, and ``Layout.padded`` is which one a kind takes:
+
+===========  =========================================  ==============
+Convention   Looks like                                 Kinds
+===========  =========================================  ==============
+unpadded     ``189222|FRB 20250924A|203106.360|``       FRB, TNS
+lead space   ``GRB 260204A | 134025.49 | +015550.7 |``  GRB
+===========  =========================================  ==============
+
+Pad Columns only knows the first one. It trims the spaces around every field and
+pads to the widest value, which is the convention in ``samples/A13L.mod.after``
+and in ``tests/fixtures/transients/FRB.2026.03.31.mod``. It cannot produce the
+second, because nothing in a buffer says "this file is a GRB file".
+
+So there are two tests. The first pins the agreement on an unpadded layout. The
+second pins the disagreement on GRB, so it stays a recorded fact rather than
+something the next person rediscovers by watching a test go red.
+
+Both need a real XNEdit, and skip without one like the rest of the macro suite.
 """
 
 from __future__ import annotations
@@ -28,8 +46,41 @@ from nedtransients import ptable, sources  # noqa: E402
 
 pytestmark = pytest.mark.xnedit
 
-#: Rows whose columns are deliberately uneven, so padding has work to do.
-RECORDS = [
+#: FRB rows shaped like the real load. Every value in a column is the same width,
+#: because that is what the source produces: a TNS id is six digits and an FRB
+#: designation is always ``FRB `` plus eight date digits and a letter. The
+#: headings are all narrower than their columns, so ``render`` has real padding
+#: to do on the heading row, which is the part the macro has to agree with.
+FRB_RECORDS = [
+    sources.Transient(
+        "FRB",
+        "FRB 20250924A",
+        "20:31:06.360",
+        "+53:50:56.40",
+        dt.date(2025, 9, 24),
+        tns_id="189222",
+    ),
+    sources.Transient(
+        "FRB",
+        "FRB 20250824A",
+        "07:29:22.017",
+        "+59:53:36.43",
+        dt.date(2025, 8, 24),
+        tns_id="188490",
+    ),
+    sources.Transient(
+        "FRB",
+        "FRB 20250822A",
+        "04:19:39.422",
+        "+20:20:29.78",
+        dt.date(2025, 8, 22),
+        tns_id="188486",
+    ),
+]
+
+#: GRB rows whose uncertainties are deliberately uneven, so the lead-space
+#: convention has something visible to line up.
+GRB_RECORDS = [
     sources.Transient(
         "GRB",
         "GRB 260204A",
@@ -57,50 +108,94 @@ RECORDS = [
 ]
 
 
-def test_pad_columns_leaves_a_generated_ptable_alone(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
-    """Pad Columns on an already-padded table must be a no-op.
-
-    If the two disagree about a width, the macro rewrites the table and this
-    fails with the exact rows that moved.
-    """
-    generated = ptable.render("GRB", "2026GRB03.C...0000.", RECORDS)
-
+def _pad_columns(runner: XNEditRunner, table: str, tmp_path: Path) -> str:
+    """Run Pad Columns over ``table`` and return what came back."""
     run = runner.run_on_bytes(
         parse(COMMANDS / "pad-columns.nm").body,
-        generated.encode("utf-8"),
+        table.encode("utf-8"),
         tmp_path,
         name="table.mod",
     )
     assert run.ok, run.describe()
     assert run.output is not None, "Pad Columns left no file behind"
+    return run.output.decode("utf-8")
 
-    after = run.output.decode("utf-8")
-    if after == generated:
-        return
 
-    before_lines = generated.splitlines()
-    after_lines = after.splitlines()
+def _diff(before: str, after: str) -> str:
+    """Render the lines that moved, for a failure message."""
     moved = [
-        (index, before, now)
-        for index, (before, now) in enumerate(zip(before_lines, after_lines))
-        if before != now
+        (index, was, now)
+        for index, (was, now) in enumerate(zip(before.splitlines(), after.splitlines()))
+        if was != now
     ]
-    pytest.fail(
-        "Pad Columns disagrees with ptable.render on {} line(s):\n".format(len(moved))
-        + "\n".join(
-            "  line {}\n    python: {!r}\n    macro : {!r}".format(*item)
-            for item in moved[:5]
-        )
+    return "\n".join(
+        "  line {}\n    python: {!r}\n    macro : {!r}".format(*item)
+        for item in moved[:5]
     )
 
 
-def test_the_table_actually_needed_padding() -> None:
+def test_pad_columns_leaves_a_generated_frb_ptable_alone(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """Pad Columns on an already-padded unpadded-convention table is a no-op.
+
+    If the two disagree about a width, the macro rewrites the table and this
+    fails with the exact rows that moved.
+    """
+    generated = ptable.render("FRB", "2026FRB03.C...0000.", FRB_RECORDS)
+    after = _pad_columns(runner, generated, tmp_path)
+
+    assert after == generated, (
+        "Pad Columns disagrees with ptable.render on the FRB layout:\n"
+        + _diff(generated, after)
+    )
+
+
+def test_the_frb_headings_actually_needed_padding() -> None:
     """Guard against the check above passing because nothing happened.
 
-    A no-op comparison on a table that was already uniform would pass whatever
-    either implementation did.
+    A comparison on a table that was already uniform would pass whatever either
+    implementation did. Every FRB heading is narrower than its column, so
+    ``render`` pads the heading row and the macro has to arrive at the same
+    widths to leave it alone.
     """
-    widths = {len(record.uncertainty) for record in RECORDS}
-    assert len(widths) > 1, "every uncertainty is the same width; nothing to pad"
+    generated = ptable.render("FRB", "2026FRB03.C...0000.", FRB_RECORDS)
+    heading, first_row = generated.splitlines()[-4:-2]
+
+    padded = [field for field in heading.split("|")[:-1] if field != field.rstrip(" ")]
+    assert padded, "no heading was padded; the comparison would prove nothing"
+
+    assert len(heading) == len(first_row), (
+        "the heading row and the data rows are different lengths, so the table "
+        "was never square to begin with"
+    )
+
+
+def test_pad_columns_does_not_implement_the_grb_lead_space(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """GRB is the one layout where the two cannot agree, and that is recorded.
+
+    The real GRB file puts a space either side of every delimiter. Pad Columns
+    trims those and pads to the widest value instead, because nothing in the
+    buffer tells it the file is a GRB file. So it rewrites a GRB ptable, and
+    this test says so out loud.
+
+    If someone teaches the macro that convention, this fails and should be
+    deleted deliberately rather than adjusted until it passes.
+    """
+    generated = ptable.render("GRB", "2026GRB03.C...0000.", GRB_RECORDS)
+    after = _pad_columns(runner, generated, tmp_path)
+
+    assert after != generated, (
+        "Pad Columns left a GRB ptable alone. If it learned the lead-space "
+        "convention, delete this test and fold GRB into the agreement test above."
+    )
+
+    # Say what the disagreement is, not merely that there is one. A test that
+    # only asserts "these differ" would keep passing if the macro started
+    # mangling the table some entirely different way.
+    assert " | " in generated, "the GRB layout stopped using the lead space"
+    assert " | " not in after, "Pad Columns left a lead space behind:\n" + _diff(
+        generated, after
+    )
