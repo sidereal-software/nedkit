@@ -33,9 +33,11 @@ python3 $NT refcodes --obtained 2026-03-31
 batch was registered under.
 
 Nothing needs installing. The tool is standard-library Python 3.9, so copying
-the `python/` directory onto a machine is the whole setup. There is no
-`ned-transients` on your `PATH` to run, though: you hand the file to `python3`
-where it sits, so the examples here keep its path in `$NT` and set that first.
+the `python/` directory out of a
+[clone of the repository](getting-started.md#getting-the-repository) onto a
+machine is the whole setup. There is no `ned-transients` on your `PATH` to run,
+though: you hand the file to `python3` where it sits, so the examples here keep
+its path in `$NT` and set that first.
 
 Run the steps one at a time:
 

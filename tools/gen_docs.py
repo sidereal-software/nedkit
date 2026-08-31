@@ -12,6 +12,7 @@ touched:
 One whole file is generated as well, and it is a download rather than a page:
 
     docs/nedkit-macros.rc            every command, ready for xnedit -import
+    docs/samples/A13L.mod.*          the worked example's input and output
 
 Run it after changing a macro:
 
@@ -216,12 +217,24 @@ REGIONS = {
     "docs/character-replacements.md": [("character-table", gen_character_table)],
 }
 
+#: The sample files the worked example is written against, published so that a
+#: reader who installed by downloading rather than by cloning can actually run
+#: it. Copying them beats linking to the repo: the example is about tab
+#: characters, and a reader who copies the listing off the rendered page gets
+#: spaces, so the first command reports nothing to do and the column numbers on
+#: the page land inside the data.
+SAMPLES = ("A13L.mod.before", "A13L.mod.after")
+
 #: Files written whole, as against regions spliced into a hand-written page.
 #: MkDocs copies anything in ``docs/`` that is not Markdown to the built site,
-#: so this one is downloadable at https://nedkit.sidereal.software/ under its
-#: own name.
+#: so each of these is downloadable at https://nedkit.sidereal.software/ under
+#: its own path.
 FILES = {
     "docs/nedkit-macros.rc": lambda: fragment(REPO),
+    **{
+        "docs/samples/%s" % name: (lambda n=name: read("samples/%s" % n))
+        for name in SAMPLES
+    },
 }
 
 
@@ -272,6 +285,7 @@ def main():
             )
             sys.stderr.write("\n".join(list(diff)[:40]) + "\n")
         else:
+            (REPO / path).parent.mkdir(parents=True, exist_ok=True)
             (REPO / path).write_text(updated, encoding="utf-8", newline="\n")
             sys.stderr.write("updated %s\n" % path)
 

@@ -10,8 +10,11 @@ Python utilities live here too, for the jobs too big to run inside the editor.
 
 ## Installing the macros
 
-Every command is in one file that XNEdit imports in a single pass. With an
-`xnedit` you have already built and put on your `$PATH`:
+Every command is in one file that XNEdit imports in a single pass. The import
+calls `xnedit`, so build one and put it on your `$PATH` first:
+[Requirements](#requirements) below has the build, and
+[getting started](https://nedkit.sidereal.software/getting-started/) walks it
+with the `PATH` line spelled out.
 
 ```sh
 curl -O https://nedkit.sidereal.software/nedkit-macros.rc
@@ -89,7 +92,7 @@ lists every character the two rewriting commands touch.
 | `python/` | `ned-transients`, which prepares the monthly SNe, FRB and GRB load |
 | `docs/` | Sources for the documentation site |
 | `samples/` | A real job, before and after, and the list of what is still done by hand |
-| `tools/` | `gen_docs.py`, which regenerates the reference pages and the install file from the macros |
+| `tools/` | `gen_docs.py`, which regenerates the reference pages, the install file and the sample downloads from the sources |
 | `src/nedkit/`, `tests/` | The test harness, which nobody on the team runs |
 
 ## ned-transients
@@ -153,13 +156,22 @@ dependencies are all in Homebrew:
 brew install --cask xquartz
 brew install openmotif
 
+cd ~
 git clone https://github.com/unixwork/xnedit.git
 cd xnedit
 git checkout v1.6.3
 make macos
+
+export PATH="$HOME/xnedit/source:$PATH"
 ```
 
-`v1.6.3` is the release the tests and CI are pinned to.
+`v1.6.3` is the release the tests and CI are pinned to. Checking a tag out
+makes git answer with a paragraph about being in "detached HEAD" state, which
+it says for any tag and which means nothing has gone wrong. `make macos` leaves
+the binary at `source/xnedit` and puts nothing on your `$PATH`, hence the
+`export`, and the `cd ~` is what makes that line name the right directory. It
+lasts until you close the terminal, so put the same line in `~/.zshrc` to keep
+`xnedit` past this shell.
 
 3.9 is the newest interpreter on the team's machines, so no `match` statements,
 no `X | Y` unions in annotations, and nothing that needs an install the team

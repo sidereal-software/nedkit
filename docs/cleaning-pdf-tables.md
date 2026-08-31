@@ -201,9 +201,22 @@ Columns squares the rest up afterwards.
 
 ## A worked example
 
-`samples/A13L.mod.before` is a real paste, tab separated, with an en dash
-standing in for the minus sign on the southern declinations. It is 14 rows
-long, and the blocks below show the first three of them.
+The file to run this on is
+[A13L.mod.before](samples/A13L.mod.before){ download }, a real paste, tab
+separated, with an en dash standing in for the minus sign on the southern
+declinations. It is 14 rows long, and the blocks below show the first three of
+them. [A13L.mod.after](samples/A13L.mod.after){ download } is what the sequence
+produces, to check your own run against. A
+[clone of the repository](getting-started.md#getting-the-repository) has both
+under `samples/`.
+
+Download it rather than copying the listing. A rendered web page holds no tab
+characters at all, so a copy of the block below arrives with spaces where the
+file has tabs, and tabs are what this example is about. Expand Tabs then finds
+nothing to expand. The fields land at 0, 12, 24 and 40 on the first row and 0,
+12, 24 and 36 on the second, so the column numbers used further down fall
+inside the data. The listing shows what the file looks like; it is not the
+file.
 
 ```
 ##refcode = 2026A+A...707A..13L

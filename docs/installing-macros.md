@@ -37,12 +37,17 @@ of leaving you with two of each. Do it after every change to the macros. A
 subroutine library behaves the opposite way: appending one to `autoload.nm` a
 second time defines everything in it twice.
 
-A renamed command is the exception, and it is worth knowing before you rename
-one. The match is on the menu path and nothing else, so a command whose
-**Menu Entry** changed arrives as a new one and the old name stays in the menu
-running the body it had. Save Defaults then writes both out. Delete the old
-entry through **Preferences > Default Settings > Customize Menus > Macro
-Menu**, since no import can do it for you.
+A renamed command is the exception, and what you see is two commands with
+almost the same name, the old one still doing the old thing. The match is on
+the menu path and nothing else, so a command whose **Menu Entry** changed
+arrives as a new one and the old name stays in the menu running the body it
+had. Save Defaults then writes both out.
+
+No import can remove the old entry, so delete it yourself through
+**Preferences > Default Settings > Customize Menus > Macro Menu**. The list
+down the left of [that dialog](#3-fill-in-the-form) holds every command
+installed: select the old name, click **Delete**, then **OK**, and
+**Preferences > Save Defaults** to make it stick.
 
 ### What is in the file
 
@@ -180,7 +185,8 @@ the column you mean first, then right-click.
 
 Files in `macros/lib/` define subroutines that other macros call. They add
 nothing to any menu, and they install by being appended to `autoload.nm`, which
-XNEdit runs at startup:
+XNEdit runs at startup. Run it from the top of a clone, which
+[getting started](getting-started.md#getting-the-repository) covers:
 
 ```sh
 cat macros/lib/text.nm >> ~/.xnedit/autoload.nm
@@ -237,6 +243,7 @@ antialiased text.
 | The command is not in the menu | It went into `autoload.nm` instead. That file defines subroutines and creates no menu entries |
 | It is in the Macro menu but not on right-click | Those are two dialogs, not one. Customize Menus > Macro Menu... fills the Macro menu, Customize Menus > Window Background Menu... fills the right-click menu, and a command belonging in both is pasted into both |
 | It was there yesterday and now it is gone | Save Defaults was skipped |
+| Two commands with almost the same name, and the old one still does the old thing | The command was renamed. An import matches on the menu path, so the new name arrived as a new command and the old one stayed behind with its old body. [Delete the old entry](#updating-or-reinstalling-after-a-macro-changes) |
 | It works for you and for nobody else | It calls a subroutine from `autoload.nm` that only you have installed |
 | The command is greyed out | Requires Selection is ticked and nothing is selected |
 | Nothing happens and there is no error | Start XNEdit from a terminal and put `t_print()` calls in the macro. That output goes to the terminal, not to any window |
