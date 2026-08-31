@@ -8,6 +8,78 @@ Most of it is XNEdit macros. Reshaping a data file by hand is slow and easy to
 get subtly wrong, and a macro does the same edit the same way every time.
 Python utilities live here too, for the jobs too big to run inside the editor.
 
+## Installing the macros
+
+Every command is in one file that XNEdit imports in a single pass. With an
+`xnedit` you have already built and put on your `$PATH`:
+
+```sh
+curl -O https://nedkit.sidereal.software/nedkit-macros.rc
+xnedit -import nedkit-macros.rc
+```
+
+From a checkout the file is already on disk, so the download step drops out:
+
+```sh
+xnedit -import docs/nedkit-macros.rc
+```
+
+That opens an editor window and holds the terminal until you close it. Run
+**Preferences > Save Defaults** in the window, click **OK**, and the commands
+are installed for good.
+
+Menu commands need the import step because XNEdit keeps them inside its
+preferences file rather than as loose files on disk, and importing merges them
+into whatever is installed already. The file is generated from
+`macros/commands/`, so it carries whatever the macros currently say. One
+command at a time still works too, through
+**Preferences > Default Settings > Customize Menus > Macro Menu**.
+
+The shared subroutines in `macros/lib/` install separately, and no command
+here calls one:
+
+```sh
+cat macros/lib/*.nm >> ~/.xnedit/autoload.nm
+```
+
+[Getting started](https://nedkit.sidereal.software/getting-started/) walks the
+same route from a machine with no XNEdit on it, and [installing
+macros](https://nedkit.sidereal.software/installing-macros/) covers both paths
+properly, including where the config directory actually lives.
+
+## Cleaning up a table pasted from a PDF
+
+1. **Expand Tabs** writes the spaces each tab stands for, leaving the columns
+   where they sit on screen.
+2. **Normalize Characters** rewrites the dashes, quotes, spaces and ligatures
+   that only look like their ASCII counterparts, and reports whatever non-ASCII
+   it deliberately left alone.
+3. **Fold Letters to ASCII**, if the accented and Greek letters should go too.
+   `Balázs` becomes `Balazs` and `α` becomes `a`, keeping case. Both folds are
+   irreversible.
+4. Read the file through and fix whatever needs fixing by hand.
+5. Put the field boundaries in with **Pipe at Cursor Column**, one column at a
+   time, or **Pipe at Columns**, several in one pass.
+6. **RA to NED Form** and **Dec to NED Form** on the two coordinate columns,
+   picked out with a rectangular selection. `00:10:09.97` becomes `001009.97`,
+   and `15:34:09.66` becomes `+153409.66` with the sign written out. Do the
+   rightmost column first, since converting one shortens it and shifts
+   everything to its right.
+7. **Pad Columns** pads every field out to the width of the widest value in its
+   column, so the finished file is square.
+8. **Trim Trailing Blanks**, if you would rather the rows did not all end in
+   the same place.
+
+You name the columns yourself, because nothing here works them out for you. The
+letters get fixed before the boundaries are chosen, since a replacement that
+changes how many characters are on a line moves every column to its right, and
+the padding goes last because every edit before it changes a width.
+
+[Cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
+works the sequence through on a real file, and
+[Character replacements](https://nedkit.sidereal.software/character-replacements/)
+lists every character the two rewriting commands touch.
+
 ## Layout
 
 | Path | Contents |
@@ -30,13 +102,14 @@ otherwise asks someone to build by copying last year's.
 One command per step, so you can run the parts that help:
 
 ```sh
-B="--root /nedefs/Project/Production/dev/data.tables --batch a"
+NT=~/nedkit/python/ned-transients      # wherever you copied python/ to
+cd /nedefs/Project/Production/dev/data.tables
 
-python3 python/ned-transients scaffold   $B
-python3 python/ned-transients fetch      $B --since 2025-08-01 --until 2026-02-05
-python3 python/ned-transients ptable     $B
-python3 python/ned-transients loadstatus $B
-python3 python/ned-transients jira       $B
+python3 $NT scaffold   --root . --batch a
+python3 $NT fetch      --root . --batch a --since 2025-08-01 --until 2026-02-05
+python3 $NT ptable     --root . --batch a
+python3 $NT loadstatus --root . --batch a
+python3 $NT jira       --root . --batch a
 ```
 
 `prepare` runs all five at once. They chain through the batch directory, so any
@@ -47,39 +120,6 @@ Nothing needs installing: copy the `python/` directory and run it. It loads
 nothing and chooses nothing, which matters most for FRBs, where a human keeps
 roughly a quarter of the candidates for reasons the source data does not
 record. [Full guide](https://nedkit.sidereal.software/transients/).
-
-## Installing the macros
-
-The short version, assuming an `xnedit` you have already built and put on your
-`$PATH`:
-
-```sh
-xnedit -import docs/nedkit-macros.rc
-```
-
-That opens an editor window and holds the terminal until you close it. Run
-**Preferences > Save Defaults** in the window, click **OK**, and the commands
-are installed for good.
-
-Menu commands need the import step because XNEdit keeps them inside its
-preferences file rather than as loose files on disk, and importing merges them
-into whatever is installed already. `docs/nedkit-macros.rc` is generated from
-`macros/commands/` and also published at
-<https://nedkit.sidereal.software/nedkit-macros.rc> for anyone without a
-checkout. One command at a time still works, through
-**Preferences > Default Settings > Customize Menus > Macro Menu**.
-
-The shared subroutines in `macros/lib/` install separately, and no command
-here calls one:
-
-```sh
-cat macros/lib/*.nm >> ~/.xnedit/autoload.nm
-```
-
-[Getting started](https://nedkit.sidereal.software/getting-started/) is the
-five-minute version and [installing
-macros](https://nedkit.sidereal.software/installing-macros/) covers both paths
-properly, including where the config directory actually lives.
 
 ## Writing macros
 
@@ -92,45 +132,12 @@ buffer.
 `macros/commands/trim-trailing-blanks.nm` and `macros/lib/text.nm` are the
 smallest working examples of each kind, so copy their shape.
 
-## Cleaning up a table pasted from a PDF
-
-1. **Expand Tabs** writes the spaces each tab stands for, leaving the columns
-   where they sit on screen.
-2. **Normalize Characters** rewrites the dashes, quotes, spaces and ligatures
-   that only look like their ASCII counterparts, and reports whatever non-ASCII
-   it deliberately left alone.
-3. **Fold Letters to ASCII**, if the accented and Greek letters should go too.
-   `Balázs` becomes `Balazs` and `α` becomes `a`, keeping case. Both folds are
-   irreversible.
-4. Read the file through and fix whatever needs fixing by hand.
-5. Put the field boundaries in with **Pipe at Cursor Column**, one column at a
-   time, or **Pipe at Columns**, several in one pass.
-6. **RA to NED Form** and **Dec to NED Form** on the two coordinate columns,
-   picked out with a rectangular selection. `00:10:09.97` becomes `001009.97`,
-   and `15:34:09.66` becomes `+153409.66` with the sign written out. Do the
-   rightmost column first, since converting one shortens it and shifts
-   everything to its right.
-7. **Pad Columns** pads every field out to the width of the widest value in its
-   column, so the finished file is square.
-7. **Trim Trailing Blanks**, if you would rather the rows did not all end in
-   the same place.
-
-You name the columns yourself, because nothing here works them out for you. The
-letters get fixed before the boundaries are chosen, since a replacement that
-changes how many characters are on a line moves every column to its right, and
-the padding goes last because every edit before it changes a width.
-
-[Cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
-works the sequence through on a real file, and
-[Character replacements](https://nedkit.sidereal.software/character-replacements/)
-lists every character the two rewriting commands touch.
-
 ## Requirements
 
 | Requirement | Detail |
 | --- | --- |
 | Platform | macOS. Nothing else is in scope |
-| Editor | [XNEdit](https://github.com/unixwork/xnedit) 1.6 or newer, built from source |
+| Editor | [XNEdit](https://github.com/unixwork/xnedit), built from source. 1.6 or newer works; the instructions and CI both pin `v1.6.3`, which is what gets tested |
 | X server | XQuartz |
 | Python | 3.9, standard library only |
 
@@ -145,8 +152,14 @@ dependencies are all in Homebrew:
 ```sh
 brew install --cask xquartz
 brew install openmotif
-make macos          # from a checkout of xnedit
+
+git clone https://github.com/unixwork/xnedit.git
+cd xnedit
+git checkout v1.6.3
+make macos
 ```
+
+`v1.6.3` is the release the tests and CI are pinned to.
 
 3.9 is the newest interpreter on the team's machines, so no `match` statements,
 no `X | Y` unions in annotations, and nothing that needs an install the team

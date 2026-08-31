@@ -8,11 +8,87 @@ wrong one is the usual reason a new macro never shows up.
 | **Menu command** | `macros/commands/` | The **Macro** menu, and the right-click menu when the header asks for it |
 | **Subroutine library** | `macros/lib/` | `~/.xnedit/autoload.nm`, callable from other macros, invisible in every menu |
 
-Menu commands are the common case. Start there.
+Menu commands are the common case, and every one in this repo is in a single
+file that installs in one go. Start there. The dialog route further down is for
+writing a command of your own or editing one, which is also what the
+screenshots show.
 
-## Install a menu command
+## Install every command at once
 
-About five minutes, no Terminal needed. The example below installs
+XNEdit reads menu commands from a file, and every command in this repo is in
+one: [nedkit-macros.rc](nedkit-macros.rc){ download }. Downloading it and
+importing it installs the lot, and it is the route
+[getting started](getting-started.md) uses.
+
+```sh
+xnedit -import ~/Downloads/nedkit-macros.rc
+```
+
+Then **Preferences > Save Defaults** in the window that opens. The imported
+commands are *merged* into whatever you already have, matched on the menu path,
+so this will not clobber your own macros.
+
+### Updating or reinstalling after a macro changes
+
+Import the file again, then **Preferences > Save Defaults** as before. Entries
+are matched on the menu path, so one that is already installed is replaced
+rather than added, and a regenerated file updates the commands in place instead
+of leaving you with two of each. Do it after every change to the macros. A
+subroutine library behaves the opposite way: appending one to `autoload.nm` a
+second time defines everything in it twice.
+
+A renamed command is the exception, and it is worth knowing before you rename
+one. The match is on the menu path and nothing else, so a command whose
+**Menu Entry** changed arrives as a new one and the old name stays in the menu
+running the body it had. Save Defaults then writes both out. Delete the old
+entry through **Preferences > Default Settings > Customize Menus > Macro
+Menu**, since no import can do it for you.
+
+### What is in the file
+
+The file holds two resources rather than one, `nedit.macroCommands` for the
+**Macro** menu and `nedit.bgMenuCommands` for the right-click menu, in the
+identical format. One `-import` reads both, which is how Pipe at Columns and
+Pipe at Cursor Column reach both menus in a single pass. An entry looks like
+this:
+
+```
+nedit.macroCommands: \
+	NED>Trim Trailing Blanks:::: {\n\
+		original = get_range(0, $text_length)\n\
+		trimmed = replace_in_string(original, "[ \\t]+$", "", "regex", "copy")\n\
+		if (trimmed != original) {\n\
+			replace_range(0, $text_length, trimmed)\n\
+		}\n\
+	}\n
+```
+
+The format is unforgiving:
+
+| Part of an entry | Rule |
+| --- | --- |
+| The four fields before the body | Menu path, accelerator, mnemonic, flags, separated by colons. `R` in the flags field means the command requires a selection, and an empty field still needs its colon, hence `::::` |
+| Every line of the body | Ends with a literal `\n\`, an escaped newline followed by the resource file's line continuation |
+| The last line of the resource | Ends with `\n` and no trailing backslash |
+| Indentation | Tabs, not spaces |
+| Backslashes | They double. A macro containing `"[ \t]+$"` is written `"[ \\t]+$"` here, and `"\\w"` becomes `"\\\\w"` |
+
+Because of that backslash rule especially, don't hand-write these.
+`tools/gen_docs.py` writes `docs/nedkit-macros.rc` from the macro files, which
+is why the download stays in step with them, and a test fails if the committed
+copy drifts.
+
+Writing the same resource straight into `~/.xnedit/nedit.rc` looks like the
+same thing and is not. Preferences are read from one source per setting, so a
+file naming `nedit.macroCommands` replaces XNEdit's own built-in macro
+commands, Complete Word and the Comments submenu among them, rather than
+joining them. Only `-import` merges.
+
+## Install one command through the dialog
+
+The route for a single command: one you are writing yourself, one you want to
+change after installing it, or one of the nine when you do not want the other
+eight. Nothing in it needs a Terminal. The example below installs
 `macros/commands/trim-trailing-blanks.nm`.
 
 ### 1. Copy the macro body
@@ -114,74 +190,10 @@ XNEdit does not create `autoload.nm` for you, but `>>` will. Restart XNEdit
 afterwards, then check it loaded by running one of its subroutines from
 **Macro > Execute Macro**.
 
-Appending the same file twice defines the same subroutines twice. When you
-reinstall after an edit, delete the old block first.
-
-## Install several commands at once
-
-Rather than paste a dozen commands through the dialog, XNEdit can read them
-from a file. Every command in this repo is in one:
-[nedkit-macros.rc](nedkit-macros.rc){ download }.
-
-```sh
-xnedit -import ~/Downloads/nedkit-macros.rc
-```
-
-Then **Preferences > Save Defaults** in the window that opens. The imported
-commands are *merged* into whatever you already have, matched on the menu path,
-so this will not clobber your own macros. [Getting
-started](getting-started.md) uses this route and nothing else.
-
-Re-importing is safe for the same reason. An entry whose menu path already
-exists is replaced rather than added, so importing a regenerated file updates
-the commands in place instead of leaving you with two of each. Do it after
-every change to the macros. A subroutine library behaves the opposite way:
-appending one to `autoload.nm` a second time defines everything in it twice.
-
-A renamed command is the exception, and it is worth knowing before you rename
-one. Entries are matched on the menu path and nothing else, so a command whose
-**Menu Entry** changed arrives as a new one and the old name stays in the menu
-running the body it had. Save Defaults then writes both out. Delete the old
-entry through **Preferences > Default Settings > Customize Menus > Macro
-Menu**, since no import can do it for you.
-
-The file holds two resources rather than one, `nedit.macroCommands` for the
-**Macro** menu and `nedit.bgMenuCommands` for the right-click menu, in the
-identical format. One `-import` reads both, which is how Pipe at Columns and
-Pipe at Cursor Column reach both menus in a single pass. An entry looks like
-this:
-
-```
-nedit.macroCommands: \
-	NED>Trim Trailing Blanks:::: {\n\
-		original = get_range(0, $text_length)\n\
-		trimmed = replace_in_string(original, "[ \\t]+$", "", "regex", "copy")\n\
-		if (trimmed != original) {\n\
-			replace_range(0, $text_length, trimmed)\n\
-		}\n\
-	}\n
-```
-
-The format is unforgiving:
-
-| Part of an entry | Rule |
-| --- | --- |
-| The four fields before the body | Menu path, accelerator, mnemonic, flags, separated by colons. `R` in the flags field means the command requires a selection, and an empty field still needs its colon, hence `::::` |
-| Every line of the body | Ends with a literal `\n\`, an escaped newline followed by the resource file's line continuation |
-| The last line of the resource | Ends with `\n` and no trailing backslash |
-| Indentation | Tabs, not spaces |
-| Backslashes | They double. A macro containing `"[ \t]+$"` is written `"[ \\t]+$"` here, and `"\\w"` becomes `"\\\\w"` |
-
-Because of that backslash rule especially, don't hand-write these.
-`tools/gen_docs.py` writes `docs/nedkit-macros.rc` from the macro files, which
-is why the download stays in step with them, and a test fails if the committed
-copy drifts.
-
-Writing the same resource straight into `~/.xnedit/nedit.rc` looks like the
-same thing and is not. Preferences are read from one source per setting, so a
-file naming `nedit.macroCommands` replaces XNEdit's own built-in macro
-commands, Complete Word and the Comments submenu among them, rather than
-joining them. Only `-import` merges.
+Appending the same file twice defines the same subroutines twice, so
+reinstalling a library after an edit means deleting the old block first.
+Menu commands work the other way round, and [updating or reinstalling after a
+macro changes](#updating-or-reinstalling-after-a-macro-changes) has that case.
 
 ## Where XNEdit keeps things
 

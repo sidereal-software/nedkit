@@ -5,6 +5,12 @@ and easy to get subtly wrong, and a macro does the same edit the same way every
 time. Python utilities live here too, for the jobs too big to run inside the
 editor.
 
+New here? [Getting started](getting-started.md) has the install: one download
+and one command puts all nine commands in the **Macro** menu.
+
+[Install the commands](getting-started.md){ .md-button .md-button--primary }
+[Clean up a pasted table](cleaning-pdf-tables.md){ .md-button }
+
 ## The commands
 
 <div class="grid cards" markdown>

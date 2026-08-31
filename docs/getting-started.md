@@ -1,7 +1,7 @@
 # Getting started
 
-One download and one command installs all nine commands. Ten minutes if you
-also have to build XNEdit.
+One download and one command installs all nine commands. Building XNEdit comes
+first, if you do not have it already.
 
 ## 1. Install XNEdit
 
@@ -12,21 +12,41 @@ Homebrew:
 ```sh
 brew install --cask xquartz
 brew install openmotif
+
+cd ~
 git clone https://github.com/unixwork/xnedit.git
 cd xnedit
+git checkout v1.6.3
 make macos
 ```
 
-That leaves the binary at `source/xnedit`, and nothing puts it on your
-`$PATH`. Everything below calls it as `xnedit`, so add it for this shell:
+`v1.6.3` is the release the macros are tested against, here and in CI. The
+`cd ~` puts the clone at `~/xnedit`, which matters in a moment: the permanent
+`PATH` line has to name that directory in full.
+
+That leaves the binary at `source/xnedit`, and nothing puts it on your `$PATH`.
+Everything below calls it as `xnedit`, so add it for this shell:
 
 ```sh
 export PATH="$PWD/source:$PATH"
 ```
 
-Put that line in `~/.zshrc` to keep it past this terminal, or spell out the
-full path to `source/xnedit` each time. macOS is the only platform nedkit
-targets.
+That one works because you are still in the directory you built in, and it
+lasts until you close the terminal. To keep `xnedit` past that, write the path
+out in full in `~/.zshrc`:
+
+```sh
+export PATH="$HOME/xnedit/source:$PATH"
+```
+
+The `$PWD` version cannot go in `~/.zshrc`. That file runs at the start of
+every shell, and `$PWD` is then wherever that shell opened, which for a new
+Terminal window is your home directory: the line quietly becomes
+`$HOME/source`, and there is no such directory. Nothing reports it either.
+`xnedit` is simply not found, in some later terminal rather than in the one
+where the line was written.
+
+macOS is the only platform nedkit targets.
 
 ## 2. Import the commands
 
@@ -45,13 +65,25 @@ just handed it.
 That is the whole install. The file carries all nine commands, and the two that
 belong on the right-click menu as well are in it twice, once for each menu.
 Importing merges into whatever you already have rather than replacing it, and
-[installing macros](installing-macros.md#install-several-commands-at-once) says
+[installing macros](installing-macros.md#install-every-command-at-once) says
 why that matters and why re-importing later is safe.
 
 Prefer to install one command at a time, or want to see what the dialog is
 doing? [Installing macros](installing-macros.md) walks through it with
 screenshots, and each command's page in the [command
 reference](commands.md) carries the values the dialog asks for.
+
+### Subroutine libraries are not in that file
+
+Files in `macros/lib/` define subroutines that other macros call. Nothing on
+this page depends on them: they are not in the import file, and no command
+shipped here calls one. Installing one means appending the file to
+`autoload.nm`, which needs a clone of the repo rather than a download.
+[Installing macros](installing-macros.md#install-a-subroutine-library) has the
+steps.
+
+`XNEDIT_HOME` overrides the configuration directory those files live in. Note
+the leading `X`: XNEdit ignores NEdit's `NEDIT_HOME`.
 
 ## 3. Check that it worked
 
@@ -71,14 +103,15 @@ Open a file and look under **Macro** in the menu bar. The commands are in a
     pattern that matches more than you meant takes the file with it. Undo
     works, but try each command on a copy first.
 
-## Subroutine libraries are separate
+## Then clean up a table
 
-Files in `macros/lib/` define subroutines that other macros call. Nothing on
-this page depends on them: they are not in the import file, and no command
-shipped here calls one. Installing one means appending the file to
-`autoload.nm`, which needs a clone of the repo rather than a download.
-[Installing macros](installing-macros.md#install-a-subroutine-library) has the
-steps.
+That is what the commands are for, and they are meant to run in a particular
+order. [Cleaning up a pasted table](cleaning-pdf-tables.md) takes a real paste
+out of a paper, tab separated with en dashes for minus signs, and works it
+through every command to a squared-up `.mod` file, with the report each one
+prints along the way.
 
-`XNEDIT_HOME` overrides the configuration directory those files live in. Note
-the leading `X`: XNEdit ignores NEdit's `NEDIT_HOME`.
+Two pages to keep beside it: the [command reference](commands.md), which is one
+entry per command, and [character replacements](character-replacements.md),
+which lists every character the two rewriting commands touch and every one they
+deliberately leave alone.

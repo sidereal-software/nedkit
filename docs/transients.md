@@ -22,30 +22,39 @@ parts that help and do the rest your way.
 | `jira` | Prints the author-information ticket |
 | `prepare` | Runs all five in order |
 
-There is also `refcodes`, which only prints the strings.
-
-Run them one at a time:
+There is also `refcodes`, which only prints the strings and writes nothing,
+which is why it is the one command taking no `--root` or `--batch`:
 
 ```sh
-cd /nedefs/Project/Production/dev/data.tables
-B="--root . --batch a"
+python3 $NT refcodes --obtained 2026-03-31
+```
 
-ned-transients scaffold $B
-ned-transients fetch $B --since 2025-08-01 --until 2026-02-05
-ned-transients ptable $B
-ned-transients loadstatus $B
-ned-transients jira $B
+`--obtained` is what sets the refcode month, so pass it to see what an older
+batch was registered under.
+
+Nothing needs installing. The tool is standard-library Python 3.9, so copying
+the `python/` directory onto a machine is the whole setup. There is no
+`ned-transients` on your `PATH` to run, though: you hand the file to `python3`
+where it sits, so the examples here keep its path in `$NT` and set that first.
+
+Run the steps one at a time:
+
+```sh
+NT=~/nedkit/python/ned-transients      # wherever you copied python/ to
+cd /nedefs/Project/Production/dev/data.tables
+
+python3 $NT scaffold   --root . --batch a
+python3 $NT fetch      --root . --batch a --since 2025-08-01 --until 2026-02-05
+python3 $NT ptable     --root . --batch a
+python3 $NT loadstatus --root . --batch a
+python3 $NT jira       --root . --batch a
 ```
 
 Or all at once, which is the same five functions in the same order:
 
 ```sh
-ned-transients prepare $B --since 2025-08-01 --until 2026-02-05
+python3 $NT prepare --root . --batch a --since 2025-08-01 --until 2026-02-05
 ```
-
-Nothing needs installing. The tool is standard-library Python 3.9, so copying
-the `python/` directory onto a machine is the whole setup. Run it as
-`python3 python/ned-transients` if it is not on your `PATH`.
 
 ### They chain through the directory, not through each other
 
@@ -62,7 +71,7 @@ re-run alone and any of them can be skipped and done by hand:
 A step that has not got what it needs says so and stops:
 
 ```
-$ ned-transients ptable --root . --batch a
+$ python3 $NT ptable --root . --batch a
 no window recorded for this batch. Run 'fetch' first, or pass --since / --month.
 ```
 
@@ -78,8 +87,8 @@ no window recorded for this batch. Run 'fetch' first, or pass --since / --month.
 | `--obtained` | The download date. Defaults to today |
 
 ```sh
-ned-transients fetch $B --since 2025-08-01 --until 2026-02-05
-ned-transients fetch $B --month 2026-01
+python3 $NT fetch --root . --batch a --since 2025-08-01 --until 2026-02-05
+python3 $NT fetch --root . --batch a --month 2026-01
 ```
 
 `fetch` writes the range to `_raw/window.txt`, and `ptable` uses it without
@@ -87,8 +96,8 @@ being told. Passing `--since` to `ptable` overrides that, which is how you cut
 a narrower ptable out of a wider fetch:
 
 ```sh
-ned-transients fetch  $B --since 2025-08-01 --until 2026-02-05
-ned-transients ptable $B --since 2026-01-01   # only the last month of it
+python3 $NT fetch  --root . --batch a --since 2025-08-01 --until 2026-02-05
+python3 $NT ptable --root . --batch a --since 2026-01-01   # last month only
 ```
 
 **`--obtained` is a different date from the window** and it is the one that
