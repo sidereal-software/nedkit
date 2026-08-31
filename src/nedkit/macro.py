@@ -114,6 +114,11 @@ class MacroFile:
         )
 
     @property
+    def in_macro_menu(self) -> bool:
+        """True for a command that belongs under the Macro menu."""
+        return "Macro Menu" in self.menus
+
+    @property
     def in_background_menu(self) -> bool:
         """True for a command that also answers a right-click."""
         return "Window Background Menu" in self.menus

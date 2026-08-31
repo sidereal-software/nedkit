@@ -1,8 +1,9 @@
 # Commands
 
-Every macro command in `macros/commands/`. [Installing
-macros](installing-macros.md) covers how to get one into the Macro menu; the
-table on each command below carries the values the dialog asks for, and the
+Every macro command in `macros/commands/`. To install the whole set in one
+step, start at [getting started](getting-started.md). [Installing
+macros](installing-macros.md) covers getting a single one into the Macro menu;
+the table on each command below carries the values the dialog asks for, and the
 body is folded away underneath ready to copy.
 
 **Installed in** names the menus a command belongs in. Most are Macro menu

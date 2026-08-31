@@ -17,7 +17,7 @@ Python utilities live here too, for the jobs too big to run inside the editor.
 | `python/` | `ned-transients`, which prepares the monthly SNe, FRB and GRB load |
 | `docs/` | Sources for the documentation site |
 | `samples/` | A real job, before and after, and the list of what is still done by hand |
-| `tools/` | `gen_docs.py`, which regenerates the reference pages from the macros |
+| `tools/` | `gen_docs.py`, which regenerates the reference pages and the install file from the macros |
 | `src/nedkit/`, `tests/` | The test harness, which nobody on the team runs |
 
 ## ned-transients
@@ -50,22 +50,36 @@ record. [Full guide](https://nedkit.sidereal.software/transients/).
 
 ## Installing the macros
 
-The short version, assuming a stock XNEdit:
+The short version, assuming an `xnedit` you have already built and put on your
+`$PATH`:
 
 ```sh
-# Shared subroutines, available in every macro from startup onward.
+xnedit -import docs/nedkit-macros.rc
+```
+
+That opens an editor window and holds the terminal until you close it. Run
+**Preferences > Save Defaults** in the window, click **OK**, and the commands
+are installed for good.
+
+Menu commands need the import step because XNEdit keeps them inside its
+preferences file rather than as loose files on disk, and importing merges them
+into whatever is installed already. `docs/nedkit-macros.rc` is generated from
+`macros/commands/` and also published at
+<https://nedkit.sidereal.software/nedkit-macros.rc> for anyone without a
+checkout. One command at a time still works, through
+**Preferences > Default Settings > Customize Menus > Macro Menu**.
+
+The shared subroutines in `macros/lib/` install separately, and no command
+here calls one:
+
+```sh
 cat macros/lib/*.nm >> ~/.xnedit/autoload.nm
 ```
 
-Menu commands are a separate step, because XNEdit keeps them inside its
-preferences file rather than as loose files on disk. Open a `.nm` file from
-`macros/commands/`, copy the body, and paste it into
-**Preferences > Default Settings > Customize Menus > Macro Menu**, then
-**Preferences > Save Defaults**.
-
-[Installing macros](https://nedkit.sidereal.software/installing-macros/) covers both paths
-properly, including where the config directory actually lives and how to
-distribute a whole menu at once instead of pasting commands one by one.
+[Getting started](https://nedkit.sidereal.software/getting-started/) is the
+five-minute version and [installing
+macros](https://nedkit.sidereal.software/installing-macros/) covers both paths
+properly, including where the config directory actually lives.
 
 ## Writing macros
 

@@ -24,6 +24,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Sequence
 
 #: Printed by the macro epilogue. Absence means the macro aborted.
 SENTINEL = "__NEDKIT_MACRO_OK__"
@@ -243,10 +244,21 @@ class XNEditRunner:
             "NEDIT_HOME": str(self.home),
         }
 
-    def run_on_file(self, macro: str, path: Path, *, save: bool = True) -> MacroRun:
+    def run_on_file(
+        self,
+        macro: str,
+        path: Path,
+        *,
+        save: bool = True,
+        extra_args: Sequence[str] = (),
+    ) -> MacroRun:
         """Run ``macro`` against ``path``, saving afterwards unless told not to.
 
         The file is modified in place, so hand this a copy.
+
+        ``extra_args`` goes on the command line ahead of ``-do``, which is how
+        an option that has to act before the macro runs gets in: ``-import``
+        loads a preferences file, and nothing in the macro language can.
         """
         epilogue = ["save()"] if save else []
         epilogue.append(f't_print("{SENTINEL}\\n")')
@@ -259,7 +271,7 @@ class XNEditRunner:
         full = macro.rstrip() + "\n" + "\n".join(epilogue) + "\n"
 
         process = subprocess.Popen(
-            [str(self.binary), "-do", full, str(path)],
+            [str(self.binary), *extra_args, "-do", full, str(path)],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env=self.env,
@@ -291,12 +303,13 @@ class XNEditRunner:
         *,
         name: str = "buffer.txt",
         save: bool = True,
+        extra_args: Sequence[str] = (),
     ) -> MacroRun:
         """Run ``macro`` against a throwaway file holding ``content``."""
         workdir.mkdir(parents=True, exist_ok=True)
         path = workdir / name
         path.write_bytes(content)
-        return self.run_on_file(macro, path, save=save)
+        return self.run_on_file(macro, path, save=save, extra_args=extra_args)
 
     def evaluate(self, macro: str, workdir: Path) -> str:
         """Run ``macro`` for its ``t_print()`` output and return that output.

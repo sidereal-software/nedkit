@@ -1,9 +1,10 @@
 """Static checks over the ``.nm`` files, run without XNEdit.
 
 These catch the mistakes that are cheap to make and expensive to notice: a
-header that doesn't match what the install dialog needs, a header running
-straight into the body with no blank line to say where it ends, a file named
-after something other than its menu entry, a ``replace_in_string()`` that
+header that doesn't match what the install dialog needs, a header field that
+would break the colon-separated resource file the docs site hands out, a header
+running straight into the body with no blank line to say where it ends, a file
+named after something other than its menu entry, a ``replace_in_string()`` that
 forgets its ``"copy"`` argument and so erases the buffer whenever the pattern
 happens not to match, a search left on the case-insensitive default, and a
 command that writes to the buffer without ever asking whether the buffer takes
@@ -270,6 +271,38 @@ def check_header(macro: MacroFile) -> list[Finding]:
     return findings
 
 
+def check_resource_fields(macro: MacroFile) -> list[Finding]:
+    """The three header fields that become colon-separated resource fields.
+
+    ``docs/nedkit-macros.rc`` writes them as ``name:accelerator:mnemonic``, and
+    XNEdit's reader takes each field up to the next colon. A colon inside one
+    shifts everything after it along, so a menu entry reading ``NED>RA: to NED
+    Form`` leaves ``to NED Form`` in the accelerator field, which the reader
+    rejects. ``loadMenuItemString()`` installs each entry as it parses it and
+    returns on the first one it cannot read, so what is lost is that command
+    and every command after it in that resource. The two resources in the
+    file are parsed by separate calls, so a failure in one leaves the other
+    whole.
+    """
+    findings = []
+
+    for field in ("Menu Entry", "Accelerator", "Mnemonic"):
+        if ":" in macro.fields.get(field, ""):
+            findings.append(Finding(macro.path, 1, f"{field!r} cannot contain a colon"))
+
+    mnemonic = macro.fields.get("Mnemonic", "")
+    if len(mnemonic) > 1:
+        findings.append(
+            Finding(
+                macro.path,
+                1,
+                f"'Mnemonic' is one letter or none, not {mnemonic!r}",
+            )
+        )
+
+    return findings
+
+
 def check_header_separated(macro: MacroFile) -> list[Finding]:
     """A blank line has to come between the header and the body.
 
@@ -514,6 +547,7 @@ def check_command(macro: MacroFile) -> list[Finding]:
     """Every check that applies to a file in macros/commands/."""
     return [
         *check_header(macro),
+        *check_resource_fields(macro),
         *check_header_separated(macro),
         *check_filename(macro),
         *check_replace_in_string_copy(macro),

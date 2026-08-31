@@ -450,16 +450,26 @@ Hand-copying anything out of a macro into a page is how the two drift apart.
 
 `tools/gen_docs.py` reads the macros and rewrites the regions marked
 `<!-- BEGIN GENERATED: name -->` ... `<!-- END GENERATED: name -->` in three
-pages. Prose outside the markers is hand-written and never touched. It parses
-headers with `nedkit.macro.parse` and the character tables with
-`nedkit.chartable.character_tables`, both of which the tests use too, so there
-is one definition of each rather than two that can disagree.
+pages, plus one file it writes whole. Prose outside the markers is hand-written
+and never touched. It parses headers with `nedkit.macro.parse`, the character
+tables with `nedkit.chartable.character_tables` and the resource format with
+`nedkit.rcfile`, all of which the tests use too, so there is one definition of
+each rather than two that can disagree.
 
 | Page | Generated from |
 | --- | --- |
 | `docs/commands.md` | the header comment and body of every `macros/commands/*.nm` |
 | `docs/subroutines.md` | the comment above every `define` in `macros/lib/*.nm` |
 | `docs/character-replacements.md` | the `fix[]` / `grk[]` / `nam[]` tables in every command that has one |
+| `docs/nedkit-macros.rc` | every command, as the file `xnedit -import` reads |
+
+`docs/nedkit-macros.rc` is the install route the docs lead with, and MkDocs
+copies it to <https://nedkit.sidereal.software/nedkit-macros.rc>. It is written
+for `xnedit -import` and not for `~/.xnedit/nedit.rc`, and the two are not
+interchangeable: importing adds, a preferences file replaces. The mechanism,
+with the XNEdit routines that decide it, is in `nedkit.rcfile`'s module
+docstring. Read that before changing the format or telling anyone to install it
+another way.
 
 `nam[]` is optional. `fold-letters-to-ascii.nm` ships without labels because a
 second line per entry would not fit in 4096 instructions, and

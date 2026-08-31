@@ -9,6 +9,10 @@ touched:
     docs/subroutines.md              one section per subroutine in macros/lib/*.nm
     docs/character-replacements.md   the table inside every command that has one
 
+One whole file is generated as well, and it is a download rather than a page:
+
+    docs/nedkit-macros.rc            every command, ready for xnedit -import
+
 Run it after changing a macro:
 
     uv run python tools/gen_docs.py
@@ -16,9 +20,10 @@ Run it after changing a macro:
 CI runs ``--check``, which regenerates into memory and fails if the committed
 pages have drifted.
 
-Header parsing lives in :mod:`nedkit.macro` and character-table parsing in
-:mod:`nedkit.chartable`, both of which the test suite also uses, so there is one
-definition of each rather than two that can disagree.
+Header parsing lives in :mod:`nedkit.macro`, character-table parsing in
+:mod:`nedkit.chartable` and the resource-file format in :mod:`nedkit.rcfile`,
+all of which the test suite also uses, so there is one definition of each
+rather than two that can disagree.
 """
 
 from __future__ import annotations
@@ -32,6 +37,7 @@ from pathlib import Path
 
 from nedkit.chartable import character_tables
 from nedkit.macro import MacroFile, command_files, library_files, parse
+from nedkit.rcfile import fragment
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -210,6 +216,14 @@ REGIONS = {
     "docs/character-replacements.md": [("character-table", gen_character_table)],
 }
 
+#: Files written whole, as against regions spliced into a hand-written page.
+#: MkDocs copies anything in ``docs/`` that is not Markdown to the built site,
+#: so this one is downloadable at https://nedkit.sidereal.software/ under its
+#: own name.
+FILES = {
+    "docs/nedkit-macros.rc": lambda: fragment(REPO),
+}
+
 
 def splice(page, marker, generated):
     begin, end = BEGIN % marker, END % marker
@@ -220,38 +234,50 @@ def splice(page, marker, generated):
     return "%s%s\n\n%s\n\n%s%s" % (head, begin, generated, end, tail)
 
 
+def regenerate(path):
+    """What ``path`` holds now, and what it should hold."""
+    if path in REGIONS:
+        current = read(path)
+        updated = current
+        for marker, generator in REGIONS[path]:
+            updated = splice(updated, marker, generator())
+        return current, updated
+    # A generated file need not exist yet, and treating a missing one as empty
+    # is what makes --check report it as out of date rather than crash.
+    target = REPO / path
+    current = target.read_text(encoding="utf-8") if target.exists() else ""
+    return current, FILES[path]()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--check", action="store_true", help="fail if a committed page is out of date"
+        "--check", action="store_true", help="fail if a committed file is out of date"
     )
     args = parser.parse_args()
 
     stale = []
-    for page, regions in sorted(REGIONS.items()):
-        current = read(page)
-        updated = current
-        for marker, generator in regions:
-            updated = splice(updated, marker, generator())
+    for path in sorted({**REGIONS, **FILES}):
+        current, updated = regenerate(path)
         if updated == current:
             continue
         if args.check:
-            stale.append(page)
+            stale.append(path)
             diff = difflib.unified_diff(
                 current.split("\n"),
                 updated.split("\n"),
-                fromfile="%s (committed)" % page,
-                tofile="%s (regenerated)" % page,
+                fromfile="%s (committed)" % path,
+                tofile="%s (regenerated)" % path,
                 lineterm="",
             )
             sys.stderr.write("\n".join(list(diff)[:40]) + "\n")
         else:
-            (REPO / page).write_text(updated, encoding="utf-8", newline="\n")
-            sys.stderr.write("updated %s\n" % page)
+            (REPO / path).write_text(updated, encoding="utf-8", newline="\n")
+            sys.stderr.write("updated %s\n" % path)
 
     if stale:
         sys.stderr.write(
-            "\n%d page(s) out of date with the macros. Run:\n\n"
+            "\n%d file(s) out of date with the macros. Run:\n\n"
             "    uv run python tools/gen_docs.py\n\n" % len(stale)
         )
         return 1

@@ -1,8 +1,9 @@
 """The generated documentation pages, and the header parsing they rely on.
 
-``tools/gen_docs.py`` rewrites three pages from the macros. CI runs it with
-``--check``, but that is late: catching a stale page here means a developer
-finds out from ``uv run pytest`` instead of from a red build.
+``tools/gen_docs.py`` rewrites three pages and one downloadable file from the
+macros. CI runs it with ``--check``, but that is late: catching a stale page
+here means a developer finds out from ``uv run pytest`` instead of from a red
+build.
 """
 
 from __future__ import annotations
@@ -30,14 +31,11 @@ def _load_gen_docs():
 gen_docs = _load_gen_docs()
 
 
-@pytest.mark.parametrize("page", sorted(gen_docs.REGIONS))
-def test_generated_pages_are_current(page: str) -> None:
-    current = gen_docs.read(page)
-    updated = current
-    for marker, generator in gen_docs.REGIONS[page]:
-        updated = gen_docs.splice(updated, marker, generator())
+@pytest.mark.parametrize("path", sorted({**gen_docs.REGIONS, **gen_docs.FILES}))
+def test_generated_files_are_current(path: str) -> None:
+    current, updated = gen_docs.regenerate(path)
     assert updated == current, (
-        f"{page} is out of date with the macros. Run: uv run python tools/gen_docs.py"
+        f"{path} is out of date with the macros. Run: uv run python tools/gen_docs.py"
     )
 
 

@@ -1,0 +1,2571 @@
+! XNEdit macro menu commands for the NED team at IPAC.
+!
+!     xnedit -import nedkit-macros.rc
+!
+! then Preferences > Save Defaults in the window that opens. Importing merges
+! with the commands already installed rather than replacing them, so this will
+! not disturb anything else in the Macro menu.
+!
+! Generated from macros/commands/*.nm by tools/gen_docs.py. Change a macro and
+! regenerate; edits made here are overwritten.
+!
+! https://nedkit.sidereal.software/
+
+nedit.macroCommands: \
+	NED>Dec to NED Form:::R: {\n\
+		ok = 1\n\
+		msg = ""\n\
+		n_done = 0\n\
+		bad_value = ""\n\
+		bad_line = 0\n\
+		\n\
+		# A locked buffer takes no writes. replace_selection() on one does nothing and\n\
+		# says nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_selection() itself refuses on.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		}\n\
+		\n\
+		if (ok == 1 && $selection_start == -1) {\n\
+		    ok = 0\n\
+		    msg = "Select the declination column first.\\n\\nA rectangular selection is "\n\
+		    msg = msg "the way to take one column out of a table: hold Ctrl while "\n\
+		    msg = msg "dragging, or Alt on some window managers. An ordinary selection "\n\
+		    msg = msg "works too and is read a line at a time."\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_selection()\n\
+		\n\
+		    # A rectangular selection comes back as its lines joined with newlines, the\n\
+		    # same shape an ordinary one has, so both are read the same way from here.\n\
+		    lines = split(original, "\\n", "case")\n\
+		    n_lines = lines[]\n\
+		\n\
+		    out = ""\n\
+		\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        v = replace_in_string(lines[i], "^[ \\t]+", "", "regex", "copy")\n\
+		        v = replace_in_string(v, "[ \\t]+$", "", "regex", "copy")\n\
+		\n\
+		        if (v == "") {\n\
+		            # A rectangle wider than a line, a blank line, or the gap above a\n\
+		            # table. Passed through with its blanks intact.\n\
+		            out = out lines[i]\n\
+		        } else {\n\
+		            stripped = replace_in_string(v, ":", "", "case", "copy")\n\
+		\n\
+		            sign = "+"\n\
+		            first = substring(stripped, 0, 1)\n\
+		            if (first == "+" || first == "-") {\n\
+		                sign = first\n\
+		                stripped = substring(stripped, 1, length(stripped))\n\
+		            }\n\
+		\n\
+		            # What is left has to be digits and decimal points and nothing\n\
+		            # else. "^" and "$" anchor to line boundaries rather than string\n\
+		            # boundaries, but split() has already taken every newline out, so\n\
+		            # here they are the ends of the value.\n\
+		            if (stripped == "" || \\\n\
+		                search_string(stripped, "^[0-9.]+$", 0, "regex") == -1) {\n\
+		                if (bad_value == "") {\n\
+		                    bad_value = v\n\
+		                    bad_line = i + 1\n\
+		                }\n\
+		                out = out lines[i]\n\
+		            } else {\n\
+		                out = out sign stripped\n\
+		                n_done++\n\
+		            }\n\
+		        }\n\
+		\n\
+		        if (i < n_lines - 1) {\n\
+		            out = out "\\n"\n\
+		        }\n\
+		    }\n\
+		\n\
+		    # All or nothing. A column half converted is harder to spot and harder to\n\
+		    # undo than a column that was never touched.\n\
+		    if (bad_value != "") {\n\
+		        ok = 0\n\
+		        n_done = 0\n\
+		        msg = "Line " bad_line " of the selection is not a declination: "\n\
+		        msg = msg "\\"" bad_value "\\"\\n\\nNothing was changed. A declination is "\n\
+		        msg = msg "digits, colons and an optional leading + or -, as in "\n\
+		        msg = msg "-00:46:03.66. Check the selection covers the right column "\n\
+		        msg = msg "and try again."\n\
+		    } else if (out != original) {\n\
+		        replace_selection(out)\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report -----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("dec: " $file_name ": nothing changed\\n")\n\
+		} else if (n_done == 0) {\n\
+		    t_print("dec: " $file_name ": nothing in the selection to convert\\n")\n\
+		} else {\n\
+		    t_print("dec: " $file_name ": " n_done " declination(s) converted\\n")\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+	}\n\
+	NED>Expand Tabs:::: {\n\
+		ok = 1\n\
+		msg = ""\n\
+		n_tabs = 0\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		}\n\
+		\n\
+		# The editor's tab width, which is what makes the spaces land where the tabs\n\
+		# looked. $tab_dist cannot sensibly be zero, but a zero would make every gap\n\
+		# below a division by it, so fall back to the usual 8 rather than trust it.\n\
+		stop = 8\n\
+		if (ok == 1) {\n\
+		    if ($tab_dist > 0) {\n\
+		        stop = $tab_dist\n\
+		    }\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		\n\
+		    # split() on "\\n" yields one element per line plus a trailing empty element\n\
+		    # when the buffer ends in a newline, so joining the elements back with "\\n"\n\
+		    # reproduces the buffer exactly. That is what lets the no-change case below\n\
+		    # be a plain string comparison.\n\
+		    lines = split(original, "\\n", "case")\n\
+		    n_lines = lines[]\n\
+		\n\
+		    # One run of spaces, long enough for the widest gap a single tab can leave,\n\
+		    # so each one is filled by a substring() rather than a loop.\n\
+		    pad = " "\n\
+		    while (length(pad) < stop) {\n\
+		        pad = pad pad\n\
+		    }\n\
+		\n\
+		    out = ""\n\
+		    chunk = ""\n\
+		\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        line = lines[i]\n\
+		\n\
+		        # Most lines in a pasted table have a tab in them, but the header block\n\
+		        # above it does not, and neither does a file that is already expanded.\n\
+		        # Copying those through untouched is what makes a second run free.\n\
+		        if (search_string(line, "\\t", 0, "case") == -1) {\n\
+		            chunk = chunk line\n\
+		        } else {\n\
+		            # Splitting on the tabs leaves the text between them. Every gap\n\
+		            # then sits between two neighbouring elements, and a line ending in\n\
+		            # a tab leaves a trailing empty element, so the count is right\n\
+		            # either way.\n\
+		            seg = split(line, "\\t", "case")\n\
+		            n_seg = seg[]\n\
+		            col = 0\n\
+		            built = ""\n\
+		\n\
+		            for (k = 0; k < n_seg; k++) {\n\
+		                v = seg[k]\n\
+		                built = built v\n\
+		\n\
+		                # Measure the segment in characters. length() counts bytes, and\n\
+		                # a line holding an en dash or an accented name would then send\n\
+		                # the following tab to the wrong stop.\n\
+		                #\n\
+		                # "[ -~]+" is every printable ASCII character, so a run of them\n\
+		                # is as many characters as it is bytes and measures in a single\n\
+		                # step. Anything else advances one character at a time through a\n\
+		                # bare ".", which is UTF-8 aware. Repetition is not: ".{n}",\n\
+		                # ".*" and ".+" all count bytes, so none of them can appear here.\n\
+		                p = 0\n\
+		\n\
+		                while (p < length(v)) {\n\
+		                    s = search_string(v, "[ -~]+", p, "regex")\n\
+		                    if (s == p) {\n\
+		                        col = col + ($search_end - p)\n\
+		                    } else {\n\
+		                        # "." matches everything except a newline, and split()\n\
+		                        # has already taken every newline out, so this always\n\
+		                        # advances.\n\
+		                        search_string(v, ".", p, "regex")\n\
+		                        col++\n\
+		                    }\n\
+		                    p = $search_end\n\
+		                }\n\
+		\n\
+		                # Every element but the last had a tab after it. A tab always\n\
+		                # advances at least one column, so a tab sitting exactly on a\n\
+		                # stop writes a full width rather than nothing.\n\
+		                if (k < n_seg - 1) {\n\
+		                    gap = stop - (col % stop)\n\
+		                    built = built substring(pad, 0, gap)\n\
+		                    col = col + gap\n\
+		                    n_tabs++\n\
+		                }\n\
+		            }\n\
+		\n\
+		            chunk = chunk built\n\
+		        }\n\
+		\n\
+		        if (i < n_lines - 1) {\n\
+		            chunk = chunk "\\n"\n\
+		        }\n\
+		\n\
+		        # Appending every line straight onto one growing string is quadratic:\n\
+		        # each append copies everything written so far. Flushing a chunk every\n\
+		        # 200 lines keeps a few thousand rows instant instead of a visible\n\
+		        # stall.\n\
+		        if (i % 200 == 199) {\n\
+		            out = out chunk\n\
+		            chunk = ""\n\
+		        }\n\
+		    }\n\
+		    out = out chunk\n\
+		\n\
+		    if (out != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, out)\n\
+		\n\
+		        # Expanding only ever lengthens the buffer, so the old offset is still\n\
+		        # inside it. Belt and braces: set_cursor_pos() clamps to the end of the\n\
+		        # buffer itself, on XNEdit and on NEdit 5.7 alike, so no test can reach\n\
+		        # the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report -----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("expand: " $file_name ": nothing changed\\n")\n\
+		} else if (n_tabs == 0) {\n\
+		    t_print("expand: " $file_name ": no tabs, nothing to expand\\n")\n\
+		} else {\n\
+		    t_print("expand: " $file_name ": " n_tabs " tab(s) expanded at width " stop "\\n")\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+	}\n\
+	NED>Fold Letters to ASCII:::: {\n\
+		fixed = ""\n\
+		ok = 1\n\
+		msg = ""\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		}\n\
+		\n\
+		# Any byte with the high bit set, i.e. any part of any non-ASCII character.\n\
+		# The buffer holds UTF-8 and macro positions are byte offsets, so this is a\n\
+		# byte test, not a character test.\n\
+		high_byte = "[\\\\x80-\\\\xff]"\n\
+		\n\
+		# Every two-byte character whose lead byte could start a Greek one. A prefilter\n\
+		# and not the table: each hit is looked up in grk[] and anything that misses is\n\
+		# left alone, which is how accented Greek such as ά survives untouched. Only\n\
+		# genuine lead bytes are in the class, so it cannot match inside a three- or\n\
+		# four-byte character.\n\
+		greek_char = "[\\\\xc2\\\\xce\\\\xcf][\\\\x80-\\\\xbf]"\n\
+		\n\
+		# The fold table, keyed on the UTF-8 bytes of each letter. Keys are spelled as\n\
+		# \\xNN escapes rather than as literal characters so the macro survives being\n\
+		# pasted through the Customize Menus dialog.\n\
+		#\n\
+		# There are no nam[] labels here, unlike normalize-characters.nm. Every entry\n\
+		# costs instructions and a macro compiles into 4096 of them, which a second\n\
+		# line per letter would blow through. tools/gen_docs.py derives each character's\n\
+		# Unicode name from the key bytes instead, so the documentation still names\n\
+		# them one by one.\n\
+		#\n\
+		# Greek sits in a table of its own because it is scanned for its positions\n\
+		# before it is replaced, and that scan is what the warning at the end reports.\n\
+		# The arithmetic behind it assumes every grk[] replacement is exactly one\n\
+		# character, so anything that replaces to more or fewer belongs in fix[] and\n\
+		# never in grk[]. fix[] carries no such rule, because it runs first and nothing\n\
+		# measures it.\n\
+		#\n\
+		# Order does not matter inside either table: every replacement is ASCII, so no\n\
+		# entry can feed another.\n\
+		\n\
+		# accented capitals, Latin-1 Supplement\n\
+		fix["\\xc3\\x80"] = "A"\n\
+		fix["\\xc3\\x81"] = "A"\n\
+		fix["\\xc3\\x82"] = "A"\n\
+		fix["\\xc3\\x83"] = "A"\n\
+		fix["\\xc3\\x84"] = "A"\n\
+		fix["\\xc3\\x85"] = "A"\n\
+		fix["\\xc3\\x87"] = "C"\n\
+		fix["\\xc3\\x88"] = "E"\n\
+		fix["\\xc3\\x89"] = "E"\n\
+		fix["\\xc3\\x8a"] = "E"\n\
+		fix["\\xc3\\x8b"] = "E"\n\
+		fix["\\xc3\\x8c"] = "I"\n\
+		fix["\\xc3\\x8d"] = "I"\n\
+		fix["\\xc3\\x8e"] = "I"\n\
+		fix["\\xc3\\x8f"] = "I"\n\
+		fix["\\xc3\\x90"] = "D"\n\
+		fix["\\xc3\\x91"] = "N"\n\
+		fix["\\xc3\\x92"] = "O"\n\
+		fix["\\xc3\\x93"] = "O"\n\
+		fix["\\xc3\\x94"] = "O"\n\
+		fix["\\xc3\\x95"] = "O"\n\
+		fix["\\xc3\\x96"] = "O"\n\
+		fix["\\xc3\\x98"] = "O"\n\
+		fix["\\xc3\\x99"] = "U"\n\
+		fix["\\xc3\\x9a"] = "U"\n\
+		fix["\\xc3\\x9b"] = "U"\n\
+		fix["\\xc3\\x9c"] = "U"\n\
+		fix["\\xc3\\x9d"] = "Y"\n\
+		\n\
+		# accented small letters, Latin-1 Supplement\n\
+		fix["\\xc3\\xa0"] = "a"\n\
+		fix["\\xc3\\xa1"] = "a"\n\
+		fix["\\xc3\\xa2"] = "a"\n\
+		fix["\\xc3\\xa3"] = "a"\n\
+		fix["\\xc3\\xa4"] = "a"\n\
+		fix["\\xc3\\xa5"] = "a"\n\
+		fix["\\xc3\\xa7"] = "c"\n\
+		fix["\\xc3\\xa8"] = "e"\n\
+		fix["\\xc3\\xa9"] = "e"\n\
+		fix["\\xc3\\xaa"] = "e"\n\
+		fix["\\xc3\\xab"] = "e"\n\
+		fix["\\xc3\\xac"] = "i"\n\
+		fix["\\xc3\\xad"] = "i"\n\
+		fix["\\xc3\\xae"] = "i"\n\
+		fix["\\xc3\\xaf"] = "i"\n\
+		fix["\\xc3\\xb0"] = "d"\n\
+		fix["\\xc3\\xb1"] = "n"\n\
+		fix["\\xc3\\xb2"] = "o"\n\
+		fix["\\xc3\\xb3"] = "o"\n\
+		fix["\\xc3\\xb4"] = "o"\n\
+		fix["\\xc3\\xb5"] = "o"\n\
+		fix["\\xc3\\xb6"] = "o"\n\
+		fix["\\xc3\\xb8"] = "o"\n\
+		fix["\\xc3\\xb9"] = "u"\n\
+		fix["\\xc3\\xba"] = "u"\n\
+		fix["\\xc3\\xbb"] = "u"\n\
+		fix["\\xc3\\xbc"] = "u"\n\
+		fix["\\xc3\\xbd"] = "y"\n\
+		fix["\\xc3\\xbf"] = "y"\n\
+		\n\
+		# Latin Extended-A\n\
+		fix["\\xc4\\x80"] = "A"\n\
+		fix["\\xc4\\x81"] = "a"\n\
+		fix["\\xc4\\x82"] = "A"\n\
+		fix["\\xc4\\x83"] = "a"\n\
+		fix["\\xc4\\x84"] = "A"\n\
+		fix["\\xc4\\x85"] = "a"\n\
+		fix["\\xc4\\x86"] = "C"\n\
+		fix["\\xc4\\x87"] = "c"\n\
+		fix["\\xc4\\x88"] = "C"\n\
+		fix["\\xc4\\x89"] = "c"\n\
+		fix["\\xc4\\x8a"] = "C"\n\
+		fix["\\xc4\\x8b"] = "c"\n\
+		fix["\\xc4\\x8c"] = "C"\n\
+		fix["\\xc4\\x8d"] = "c"\n\
+		fix["\\xc4\\x8e"] = "D"\n\
+		fix["\\xc4\\x8f"] = "d"\n\
+		fix["\\xc4\\x90"] = "D"\n\
+		fix["\\xc4\\x91"] = "d"\n\
+		fix["\\xc4\\x92"] = "E"\n\
+		fix["\\xc4\\x93"] = "e"\n\
+		fix["\\xc4\\x94"] = "E"\n\
+		fix["\\xc4\\x95"] = "e"\n\
+		fix["\\xc4\\x96"] = "E"\n\
+		fix["\\xc4\\x97"] = "e"\n\
+		fix["\\xc4\\x98"] = "E"\n\
+		fix["\\xc4\\x99"] = "e"\n\
+		fix["\\xc4\\x9a"] = "E"\n\
+		fix["\\xc4\\x9b"] = "e"\n\
+		fix["\\xc4\\x9c"] = "G"\n\
+		fix["\\xc4\\x9d"] = "g"\n\
+		fix["\\xc4\\x9e"] = "G"\n\
+		fix["\\xc4\\x9f"] = "g"\n\
+		fix["\\xc4\\xa0"] = "G"\n\
+		fix["\\xc4\\xa1"] = "g"\n\
+		fix["\\xc4\\xa2"] = "G"\n\
+		fix["\\xc4\\xa3"] = "g"\n\
+		fix["\\xc4\\xa4"] = "H"\n\
+		fix["\\xc4\\xa5"] = "h"\n\
+		fix["\\xc4\\xa6"] = "H"\n\
+		fix["\\xc4\\xa7"] = "h"\n\
+		fix["\\xc4\\xa8"] = "I"\n\
+		fix["\\xc4\\xa9"] = "i"\n\
+		fix["\\xc4\\xaa"] = "I"\n\
+		fix["\\xc4\\xab"] = "i"\n\
+		fix["\\xc4\\xac"] = "I"\n\
+		fix["\\xc4\\xad"] = "i"\n\
+		fix["\\xc4\\xae"] = "I"\n\
+		fix["\\xc4\\xaf"] = "i"\n\
+		fix["\\xc4\\xb0"] = "I"\n\
+		fix["\\xc4\\xb1"] = "i"\n\
+		fix["\\xc4\\xb4"] = "J"\n\
+		fix["\\xc4\\xb5"] = "j"\n\
+		fix["\\xc4\\xb6"] = "K"\n\
+		fix["\\xc4\\xb7"] = "k"\n\
+		fix["\\xc4\\xb8"] = "k"\n\
+		fix["\\xc4\\xb9"] = "L"\n\
+		fix["\\xc4\\xba"] = "l"\n\
+		fix["\\xc4\\xbb"] = "L"\n\
+		fix["\\xc4\\xbc"] = "l"\n\
+		fix["\\xc4\\xbd"] = "L"\n\
+		fix["\\xc4\\xbe"] = "l"\n\
+		fix["\\xc4\\xbf"] = "L"\n\
+		fix["\\xc5\\x80"] = "l"\n\
+		fix["\\xc5\\x81"] = "L"\n\
+		fix["\\xc5\\x82"] = "l"\n\
+		fix["\\xc5\\x83"] = "N"\n\
+		fix["\\xc5\\x84"] = "n"\n\
+		fix["\\xc5\\x85"] = "N"\n\
+		fix["\\xc5\\x86"] = "n"\n\
+		fix["\\xc5\\x87"] = "N"\n\
+		fix["\\xc5\\x88"] = "n"\n\
+		fix["\\xc5\\x8a"] = "N"\n\
+		fix["\\xc5\\x8b"] = "n"\n\
+		fix["\\xc5\\x8c"] = "O"\n\
+		fix["\\xc5\\x8d"] = "o"\n\
+		fix["\\xc5\\x8e"] = "O"\n\
+		fix["\\xc5\\x8f"] = "o"\n\
+		fix["\\xc5\\x90"] = "O"\n\
+		fix["\\xc5\\x91"] = "o"\n\
+		fix["\\xc5\\x94"] = "R"\n\
+		fix["\\xc5\\x95"] = "r"\n\
+		fix["\\xc5\\x96"] = "R"\n\
+		fix["\\xc5\\x97"] = "r"\n\
+		fix["\\xc5\\x98"] = "R"\n\
+		fix["\\xc5\\x99"] = "r"\n\
+		fix["\\xc5\\x9a"] = "S"\n\
+		fix["\\xc5\\x9b"] = "s"\n\
+		fix["\\xc5\\x9c"] = "S"\n\
+		fix["\\xc5\\x9d"] = "s"\n\
+		fix["\\xc5\\x9e"] = "S"\n\
+		fix["\\xc5\\x9f"] = "s"\n\
+		fix["\\xc5\\xa0"] = "S"\n\
+		fix["\\xc5\\xa1"] = "s"\n\
+		fix["\\xc5\\xa2"] = "T"\n\
+		fix["\\xc5\\xa3"] = "t"\n\
+		fix["\\xc5\\xa4"] = "T"\n\
+		fix["\\xc5\\xa5"] = "t"\n\
+		fix["\\xc5\\xa6"] = "T"\n\
+		fix["\\xc5\\xa7"] = "t"\n\
+		fix["\\xc5\\xa8"] = "U"\n\
+		fix["\\xc5\\xa9"] = "u"\n\
+		fix["\\xc5\\xaa"] = "U"\n\
+		fix["\\xc5\\xab"] = "u"\n\
+		fix["\\xc5\\xac"] = "U"\n\
+		fix["\\xc5\\xad"] = "u"\n\
+		fix["\\xc5\\xae"] = "U"\n\
+		fix["\\xc5\\xaf"] = "u"\n\
+		fix["\\xc5\\xb0"] = "U"\n\
+		fix["\\xc5\\xb1"] = "u"\n\
+		fix["\\xc5\\xb2"] = "U"\n\
+		fix["\\xc5\\xb3"] = "u"\n\
+		fix["\\xc5\\xb4"] = "W"\n\
+		fix["\\xc5\\xb5"] = "w"\n\
+		fix["\\xc5\\xb6"] = "Y"\n\
+		fix["\\xc5\\xb7"] = "y"\n\
+		fix["\\xc5\\xb8"] = "Y"\n\
+		fix["\\xc5\\xb9"] = "Z"\n\
+		fix["\\xc5\\xba"] = "z"\n\
+		fix["\\xc5\\xbb"] = "Z"\n\
+		fix["\\xc5\\xbc"] = "z"\n\
+		fix["\\xc5\\xbd"] = "Z"\n\
+		fix["\\xc5\\xbe"] = "z"\n\
+		fix["\\xc5\\xbf"] = "s"\n\
+		\n\
+		# letters with no one-letter answer\n\
+		fix["\\xc3\\x86"] = "AE"\n\
+		fix["\\xc3\\x9e"] = "TH"\n\
+		fix["\\xc3\\x9f"] = "ss"\n\
+		fix["\\xc3\\xa6"] = "ae"\n\
+		fix["\\xc3\\xbe"] = "th"\n\
+		fix["\\xc4\\xb2"] = "IJ"\n\
+		fix["\\xc4\\xb3"] = "ij"\n\
+		fix["\\xc5\\x89"] = "'n"\n\
+		fix["\\xc5\\x92"] = "OE"\n\
+		fix["\\xc5\\x93"] = "oe"\n\
+		\n\
+		# Greek capitals\n\
+		grk["\\xce\\x91"] = "A"\n\
+		grk["\\xce\\x92"] = "B"\n\
+		grk["\\xce\\x93"] = "G"\n\
+		grk["\\xce\\x94"] = "D"\n\
+		grk["\\xce\\x95"] = "E"\n\
+		grk["\\xce\\x96"] = "Z"\n\
+		grk["\\xce\\x97"] = "E"\n\
+		grk["\\xce\\x98"] = "T"\n\
+		grk["\\xce\\x99"] = "I"\n\
+		grk["\\xce\\x9a"] = "K"\n\
+		grk["\\xce\\x9b"] = "L"\n\
+		grk["\\xce\\x9c"] = "U"\n\
+		grk["\\xce\\x9d"] = "N"\n\
+		grk["\\xce\\x9e"] = "X"\n\
+		grk["\\xce\\x9f"] = "O"\n\
+		grk["\\xce\\xa0"] = "P"\n\
+		grk["\\xce\\xa1"] = "R"\n\
+		grk["\\xce\\xa3"] = "S"\n\
+		grk["\\xce\\xa4"] = "T"\n\
+		grk["\\xce\\xa5"] = "U"\n\
+		grk["\\xce\\xa6"] = "F"\n\
+		grk["\\xce\\xa7"] = "C"\n\
+		grk["\\xce\\xa8"] = "Y"\n\
+		grk["\\xce\\xa9"] = "O"\n\
+		\n\
+		# Greek small letters\n\
+		grk["\\xce\\xb1"] = "a"\n\
+		grk["\\xce\\xb2"] = "b"\n\
+		grk["\\xce\\xb3"] = "g"\n\
+		grk["\\xce\\xb4"] = "d"\n\
+		grk["\\xce\\xb5"] = "e"\n\
+		grk["\\xce\\xb6"] = "z"\n\
+		grk["\\xce\\xb7"] = "e"\n\
+		grk["\\xce\\xb8"] = "t"\n\
+		grk["\\xce\\xb9"] = "i"\n\
+		grk["\\xce\\xba"] = "k"\n\
+		grk["\\xce\\xbb"] = "l"\n\
+		grk["\\xce\\xbc"] = "u"\n\
+		grk["\\xce\\xbd"] = "n"\n\
+		grk["\\xce\\xbe"] = "x"\n\
+		grk["\\xce\\xbf"] = "o"\n\
+		grk["\\xcf\\x80"] = "p"\n\
+		grk["\\xcf\\x81"] = "r"\n\
+		grk["\\xcf\\x82"] = "s"\n\
+		grk["\\xcf\\x83"] = "s"\n\
+		grk["\\xcf\\x84"] = "t"\n\
+		grk["\\xcf\\x85"] = "u"\n\
+		grk["\\xcf\\x86"] = "f"\n\
+		grk["\\xcf\\x87"] = "c"\n\
+		grk["\\xcf\\x88"] = "y"\n\
+		grk["\\xcf\\x89"] = "o"\n\
+		\n\
+		# a Greek letter with a second code point\n\
+		grk["\\xc2\\xb5"] = "u"\n\
+		\n\
+		# What the report reads, whether or not the work below runs. found[], gpos[]\n\
+		# and gch[] are filled by the Greek scan; every grk[] key is two bytes and\n\
+		# every replacement is one, so an offset taken there, less the bytes the folds\n\
+		# ahead of it removed, is the offset in the finished buffer. shrink is written\n\
+		# out as the lengths rather than as a count of letters, so an entry that is not\n\
+		# two bytes to one would still be right.\n\
+		found = $empty_array\n\
+		gpos = $empty_array\n\
+		gch = $empty_array\n\
+		glist = ""\n\
+		n_greek = 0\n\
+		n_shown = 0\n\
+		shrink = 0\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		    cleaned = original\n\
+		\n\
+		    # The accented letters. Skipped outright on a buffer that is already pure\n\
+		    # ASCII, which turns the common case into one scan instead of one per\n\
+		    # entry.\n\
+		    if (search_string(cleaned, high_byte, 0, "regex") != -1) {\n\
+		        # One scan per distinct lead byte, three of them here, answers for\n\
+		        # every entry that starts with it, so a paste with no accents in it\n\
+		        # never pays for the 190 accented entries. Memoising against a buffer\n\
+		        # that changes under the loop is safe because every replacement is\n\
+		        # ASCII and so cannot put a lead byte back in.\n\
+		        seen = $empty_array\n\
+		\n\
+		        for (ch in fix) {\n\
+		            lead = substring(ch, 0, 1)\n\
+		            if (lead in seen) {\n\
+		                here = seen[lead]\n\
+		            } else {\n\
+		                here = 0\n\
+		                if (search_string(cleaned, lead, 0, "case") != -1) {\n\
+		                    here = 1\n\
+		                }\n\
+		                seen[lead] = here\n\
+		            }\n\
+		\n\
+		            if (here == 1) {\n\
+		                if (search_string(cleaned, ch, 0, "case") != -1) {\n\
+		                    # "copy" is not optional. Without it replace_in_string()\n\
+		                    # returns an empty string whenever the pattern does not\n\
+		                    # match, and this loop would erase the buffer on its first\n\
+		                    # miss.\n\
+		                    cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")\n\
+		                    fixed = fixed "  " ch " -> " fix[ch] "\\n"\n\
+		                }\n\
+		            }\n\
+		        }\n\
+		    }\n\
+		\n\
+		    # Greek, in two passes. The first records where every letter is while the\n\
+		    # text still holds them, because those offsets are what the report turns\n\
+		    # into line and column numbers; the second replaces them. Nothing caps the\n\
+		    # scan: the index it builds is what drives the replacement, so a cap would\n\
+		    # mean a silent partial conversion.\n\
+		    pos = search_string(cleaned, greek_char, 0, "regex")\n\
+		    while (pos != -1) {\n\
+		        # $search_end is global and the next search overwrites it, so read it\n\
+		        # before anything else touches the string.\n\
+		        stop = $search_end\n\
+		        ch = substring(cleaned, pos, stop)\n\
+		        if (ch in grk) {\n\
+		            # Positions are kept for the first 20 only, which is as much as a\n\
+		            # dialog can usefully hold. The count below is of all of them.\n\
+		            if (n_shown < 20) {\n\
+		                gpos[n_shown] = pos - shrink\n\
+		                gch[n_shown] = ch\n\
+		                n_shown++\n\
+		            }\n\
+		            shrink = shrink + (stop - pos) - length(grk[ch])\n\
+		            found[ch] = 1\n\
+		            n_greek++\n\
+		        }\n\
+		        pos = search_string(cleaned, greek_char, stop, "regex")\n\
+		    }\n\
+		\n\
+		    for (ch in found) {\n\
+		        cleaned = replace_in_string(cleaned, ch, grk[ch], "case", "copy")\n\
+		    }\n\
+		\n\
+		    # Write back, once, only if there is a change to make.\n\
+		    if (cleaned != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, cleaned)\n\
+		\n\
+		        # An accented letter is longer than what replaces it, so the buffer\n\
+		        # usually got shorter and the old offset may be past the end. Belt and\n\
+		        # braces: set_cursor_pos() clamps to the end of the buffer itself, on\n\
+		        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		\n\
+		    # Line and column for each Greek letter, now that the buffer holds the\n\
+		    # finished text. set_cursor_pos() and then $line and $column are the\n\
+		    # editor's own arithmetic, the same numbers the statistics line shows as L:\n\
+		    # and C:, so nothing here counts a column by hand. A tab would make a\n\
+		    # column ambiguous, so run this after Normalize Characters, which takes the\n\
+		    # tabs out.\n\
+		    for (i = 0; i < n_shown; i++) {\n\
+		        # These are offsets into the finished text, and the guard at the top is\n\
+		        # what says the write above landed, so they fit the buffer. Belt and\n\
+		        # braces: set_cursor_pos() clamps to the end of the buffer itself, on\n\
+		        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.\n\
+		        if (gpos[i] > $text_length) {\n\
+		            gpos[i] = $text_length\n\
+		        }\n\
+		        set_cursor_pos(gpos[i])\n\
+		        glist = glist "    line " $line ", column " $column "    " gch[i] " -> " grk[gch[i]] "\\n"\n\
+		    }\n\
+		\n\
+		    # The cursor ends on the first Greek letter, because that is the one thing\n\
+		    # here that asks for a decision. With no Greek it stays where it was.\n\
+		    if (n_greek > 0) {\n\
+		        set_cursor_pos(gpos[0])\n\
+		    }\n\
+		}\n\
+		\n\
+		# Report. t_print() goes to the terminal that launched xnedit, so the routine\n\
+		# case stays quiet; the dialog is reserved for the case that wants a human.\n\
+		if (ok == 0) {\n\
+		    t_print("fold: " $file_name ": nothing changed\\n")\n\
+		} else if (fixed == "" && n_greek == 0) {\n\
+		    t_print("fold: " $file_name ": nothing to change\\n")\n\
+		} else {\n\
+		    t_print("fold: " $file_name ":\\n" fixed glist)\n\
+		}\n\
+		\n\
+		# Built up a statement at a time, because line continuations would have to\n\
+		# survive the extra layer of escaping that nedit.rc puts on every macro line.\n\
+		if (n_greek > 0) {\n\
+		    msg = $file_name " had " n_greek " Greek letter(s) in it, and each one is "\n\
+		    msg = msg "now the nearest single Latin letter. Which letter it started as "\n\
+		    msg = msg "is no longer recoverable from the file. Five of the readings are "\n\
+		    msg = msg "shared, whether or not this file held the pair:\\n\\n"\n\
+		    msg = msg "    e   epsilon, eta\\n"\n\
+		    msg = msg "    o   omicron, omega\\n"\n\
+		    msg = msg "    s   sigma, final sigma\\n"\n\
+		    msg = msg "    t   tau, theta\\n"\n\
+		    msg = msg "    u   upsilon, mu, micro sign\\n\\n"\n\
+		    msg = msg glist\n\
+		    if (n_greek > n_shown) {\n\
+		        n_more = n_greek - n_shown\n\
+		        msg = msg "    ...and " n_more " more\\n"\n\
+		    }\n\
+		    msg = msg "\\nLines count from 1 and columns from 0, the same as the "\n\
+		    msg = msg "statistics line. The cursor is on the first one."\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+	}\n\
+	NED>Normalize Characters:::: {\n\
+		fixed = ""\n\
+		ok = 1\n\
+		msg = ""\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		}\n\
+		\n\
+		# Any byte with the high bit set, i.e. any part of any non-ASCII character.\n\
+		# The buffer holds UTF-8 and macro positions are byte offsets, so this is a\n\
+		# byte test, not a character test.\n\
+		high_byte = "[\\\\x80-\\\\xff]"\n\
+		\n\
+		# One whole non-ASCII character: a lead byte plus its continuation bytes, or\n\
+		# a stray continuation byte left behind by a file that was not valid UTF-8.\n\
+		# Used to report the leftovers a character at a time instead of a byte at a\n\
+		# time.\n\
+		high_char = "[\\\\xc0-\\\\xff][\\\\x80-\\\\xbf]*|[\\\\x80-\\\\xff]"\n\
+		\n\
+		# The rewrite table. fix[] maps the UTF-8 bytes of a character to its ASCII\n\
+		# stand-in, nam[] is the label the summary prints. Keys are spelled as \\xNN\n\
+		# escapes rather than as literal characters for two reasons: the macro\n\
+		# survives being pasted through the Customize Menus dialog, and the entries\n\
+		# you cannot see - the zero-width ones - are still readable here.\n\
+		#\n\
+		# To add a character, look up its UTF-8 bytes and add a matching pair of\n\
+		# lines. Order does not matter: every replacement is ASCII, so no entry can\n\
+		# feed another.\n\
+		\n\
+		# dashes and hyphens\n\
+		fix["\\xe2\\x80\\x90"] = "-"\n\
+		nam["\\xe2\\x80\\x90"] = "U+2010 HYPHEN"\n\
+		fix["\\xe2\\x80\\x91"] = "-"\n\
+		nam["\\xe2\\x80\\x91"] = "U+2011 NON-BREAKING HYPHEN"\n\
+		fix["\\xe2\\x80\\x92"] = "-"\n\
+		nam["\\xe2\\x80\\x92"] = "U+2012 FIGURE DASH"\n\
+		fix["\\xe2\\x80\\x93"] = "-"\n\
+		nam["\\xe2\\x80\\x93"] = "U+2013 EN DASH"\n\
+		fix["\\xe2\\x80\\x94"] = "-"\n\
+		nam["\\xe2\\x80\\x94"] = "U+2014 EM DASH"\n\
+		fix["\\xe2\\x80\\x95"] = "-"\n\
+		nam["\\xe2\\x80\\x95"] = "U+2015 HORIZONTAL BAR"\n\
+		fix["\\xe2\\x81\\x83"] = "-"\n\
+		nam["\\xe2\\x81\\x83"] = "U+2043 HYPHEN BULLET"\n\
+		fix["\\xe2\\x88\\x92"] = "-"\n\
+		nam["\\xe2\\x88\\x92"] = "U+2212 MINUS SIGN"\n\
+		fix["\\xef\\xb9\\x98"] = "-"\n\
+		nam["\\xef\\xb9\\x98"] = "U+FE58 SMALL EM DASH"\n\
+		fix["\\xef\\xb9\\xa3"] = "-"\n\
+		nam["\\xef\\xb9\\xa3"] = "U+FE63 SMALL HYPHEN-MINUS"\n\
+		fix["\\xef\\xbc\\x8d"] = "-"\n\
+		nam["\\xef\\xbc\\x8d"] = "U+FF0D FULLWIDTH HYPHEN-MINUS"\n\
+		\n\
+		# single quotes, apostrophes, primes\n\
+		fix["\\xc2\\xb4"] = "'"\n\
+		nam["\\xc2\\xb4"] = "U+00B4 ACUTE ACCENT"\n\
+		fix["\\xca\\xb9"] = "'"\n\
+		nam["\\xca\\xb9"] = "U+02B9 MODIFIER LETTER PRIME"\n\
+		fix["\\xca\\xbc"] = "'"\n\
+		nam["\\xca\\xbc"] = "U+02BC MODIFIER LETTER APOSTROPHE"\n\
+		fix["\\xe2\\x80\\x98"] = "'"\n\
+		nam["\\xe2\\x80\\x98"] = "U+2018 LEFT SINGLE QUOTATION MARK"\n\
+		fix["\\xe2\\x80\\x99"] = "'"\n\
+		nam["\\xe2\\x80\\x99"] = "U+2019 RIGHT SINGLE QUOTATION MARK"\n\
+		fix["\\xe2\\x80\\x9a"] = "'"\n\
+		nam["\\xe2\\x80\\x9a"] = "U+201A SINGLE LOW-9 QUOTATION MARK"\n\
+		fix["\\xe2\\x80\\x9b"] = "'"\n\
+		nam["\\xe2\\x80\\x9b"] = "U+201B SINGLE HIGH-REVERSED-9 QUOTATION MARK"\n\
+		fix["\\xe2\\x80\\xb2"] = "'"\n\
+		nam["\\xe2\\x80\\xb2"] = "U+2032 PRIME"\n\
+		fix["\\xe2\\x80\\xb5"] = "'"\n\
+		nam["\\xe2\\x80\\xb5"] = "U+2035 REVERSED PRIME"\n\
+		fix["\\xef\\xbc\\x87"] = "'"\n\
+		nam["\\xef\\xbc\\x87"] = "U+FF07 FULLWIDTH APOSTROPHE"\n\
+		\n\
+		# double quotes and double primes\n\
+		fix["\\xca\\xba"] = "\\""\n\
+		nam["\\xca\\xba"] = "U+02BA MODIFIER LETTER DOUBLE PRIME"\n\
+		fix["\\xe2\\x80\\x9c"] = "\\""\n\
+		nam["\\xe2\\x80\\x9c"] = "U+201C LEFT DOUBLE QUOTATION MARK"\n\
+		fix["\\xe2\\x80\\x9d"] = "\\""\n\
+		nam["\\xe2\\x80\\x9d"] = "U+201D RIGHT DOUBLE QUOTATION MARK"\n\
+		fix["\\xe2\\x80\\x9e"] = "\\""\n\
+		nam["\\xe2\\x80\\x9e"] = "U+201E DOUBLE LOW-9 QUOTATION MARK"\n\
+		fix["\\xe2\\x80\\x9f"] = "\\""\n\
+		nam["\\xe2\\x80\\x9f"] = "U+201F DOUBLE HIGH-REVERSED-9 QUOTATION MARK"\n\
+		fix["\\xe2\\x80\\xb3"] = "\\""\n\
+		nam["\\xe2\\x80\\xb3"] = "U+2033 DOUBLE PRIME"\n\
+		fix["\\xe2\\x80\\xb6"] = "\\""\n\
+		nam["\\xe2\\x80\\xb6"] = "U+2036 REVERSED DOUBLE PRIME"\n\
+		fix["\\xef\\xbc\\x82"] = "\\""\n\
+		nam["\\xef\\xbc\\x82"] = "U+FF02 FULLWIDTH QUOTATION MARK"\n\
+		\n\
+		# spaces\n\
+		fix["\\xc2\\xa0"] = " "\n\
+		nam["\\xc2\\xa0"] = "U+00A0 NO-BREAK SPACE"\n\
+		fix["\\xe1\\x9a\\x80"] = " "\n\
+		nam["\\xe1\\x9a\\x80"] = "U+1680 OGHAM SPACE MARK"\n\
+		fix["\\xe2\\x80\\x80"] = " "\n\
+		nam["\\xe2\\x80\\x80"] = "U+2000 EN QUAD"\n\
+		fix["\\xe2\\x80\\x81"] = " "\n\
+		nam["\\xe2\\x80\\x81"] = "U+2001 EM QUAD"\n\
+		fix["\\xe2\\x80\\x82"] = " "\n\
+		nam["\\xe2\\x80\\x82"] = "U+2002 EN SPACE"\n\
+		fix["\\xe2\\x80\\x83"] = " "\n\
+		nam["\\xe2\\x80\\x83"] = "U+2003 EM SPACE"\n\
+		fix["\\xe2\\x80\\x84"] = " "\n\
+		nam["\\xe2\\x80\\x84"] = "U+2004 THREE-PER-EM SPACE"\n\
+		fix["\\xe2\\x80\\x85"] = " "\n\
+		nam["\\xe2\\x80\\x85"] = "U+2005 FOUR-PER-EM SPACE"\n\
+		fix["\\xe2\\x80\\x86"] = " "\n\
+		nam["\\xe2\\x80\\x86"] = "U+2006 SIX-PER-EM SPACE"\n\
+		fix["\\xe2\\x80\\x87"] = " "\n\
+		nam["\\xe2\\x80\\x87"] = "U+2007 FIGURE SPACE"\n\
+		fix["\\xe2\\x80\\x88"] = " "\n\
+		nam["\\xe2\\x80\\x88"] = "U+2008 PUNCTUATION SPACE"\n\
+		fix["\\xe2\\x80\\x89"] = " "\n\
+		nam["\\xe2\\x80\\x89"] = "U+2009 THIN SPACE"\n\
+		fix["\\xe2\\x80\\x8a"] = " "\n\
+		nam["\\xe2\\x80\\x8a"] = "U+200A HAIR SPACE"\n\
+		fix["\\xe2\\x80\\xaf"] = " "\n\
+		nam["\\xe2\\x80\\xaf"] = "U+202F NARROW NO-BREAK SPACE"\n\
+		fix["\\xe2\\x81\\x9f"] = " "\n\
+		nam["\\xe2\\x81\\x9f"] = "U+205F MEDIUM MATHEMATICAL SPACE"\n\
+		fix["\\xe3\\x80\\x80"] = " "\n\
+		nam["\\xe3\\x80\\x80"] = "U+3000 IDEOGRAPHIC SPACE"\n\
+		\n\
+		# invisible characters, deleted outright\n\
+		fix["\\xc2\\xad"] = ""\n\
+		nam["\\xc2\\xad"] = "U+00AD SOFT HYPHEN"\n\
+		fix["\\xe2\\x80\\x8b"] = ""\n\
+		nam["\\xe2\\x80\\x8b"] = "U+200B ZERO WIDTH SPACE"\n\
+		fix["\\xe2\\x80\\x8c"] = ""\n\
+		nam["\\xe2\\x80\\x8c"] = "U+200C ZERO WIDTH NON-JOINER"\n\
+		fix["\\xe2\\x80\\x8d"] = ""\n\
+		nam["\\xe2\\x80\\x8d"] = "U+200D ZERO WIDTH JOINER"\n\
+		fix["\\xe2\\x81\\xa0"] = ""\n\
+		nam["\\xe2\\x81\\xa0"] = "U+2060 WORD JOINER"\n\
+		fix["\\xef\\xbb\\xbf"] = ""\n\
+		nam["\\xef\\xbb\\xbf"] = "U+FEFF ZERO WIDTH NO-BREAK SPACE (BOM)"\n\
+		\n\
+		# line separators\n\
+		fix["\\xe2\\x80\\xa8"] = "\\n"\n\
+		nam["\\xe2\\x80\\xa8"] = "U+2028 LINE SEPARATOR"\n\
+		fix["\\xe2\\x80\\xa9"] = "\\n"\n\
+		nam["\\xe2\\x80\\xa9"] = "U+2029 PARAGRAPH SEPARATOR"\n\
+		\n\
+		# ligatures\n\
+		fix["\\xef\\xac\\x80"] = "ff"\n\
+		nam["\\xef\\xac\\x80"] = "U+FB00 LATIN SMALL LIGATURE FF"\n\
+		fix["\\xef\\xac\\x81"] = "fi"\n\
+		nam["\\xef\\xac\\x81"] = "U+FB01 LATIN SMALL LIGATURE FI"\n\
+		fix["\\xef\\xac\\x82"] = "fl"\n\
+		nam["\\xef\\xac\\x82"] = "U+FB02 LATIN SMALL LIGATURE FL"\n\
+		fix["\\xef\\xac\\x83"] = "ffi"\n\
+		nam["\\xef\\xac\\x83"] = "U+FB03 LATIN SMALL LIGATURE FFI"\n\
+		fix["\\xef\\xac\\x84"] = "ffl"\n\
+		nam["\\xef\\xac\\x84"] = "U+FB04 LATIN SMALL LIGATURE FFL"\n\
+		fix["\\xef\\xac\\x85"] = "st"\n\
+		nam["\\xef\\xac\\x85"] = "U+FB05 LATIN SMALL LIGATURE LONG S T"\n\
+		fix["\\xef\\xac\\x86"] = "st"\n\
+		nam["\\xef\\xac\\x86"] = "U+FB06 LATIN SMALL LIGATURE ST"\n\
+		\n\
+		# other punctuation\n\
+		fix["\\xe2\\x80\\xa2"] = "*"\n\
+		nam["\\xe2\\x80\\xa2"] = "U+2022 BULLET"\n\
+		fix["\\xe2\\x80\\xa6"] = "..."\n\
+		nam["\\xe2\\x80\\xa6"] = "U+2026 HORIZONTAL ELLIPSIS"\n\
+		fix["\\xc3\\x97"] = "x"\n\
+		nam["\\xc3\\x97"] = "U+00D7 MULTIPLICATION SIGN"\n\
+		fix["\\xc3\\xb7"] = "/"\n\
+		nam["\\xc3\\xb7"] = "U+00F7 DIVISION SIGN"\n\
+		fix["\\xe2\\x81\\x84"] = "/"\n\
+		nam["\\xe2\\x81\\x84"] = "U+2044 FRACTION SLASH"\n\
+		fix["\\xe2\\x88\\x95"] = "/"\n\
+		nam["\\xe2\\x88\\x95"] = "U+2215 DIVISION SLASH"\n\
+		\n\
+		# math relations\n\
+		fix["\\xc2\\xb1"] = "+/-"\n\
+		nam["\\xc2\\xb1"] = "U+00B1 PLUS-MINUS SIGN"\n\
+		fix["\\xe2\\x88\\x93"] = "-/+"\n\
+		nam["\\xe2\\x88\\x93"] = "U+2213 MINUS-OR-PLUS SIGN"\n\
+		fix["\\xe2\\x89\\x88"] = "~"\n\
+		nam["\\xe2\\x89\\x88"] = "U+2248 ALMOST EQUAL TO"\n\
+		fix["\\xe2\\x88\\xbc"] = "~"\n\
+		nam["\\xe2\\x88\\xbc"] = "U+223C TILDE OPERATOR"\n\
+		fix["\\xe2\\x89\\xa0"] = "!="\n\
+		nam["\\xe2\\x89\\xa0"] = "U+2260 NOT EQUAL TO"\n\
+		fix["\\xe2\\x89\\xa4"] = "<="\n\
+		nam["\\xe2\\x89\\xa4"] = "U+2264 LESS-THAN OR EQUAL TO"\n\
+		fix["\\xe2\\x89\\xa5"] = ">="\n\
+		nam["\\xe2\\x89\\xa5"] = "U+2265 GREATER-THAN OR EQUAL TO"\n\
+		\n\
+		# What the report reads, whether or not the work below runs.\n\
+		left = $empty_array\n\
+		n_left = 0\n\
+		first_left = -1\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		    cleaned = original\n\
+		\n\
+		    # Stray carriage returns. A DOS-format file never shows these - XNEdit\n\
+		    # strips them on open and puts them back on save - but a pasted block can\n\
+		    # carry them into a Unix-format buffer.\n\
+		    if (search_string(cleaned, "\\r", 0, "case") != -1) {\n\
+		        cleaned = replace_in_string(cleaned, "\\r\\n", "\\n", "case", "copy")\n\
+		        cleaned = replace_in_string(cleaned, "\\r", "\\n", "case", "copy")\n\
+		        fixed = fixed "  carriage return -> newline\\n"\n\
+		    }\n\
+		\n\
+		    # Tabs. One tab becomes one space, which does not preserve column\n\
+		    # alignment. When the columns have to survive, run NED>Expand Tabs instead\n\
+		    # of this: it writes the spaces each tab stands for.\n\
+		    if (search_string(cleaned, "\\t", 0, "case") != -1) {\n\
+		        cleaned = replace_in_string(cleaned, "\\t", " ", "case", "copy")\n\
+		        fixed = fixed "  tab -> space\\n"\n\
+		    }\n\
+		\n\
+		    # The table itself. Skipped outright on a buffer that is already pure\n\
+		    # ASCII, which turns the common case into one scan instead of one per\n\
+		    # entry.\n\
+		    if (search_string(cleaned, high_byte, 0, "regex") != -1) {\n\
+		        for (ch in fix) {\n\
+		            before = cleaned\n\
+		            # "copy" is not optional. Without it replace_in_string() returns an\n\
+		            # empty string whenever the pattern does not match, and this loop\n\
+		            # would erase the buffer on its first miss.\n\
+		            cleaned = replace_in_string(cleaned, ch, fix[ch], "case", "copy")\n\
+		            if (cleaned != before) {\n\
+		                fixed = fixed "  " nam[ch] "\\n"\n\
+		            }\n\
+		        }\n\
+		    }\n\
+		\n\
+		    # Write back, once, only if there is a change to make.\n\
+		    if (cleaned != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, cleaned)\n\
+		\n\
+		        # The buffer usually got shorter, so the old offset may be past the\n\
+		        # end. Belt and braces: set_cursor_pos() clamps to the end of the\n\
+		        # buffer itself, on XNEdit and on NEdit 5.7 alike, so no test can reach\n\
+		        # the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		\n\
+		    # What is still not ASCII. Counted per character, capped so that a buffer\n\
+		    # of mostly non-Latin text cannot turn this into a long stall.\n\
+		    pos = search_string(cleaned, high_char, 0, "regex")\n\
+		    while (pos != -1 && n_left < 2000) {\n\
+		        if (first_left == -1) {\n\
+		            first_left = pos\n\
+		        }\n\
+		        ch = substring(cleaned, pos, $search_end)\n\
+		        if (ch in left) {\n\
+		            left[ch] = left[ch] + 1\n\
+		        } else {\n\
+		            left[ch] = 1\n\
+		        }\n\
+		        n_left++\n\
+		        pos = search_string(cleaned, high_char, $search_end, "regex")\n\
+		    }\n\
+		}\n\
+		\n\
+		# Report. t_print() goes to the terminal that launched xnedit, so the routine\n\
+		# case stays quiet; the dialog is reserved for the case that wants a human.\n\
+		if (ok == 0) {\n\
+		    t_print("normalize: " $file_name ": nothing changed\\n")\n\
+		} else if (fixed == "") {\n\
+		    t_print("normalize: " $file_name ": nothing to change\\n")\n\
+		} else {\n\
+		    t_print("normalize: " $file_name ":\\n" fixed)\n\
+		}\n\
+		\n\
+		if (n_left > 0) {\n\
+		    set_cursor_pos(first_left)\n\
+		\n\
+		    # Built up a statement at a time. Line continuations would have to survive\n\
+		    # the extra layer of escaping that nedit.rc puts on every macro line.\n\
+		    summary = ""\n\
+		    for (ch in left) {\n\
+		        summary = summary "    " left[ch] "x  " ch "\\n"\n\
+		    }\n\
+		    if (pos != -1) {\n\
+		        summary = summary "    ...and more, counting stopped at 2000\\n"\n\
+		    }\n\
+		\n\
+		    msg = $file_name " has " left[] " kind(s) of non-ASCII character left, "\n\
+		    msg = msg n_left " in all. These have no safe ASCII spelling, so the "\n\
+		    msg = msg "macro did not touch them:\\n\\n" summary\n\
+		    msg = msg "\\nThe cursor is on the first one, line " $line ". Fix those by "\n\
+		    msg = msg "hand, or add them to the table in this macro if the answer is "\n\
+		    msg = msg "always the same."\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+	}\n\
+	NED>Pad Columns:::: {\n\
+		# Arrays have to exist before "in" is used on them.\n\
+		keep = $empty_array\n\
+		cell = $empty_array\n\
+		clen = $empty_array\n\
+		count = $empty_array\n\
+		width = $empty_array\n\
+		\n\
+		ok = 1\n\
+		msg = ""\n\
+		n_rows = 0\n\
+		first_count = 0\n\
+		ragged = 0\n\
+		first_ragged = 0\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		\n\
+		    # split() on "\\n" yields one element per line plus a trailing empty element\n\
+		    # when the buffer ends in a newline, so joining the elements back with "\\n"\n\
+		    # reproduces the buffer exactly. That is what lets the no-change case below\n\
+		    # be a plain string comparison.\n\
+		    lines = split(original, "\\n", "case")\n\
+		    n_lines = lines[]\n\
+		\n\
+		    # A tab is one character and any number of columns, so a width measured on\n\
+		    # a line holding one is not a width. Refusing here keeps tab stops out of\n\
+		    # every measurement below.\n\
+		    if (search_string(original, "\\t", 0, "case") != -1) {\n\
+		        ok = 0\n\
+		        msg = $file_name " has a tab in it, so there is no telling which column "\n\
+		        msg = msg "anything is in: a tab is one character and however many "\n\
+		        msg = msg "columns it takes to reach the next tab stop.\\n\\nRun NED>"\n\
+		        msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "\n\
+		        msg = msg "so the columns stay where they sit on screen. Normalize "\n\
+		        msg = msg "Characters takes tabs out too, but it writes one space for "\n\
+		        msg = msg "each, which usually closes the columns up."\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- pass 1: split every row on "|" and measure each column -----------------\n\
+		\n\
+		if (ok == 1) {\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        body = replace_in_string(lines[i], "^[ \\t]+", "", "regex", "copy")\n\
+		        body = replace_in_string(body, "[ \\t]+$", "", "regex", "copy")\n\
+		\n\
+		        # Blank lines and header lines are copied through verbatim,\n\
+		        # indentation and all, and take no part in the column widths.\n\
+		        if (body == "" || substring(body, 0, 1) == "#") {\n\
+		            keep[i] = lines[i]\n\
+		            continue\n\
+		        }\n\
+		\n\
+		        # Anything with no pipe in it goes the same way. A line with no\n\
+		        # delimiter is not a table row, and reading a boundary out of a run of\n\
+		        # spaces is the one thing this must never do.\n\
+		        if (search_string(body, "|", 0, "case") == -1) {\n\
+		            keep[i] = lines[i]\n\
+		            continue\n\
+		        }\n\
+		\n\
+		        f = split(body, "|", "case")\n\
+		        nf = f[]\n\
+		\n\
+		        for (j = 0; j < nf; j++) {\n\
+		            v = replace_in_string(f[j], "^[ \\t]+", "", "regex", "copy")\n\
+		            v = replace_in_string(v, "[ \\t]+$", "", "regex", "copy")\n\
+		            cell[i, j] = v\n\
+		\n\
+		            # Measure the field in characters. length() counts bytes, and a\n\
+		            # column holding an en dash or an accented name would then come out\n\
+		            # one place short for every extra byte.\n\
+		            #\n\
+		            # "[ -~]+" is every printable ASCII character, so a run of them is\n\
+		            # as many characters as it is bytes and measures in a single step.\n\
+		            # Anything else advances one character at a time through a bare\n\
+		            # ".", which is UTF-8 aware. Repetition is not: ".{n}", ".*" and\n\
+		            # ".+" all count bytes, so none of them can appear here.\n\
+		            p = 0\n\
+		            w = 0\n\
+		\n\
+		            while (p < length(v)) {\n\
+		                s = search_string(v, "[ -~]+", p, "regex")\n\
+		                if (s == p) {\n\
+		                    w = w + ($search_end - p)\n\
+		                } else {\n\
+		                    # "." matches everything except a newline, and split() has\n\
+		                    # already taken every newline out, so this always advances.\n\
+		                    search_string(v, ".", p, "regex")\n\
+		                    w++\n\
+		                }\n\
+		                p = $search_end\n\
+		            }\n\
+		\n\
+		            clen[i, j] = w\n\
+		            if (j in width) {\n\
+		                width[j] = max(width[j], w)\n\
+		            } else {\n\
+		                width[j] = w\n\
+		            }\n\
+		        }\n\
+		        count[i] = nf\n\
+		\n\
+		        if (n_rows == 0) {\n\
+		            first_count = nf\n\
+		        } else if (nf != first_count) {\n\
+		            if (ragged == 0) {\n\
+		                first_ragged = i + 1\n\
+		            }\n\
+		            ragged++\n\
+		        }\n\
+		        n_rows++\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- pass 2: rebuild the buffer ---------------------------------------------\n\
+		\n\
+		if (ok == 1) {\n\
+		    # One run of spaces, long enough to pad the widest column with a single\n\
+		    # substring() rather than a loop per field. Doubling gets there in a few\n\
+		    # steps.\n\
+		    max_width = 0\n\
+		    for (j in width) {\n\
+		        max_width = max(max_width, width[j])\n\
+		    }\n\
+		    pad = " "\n\
+		    while (length(pad) < max_width) {\n\
+		        pad = pad pad\n\
+		    }\n\
+		\n\
+		    out = ""\n\
+		    chunk = ""\n\
+		\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        if (i in keep) {\n\
+		            chunk = chunk keep[i]\n\
+		        } else {\n\
+		            nf = count[i]\n\
+		            for (j = 0; j < nf; j++) {\n\
+		                if (j > 0) {\n\
+		                    chunk = chunk "|"\n\
+		                }\n\
+		                chunk = chunk cell[i, j] substring(pad, 0, width[j] - clen[i, j])\n\
+		            }\n\
+		        }\n\
+		        if (i < n_lines - 1) {\n\
+		            chunk = chunk "\\n"\n\
+		        }\n\
+		\n\
+		        # Appending every line straight onto one growing string is quadratic:\n\
+		        # each append copies everything written so far. Flushing a chunk every\n\
+		        # 200 lines keeps a few thousand rows instant instead of a visible\n\
+		        # stall.\n\
+		        if (i % 200 == 199) {\n\
+		            out = out chunk\n\
+		            chunk = ""\n\
+		        }\n\
+		    }\n\
+		    out = out chunk\n\
+		\n\
+		    if (out != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, out)\n\
+		\n\
+		        # Padding lengthens the buffer, but trimming the spaces a field came in\n\
+		        # with can shorten it. Belt and braces: set_cursor_pos() clamps to the\n\
+		        # end of the buffer itself, on XNEdit and on NEdit 5.7 alike, so no\n\
+		        # test can reach the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report -----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("pad: " $file_name ": nothing changed\\n")\n\
+		} else if (n_rows == 0) {\n\
+		    t_print("pad: " $file_name ": no rows with a | in them, nothing to pad\\n")\n\
+		} else {\n\
+		    t_print("pad: " $file_name ": " n_rows " row(s), " width[] " column(s)\\n")\n\
+		}\n\
+		\n\
+		if (ragged > 0) {\n\
+		    msg = $file_name " has " ragged " row(s) whose field count differs from "\n\
+		    msg = msg "the first data row, which has " first_count ". The first one is "\n\
+		    msg = msg "on line " first_ragged ".\\n\\nThey were padded as far as they go "\n\
+		    msg = msg "and no empty columns were invented. A short row usually means a "\n\
+		    msg = msg "value went missing upstream, so check those rows before this "\n\
+		    msg = msg "file goes anywhere."\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+	}\n\
+	NED>Pipe at Columns:::: {\n\
+		# --- prologue: ask which columns, and how -----------------------------------\n\
+		\n\
+		mode = "overwrite"\n\
+		cols = $empty_array\n\
+		ncols = 0\n\
+		ok = 0\n\
+		msg = ""\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		#\n\
+		# It goes here rather than in the shared block below, because the prompt is in\n\
+		# between: asking which columns to pipe and then refusing to pipe any of them\n\
+		# is worse than not asking.\n\
+		if ($read_only == 1) {\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		} else {\n\
+		    # string_dialog() takes no default text, so the message is the only place\n\
+		    # to put the current column.\n\
+		    prompt = "Which columns should get a pipe?\\n\\n"\n\
+		    prompt = prompt "Type the numbers separated by spaces or commas. They "\n\
+		    prompt = prompt "count from 0, the way the C: field of the statistics line "\n\
+		    prompt = prompt "counts, and the cursor is in column " $column " right "\n\
+		    prompt = prompt "now.\\n\\n"\n\
+		    prompt = prompt "Overwrite writes a pipe over the character at each "\n\
+		    prompt = prompt "column, and only where that character is a space.\\n\\n"\n\
+		    prompt = prompt "Insert puts the pipe in and pushes the rest of the line "\n\
+		    prompt = prompt "right, which loses nothing but widens every row it "\n\
+		    prompt = prompt "touches."\n\
+		\n\
+		    answer = string_dialog(prompt, "Overwrite", "Insert", "Cancel")\n\
+		\n\
+		    # Button 3 is Cancel and button 0 is the window manager's close button.\n\
+		    # Both leave ok at 0, and so does anything else the dialog might return.\n\
+		    if ($string_dialog_button == 1) {\n\
+		        mode = "overwrite"\n\
+		        ok = 1\n\
+		    } else if ($string_dialog_button == 2) {\n\
+		        mode = "insert"\n\
+		        ok = 1\n\
+		    }\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    # Dedupe through an associative array, then insertion-sort. for (k in arr)\n\
+		    # walks the keys as strings, where "10" sorts before "9", so it cannot do\n\
+		    # the sorting.\n\
+		    tokens = split(answer, "[ ,\\t]+", "regex")\n\
+		    n_tokens = tokens[]\n\
+		    seen = $empty_array\n\
+		\n\
+		    for (t = 0; t < n_tokens; t++) {\n\
+		        word = tokens[t]\n\
+		\n\
+		        # split() yields an empty token wherever a separator sits at either end\n\
+		        # of the answer, and "" passes valid_number(), so drop those first.\n\
+		        if (word != "") {\n\
+		            if (valid_number(word) == 0) {\n\
+		                ok = 0\n\
+		                msg = "\\"" word "\\" is not a column number.\\n\\nType the columns "\n\
+		                msg = msg "as plain numbers separated by spaces or commas, like "\n\
+		                msg = msg "this: 10 23"\n\
+		                break\n\
+		            }\n\
+		\n\
+		            v = word + 0\n\
+		            if (v < 1) {\n\
+		                ok = 0\n\
+		                msg = "Column " v " is not a place a pipe can go.\\n\\nColumns "\n\
+		                msg = msg "count from 0, and a pipe in column 0 would open the "\n\
+		                msg = msg "table with an empty field, so the first column that "\n\
+		                msg = msg "can take one is 1."\n\
+		                break\n\
+		            }\n\
+		\n\
+		            if ((v in seen) == 0) {\n\
+		                seen[v] = 1\n\
+		                m = ncols\n\
+		                while (m > 0 && cols[m - 1] > v) {\n\
+		                    cols[m] = cols[m - 1]\n\
+		                    m--\n\
+		                }\n\
+		                cols[m] = v\n\
+		                ncols++\n\
+		            }\n\
+		        }\n\
+		    }\n\
+		}\n\
+		\n\
+		# An answer with no numbers in it at all is a change of mind rather than a\n\
+		# mistake, so it does nothing and says nothing about it.\n\
+		if (ok == 1 && ncols == 0) {\n\
+		    ok = 0\n\
+		}\n\
+		\n\
+		# --- shared: column arithmetic ---\n\
+		#\n\
+		# Everything down to the end marker is byte-identical in\n\
+		# pipe-at-cursor-column.nm and pipe-at-columns.nm, and tests/test_conventions.py\n\
+		# keeps it that way. Change something here and paste the whole block into the\n\
+		# other file.\n\
+		#\n\
+		# The prologue above settles five things:\n\
+		#\n\
+		#   cols[0..ncols-1]  display columns to pipe, ascending, deduped, all >= 1\n\
+		#   ncols             how many\n\
+		#   mode              "overwrite" or "insert"\n\
+		#   ok                1 to go ahead, 0 if the prologue already refused\n\
+		#   msg               "" or the reason it refused\n\
+		\n\
+		n_rows = 0\n\
+		piped = 0\n\
+		occupied = 0\n\
+		first_occupied = 0\n\
+		too_short = 0\n\
+		first_too_short = 0\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		\n\
+		    # split() on "\\n" yields one element per line plus a trailing empty element\n\
+		    # when the buffer ends in a newline, so joining the elements back with "\\n"\n\
+		    # reproduces the buffer exactly. That is what lets the no-change case below\n\
+		    # be a plain string comparison.\n\
+		    lines = split(original, "\\n", "case")\n\
+		    n_lines = lines[]\n\
+		\n\
+		    # A tab is one byte wide and any number of columns wide, so a buffer with\n\
+		    # one in it cannot be reasoned about a column at a time. Refusing here is\n\
+		    # what keeps tab stops out of every calculation that follows.\n\
+		    if (search_string(original, "\\t", 0, "case") != -1) {\n\
+		        ok = 0\n\
+		        msg = $file_name " has a tab in it, so there is no telling which column "\n\
+		        msg = msg "anything is in: a tab is one character and however many "\n\
+		        msg = msg "columns it takes to reach the next tab stop.\\n\\nRun NED>"\n\
+		        msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "\n\
+		        msg = msg "so the columns stay where they sit on screen. Normalize "\n\
+		        msg = msg "Characters takes tabs out too, but it writes one space for "\n\
+		        msg = msg "each, which usually closes the columns up."\n\
+		    }\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    out = ""\n\
+		    chunk = ""\n\
+		\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        line = lines[i]\n\
+		\n\
+		        stripped = replace_in_string(line, "^[ \\t]+", "", "regex", "copy")\n\
+		        stripped = replace_in_string(stripped, "[ \\t]+$", "", "regex", "copy")\n\
+		\n\
+		        # Blank lines and header lines are copied through verbatim, so the\n\
+		        # ##refcode block at the top of a NED file goes through untouched.\n\
+		        if (stripped != "" && substring(stripped, 0, 1) != "#") {\n\
+		            n_rows++\n\
+		\n\
+		            # Resolve every target column to a byte offset in one left-to-right\n\
+		            # walk, because byte offsets and display columns only agree while\n\
+		            # the line is ASCII. An en dash is three bytes and one column.\n\
+		            #\n\
+		            # "[ -~]+" is every printable ASCII character, so a run of them is\n\
+		            # as many characters as it is bytes and resolves in a single step.\n\
+		            # Anything else advances one character at a time through a bare\n\
+		            # ".", which is UTF-8 aware. Repetition is not: ".{n}", ".*" and\n\
+		            # ".+" all count bytes, so none of them can appear here.\n\
+		            off = $empty_array\n\
+		            p = 0\n\
+		            col = 0\n\
+		            j = 0\n\
+		\n\
+		            while (j < ncols && p < length(line)) {\n\
+		                s = search_string(line, "[ -~]+", p, "regex")\n\
+		                if (s == p) {\n\
+		                    run = $search_end - p\n\
+		                    while (j < ncols && cols[j] < col + run) {\n\
+		                        off[j] = p + (cols[j] - col)\n\
+		                        j++\n\
+		                    }\n\
+		                    col = col + run\n\
+		                    p = $search_end\n\
+		                } else {\n\
+		                    # "." matches everything except a newline, and split() has\n\
+		                    # already taken every newline out, so this always advances.\n\
+		                    search_string(line, ".", p, "regex")\n\
+		                    if (j < ncols && cols[j] == col) {\n\
+		                        off[j] = p\n\
+		                        j++\n\
+		                    }\n\
+		                    col++\n\
+		                    p = $search_end\n\
+		                }\n\
+		            }\n\
+		\n\
+		            # A column the walk never reached is one past the end of this line.\n\
+		            # Apply right to left, so inserting a pipe never shifts an offset\n\
+		            # that has not been used yet.\n\
+		            occupied_here = 0\n\
+		            short_here = 0\n\
+		\n\
+		            for (k = ncols - 1; k >= 0; k--) {\n\
+		                if (k in off) {\n\
+		                    o = off[k]\n\
+		                    here = substring(line, o, o + 1)\n\
+		\n\
+		                    # A pipe already in place is left alone, which is what\n\
+		                    # makes a second run over the same columns do nothing.\n\
+		                    if (here != "|") {\n\
+		                        if (mode == "insert") {\n\
+		                            line = replace_substring(line, o, o, "|")\n\
+		                            piped++\n\
+		                        } else if (here == " ") {\n\
+		                            # A space is one byte whatever else is on the line,\n\
+		                            # so writing over one never has to ask how wide the\n\
+		                            # character was.\n\
+		                            line = replace_substring(line, o, o + 1, "|")\n\
+		                            piped++\n\
+		                        } else {\n\
+		                            occupied_here = 1\n\
+		                        }\n\
+		                    }\n\
+		                } else {\n\
+		                    short_here = 1\n\
+		                }\n\
+		            }\n\
+		\n\
+		            if (occupied_here == 1) {\n\
+		                if (occupied == 0) {\n\
+		                    first_occupied = i + 1\n\
+		                }\n\
+		                occupied++\n\
+		            }\n\
+		            if (short_here == 1) {\n\
+		                if (too_short == 0) {\n\
+		                    first_too_short = i + 1\n\
+		                }\n\
+		                too_short++\n\
+		            }\n\
+		        }\n\
+		\n\
+		        chunk = chunk line\n\
+		        if (i < n_lines - 1) {\n\
+		            chunk = chunk "\\n"\n\
+		        }\n\
+		\n\
+		        # Appending every line straight onto one growing string is quadratic:\n\
+		        # each append copies everything written so far. Flushing a chunk every\n\
+		        # 200 lines keeps a few thousand rows instant instead of a visible\n\
+		        # stall.\n\
+		        if (i % 200 == 199) {\n\
+		            out = out chunk\n\
+		            chunk = ""\n\
+		        }\n\
+		    }\n\
+		    out = out chunk\n\
+		\n\
+		    if (out != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, out)\n\
+		\n\
+		        # Inserting lengthens the buffer and overwriting leaves it the same\n\
+		        # length, but clamp rather than reason about which happened. Belt and\n\
+		        # braces: set_cursor_pos() clamps to the end of the buffer itself, on\n\
+		        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report ----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("pipe: " $file_name ": nothing changed\\n")\n\
+		} else if (n_rows == 0) {\n\
+		    t_print("pipe: " $file_name ": no data rows, nothing to pipe\\n")\n\
+		} else {\n\
+		    t_print("pipe: " $file_name ": " piped " pipe(s) into " n_rows " row(s)\\n")\n\
+		}\n\
+		\n\
+		if (occupied > 0) {\n\
+		    if (msg != "") {\n\
+		        msg = msg "\\n\\n"\n\
+		    }\n\
+		    msg = msg $file_name " has " occupied " row(s) holding something other than "\n\
+		    msg = msg "a space at one of those columns, and they were left as they are. "\n\
+		    msg = msg "The first is on line " first_occupied ".\\n\\nOverwriting there "\n\
+		    msg = msg "would have destroyed a character. Either the column is a place "\n\
+		    msg = msg "or two off, or those rows are wider than the rest, so read them "\n\
+		    msg = msg "before this file goes any further."\n\
+		}\n\
+		\n\
+		if (too_short > 0) {\n\
+		    if (msg != "") {\n\
+		        msg = msg "\\n\\n"\n\
+		    }\n\
+		    msg = msg $file_name " has " too_short " row(s) that end before one of those "\n\
+		    msg = msg "columns, so no pipe went in at that column. The first is on line "\n\
+		    msg = msg first_too_short ".\\n\\nNothing was padded out to reach it, because a "\n\
+		    msg = msg "padded row invents data. If those rows should have carried a "\n\
+		    msg = msg "value there, it went missing upstream."\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+		# --- end shared ---\n\
+	}\n\
+	NED>Pipe at Cursor Column:::: {\n\
+		# --- prologue: the single column the cursor is sitting in -------------------\n\
+		\n\
+		mode = "overwrite"\n\
+		cols = $empty_array\n\
+		ncols = 0\n\
+		ok = 1\n\
+		msg = ""\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		#\n\
+		# $column is the display column counting from 0, the same number the C: field\n\
+		# of the statistics line shows.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		} else if ($column == 0) {\n\
+		    ok = 0\n\
+		    msg = "The cursor is in column 0, at the very start of the line.\\n\\nA pipe "\n\
+		    msg = msg "there would open the table with an empty field. Put the cursor "\n\
+		    msg = msg "in the column you want the pipe to land in and run this again."\n\
+		} else {\n\
+		    cols[0] = $column\n\
+		    ncols = 1\n\
+		}\n\
+		\n\
+		# --- shared: column arithmetic ---\n\
+		#\n\
+		# Everything down to the end marker is byte-identical in\n\
+		# pipe-at-cursor-column.nm and pipe-at-columns.nm, and tests/test_conventions.py\n\
+		# keeps it that way. Change something here and paste the whole block into the\n\
+		# other file.\n\
+		#\n\
+		# The prologue above settles five things:\n\
+		#\n\
+		#   cols[0..ncols-1]  display columns to pipe, ascending, deduped, all >= 1\n\
+		#   ncols             how many\n\
+		#   mode              "overwrite" or "insert"\n\
+		#   ok                1 to go ahead, 0 if the prologue already refused\n\
+		#   msg               "" or the reason it refused\n\
+		\n\
+		n_rows = 0\n\
+		piped = 0\n\
+		occupied = 0\n\
+		first_occupied = 0\n\
+		too_short = 0\n\
+		first_too_short = 0\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		\n\
+		    # split() on "\\n" yields one element per line plus a trailing empty element\n\
+		    # when the buffer ends in a newline, so joining the elements back with "\\n"\n\
+		    # reproduces the buffer exactly. That is what lets the no-change case below\n\
+		    # be a plain string comparison.\n\
+		    lines = split(original, "\\n", "case")\n\
+		    n_lines = lines[]\n\
+		\n\
+		    # A tab is one byte wide and any number of columns wide, so a buffer with\n\
+		    # one in it cannot be reasoned about a column at a time. Refusing here is\n\
+		    # what keeps tab stops out of every calculation that follows.\n\
+		    if (search_string(original, "\\t", 0, "case") != -1) {\n\
+		        ok = 0\n\
+		        msg = $file_name " has a tab in it, so there is no telling which column "\n\
+		        msg = msg "anything is in: a tab is one character and however many "\n\
+		        msg = msg "columns it takes to reach the next tab stop.\\n\\nRun NED>"\n\
+		        msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "\n\
+		        msg = msg "so the columns stay where they sit on screen. Normalize "\n\
+		        msg = msg "Characters takes tabs out too, but it writes one space for "\n\
+		        msg = msg "each, which usually closes the columns up."\n\
+		    }\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    out = ""\n\
+		    chunk = ""\n\
+		\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        line = lines[i]\n\
+		\n\
+		        stripped = replace_in_string(line, "^[ \\t]+", "", "regex", "copy")\n\
+		        stripped = replace_in_string(stripped, "[ \\t]+$", "", "regex", "copy")\n\
+		\n\
+		        # Blank lines and header lines are copied through verbatim, so the\n\
+		        # ##refcode block at the top of a NED file goes through untouched.\n\
+		        if (stripped != "" && substring(stripped, 0, 1) != "#") {\n\
+		            n_rows++\n\
+		\n\
+		            # Resolve every target column to a byte offset in one left-to-right\n\
+		            # walk, because byte offsets and display columns only agree while\n\
+		            # the line is ASCII. An en dash is three bytes and one column.\n\
+		            #\n\
+		            # "[ -~]+" is every printable ASCII character, so a run of them is\n\
+		            # as many characters as it is bytes and resolves in a single step.\n\
+		            # Anything else advances one character at a time through a bare\n\
+		            # ".", which is UTF-8 aware. Repetition is not: ".{n}", ".*" and\n\
+		            # ".+" all count bytes, so none of them can appear here.\n\
+		            off = $empty_array\n\
+		            p = 0\n\
+		            col = 0\n\
+		            j = 0\n\
+		\n\
+		            while (j < ncols && p < length(line)) {\n\
+		                s = search_string(line, "[ -~]+", p, "regex")\n\
+		                if (s == p) {\n\
+		                    run = $search_end - p\n\
+		                    while (j < ncols && cols[j] < col + run) {\n\
+		                        off[j] = p + (cols[j] - col)\n\
+		                        j++\n\
+		                    }\n\
+		                    col = col + run\n\
+		                    p = $search_end\n\
+		                } else {\n\
+		                    # "." matches everything except a newline, and split() has\n\
+		                    # already taken every newline out, so this always advances.\n\
+		                    search_string(line, ".", p, "regex")\n\
+		                    if (j < ncols && cols[j] == col) {\n\
+		                        off[j] = p\n\
+		                        j++\n\
+		                    }\n\
+		                    col++\n\
+		                    p = $search_end\n\
+		                }\n\
+		            }\n\
+		\n\
+		            # A column the walk never reached is one past the end of this line.\n\
+		            # Apply right to left, so inserting a pipe never shifts an offset\n\
+		            # that has not been used yet.\n\
+		            occupied_here = 0\n\
+		            short_here = 0\n\
+		\n\
+		            for (k = ncols - 1; k >= 0; k--) {\n\
+		                if (k in off) {\n\
+		                    o = off[k]\n\
+		                    here = substring(line, o, o + 1)\n\
+		\n\
+		                    # A pipe already in place is left alone, which is what\n\
+		                    # makes a second run over the same columns do nothing.\n\
+		                    if (here != "|") {\n\
+		                        if (mode == "insert") {\n\
+		                            line = replace_substring(line, o, o, "|")\n\
+		                            piped++\n\
+		                        } else if (here == " ") {\n\
+		                            # A space is one byte whatever else is on the line,\n\
+		                            # so writing over one never has to ask how wide the\n\
+		                            # character was.\n\
+		                            line = replace_substring(line, o, o + 1, "|")\n\
+		                            piped++\n\
+		                        } else {\n\
+		                            occupied_here = 1\n\
+		                        }\n\
+		                    }\n\
+		                } else {\n\
+		                    short_here = 1\n\
+		                }\n\
+		            }\n\
+		\n\
+		            if (occupied_here == 1) {\n\
+		                if (occupied == 0) {\n\
+		                    first_occupied = i + 1\n\
+		                }\n\
+		                occupied++\n\
+		            }\n\
+		            if (short_here == 1) {\n\
+		                if (too_short == 0) {\n\
+		                    first_too_short = i + 1\n\
+		                }\n\
+		                too_short++\n\
+		            }\n\
+		        }\n\
+		\n\
+		        chunk = chunk line\n\
+		        if (i < n_lines - 1) {\n\
+		            chunk = chunk "\\n"\n\
+		        }\n\
+		\n\
+		        # Appending every line straight onto one growing string is quadratic:\n\
+		        # each append copies everything written so far. Flushing a chunk every\n\
+		        # 200 lines keeps a few thousand rows instant instead of a visible\n\
+		        # stall.\n\
+		        if (i % 200 == 199) {\n\
+		            out = out chunk\n\
+		            chunk = ""\n\
+		        }\n\
+		    }\n\
+		    out = out chunk\n\
+		\n\
+		    if (out != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, out)\n\
+		\n\
+		        # Inserting lengthens the buffer and overwriting leaves it the same\n\
+		        # length, but clamp rather than reason about which happened. Belt and\n\
+		        # braces: set_cursor_pos() clamps to the end of the buffer itself, on\n\
+		        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report ----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("pipe: " $file_name ": nothing changed\\n")\n\
+		} else if (n_rows == 0) {\n\
+		    t_print("pipe: " $file_name ": no data rows, nothing to pipe\\n")\n\
+		} else {\n\
+		    t_print("pipe: " $file_name ": " piped " pipe(s) into " n_rows " row(s)\\n")\n\
+		}\n\
+		\n\
+		if (occupied > 0) {\n\
+		    if (msg != "") {\n\
+		        msg = msg "\\n\\n"\n\
+		    }\n\
+		    msg = msg $file_name " has " occupied " row(s) holding something other than "\n\
+		    msg = msg "a space at one of those columns, and they were left as they are. "\n\
+		    msg = msg "The first is on line " first_occupied ".\\n\\nOverwriting there "\n\
+		    msg = msg "would have destroyed a character. Either the column is a place "\n\
+		    msg = msg "or two off, or those rows are wider than the rest, so read them "\n\
+		    msg = msg "before this file goes any further."\n\
+		}\n\
+		\n\
+		if (too_short > 0) {\n\
+		    if (msg != "") {\n\
+		        msg = msg "\\n\\n"\n\
+		    }\n\
+		    msg = msg $file_name " has " too_short " row(s) that end before one of those "\n\
+		    msg = msg "columns, so no pipe went in at that column. The first is on line "\n\
+		    msg = msg first_too_short ".\\n\\nNothing was padded out to reach it, because a "\n\
+		    msg = msg "padded row invents data. If those rows should have carried a "\n\
+		    msg = msg "value there, it went missing upstream."\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+		# --- end shared ---\n\
+	}\n\
+	NED>RA to NED Form:::R: {\n\
+		ok = 1\n\
+		msg = ""\n\
+		n_done = 0\n\
+		bad_value = ""\n\
+		bad_line = 0\n\
+		bad_signed = 0\n\
+		\n\
+		# A locked buffer takes no writes. replace_selection() on one does nothing and\n\
+		# says nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_selection() itself refuses on.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		}\n\
+		\n\
+		if (ok == 1 && $selection_start == -1) {\n\
+		    ok = 0\n\
+		    msg = "Select the right ascension column first.\\n\\nA rectangular selection "\n\
+		    msg = msg "is the way to take one column out of a table: hold Ctrl while "\n\
+		    msg = msg "dragging, or Alt on some window managers. An ordinary selection "\n\
+		    msg = msg "works too and is read a line at a time."\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_selection()\n\
+		\n\
+		    # A rectangular selection comes back as its lines joined with newlines, the\n\
+		    # same shape an ordinary one has, so both are read the same way from here.\n\
+		    lines = split(original, "\\n", "case")\n\
+		    n_lines = lines[]\n\
+		\n\
+		    out = ""\n\
+		\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        v = replace_in_string(lines[i], "^[ \\t]+", "", "regex", "copy")\n\
+		        v = replace_in_string(v, "[ \\t]+$", "", "regex", "copy")\n\
+		\n\
+		        if (v == "") {\n\
+		            # A rectangle wider than a line, a blank line, or the gap above a\n\
+		            # table. Passed through with its blanks intact.\n\
+		            out = out lines[i]\n\
+		        } else {\n\
+		            stripped = replace_in_string(v, ":", "", "case", "copy")\n\
+		\n\
+		            # A leading sign is reported separately from ordinary rubbish,\n\
+		            # because it has a specific and likely cause.\n\
+		            first = substring(stripped, 0, 1)\n\
+		\n\
+		            # What is left has to be digits and decimal points and nothing\n\
+		            # else. "^" and "$" anchor to line boundaries rather than string\n\
+		            # boundaries, but split() has already taken every newline out, so\n\
+		            # here they are the ends of the value.\n\
+		            if (stripped == "" || \\\n\
+		                search_string(stripped, "^[0-9.]+$", 0, "regex") == -1) {\n\
+		                if (bad_value == "") {\n\
+		                    bad_value = v\n\
+		                    bad_line = i + 1\n\
+		                    if (first == "+" || first == "-") {\n\
+		                        bad_signed = 1\n\
+		                    }\n\
+		                }\n\
+		                out = out lines[i]\n\
+		            } else {\n\
+		                out = out stripped\n\
+		                n_done++\n\
+		            }\n\
+		        }\n\
+		\n\
+		        if (i < n_lines - 1) {\n\
+		            out = out "\\n"\n\
+		        }\n\
+		    }\n\
+		\n\
+		    # All or nothing. A column half converted is harder to spot and harder to\n\
+		    # undo than a column that was never touched.\n\
+		    if (bad_value != "") {\n\
+		        ok = 0\n\
+		        n_done = 0\n\
+		        if (bad_signed == 1) {\n\
+		            msg = "Line " bad_line " of the selection is signed: "\n\
+		            msg = msg "\\"" bad_value "\\"\\n\\nNothing was changed. A right "\n\
+		            msg = msg "ascension is never signed, so this is almost certainly "\n\
+		            msg = msg "the declination column. Use Dec to NED Form on it, or "\n\
+		            msg = msg "check the two columns are the way round you expect."\n\
+		        } else {\n\
+		            msg = "Line " bad_line " of the selection is not a right "\n\
+		            msg = msg "ascension: \\"" bad_value "\\"\\n\\nNothing was changed. A "\n\
+		            msg = msg "right ascension is digits and colons, as in "\n\
+		            msg = msg "03:28:45.99. Check the selection covers the right "\n\
+		            msg = msg "column and try again."\n\
+		        }\n\
+		    } else if (out != original) {\n\
+		        replace_selection(out)\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report -----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("ra: " $file_name ": nothing changed\\n")\n\
+		} else if (n_done == 0) {\n\
+		    t_print("ra: " $file_name ": nothing in the selection to convert\\n")\n\
+		} else {\n\
+		    t_print("ra: " $file_name ": " n_done " right ascension(s) converted\\n")\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+	}\n\
+	NED>Trim Trailing Blanks:::: {\n\
+		ok = 1\n\
+		msg = ""\n\
+		n_trimmed = 0\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		\n\
+		    # The "copy" argument is doing real work here. Without it\n\
+		    # replace_in_string() returns an empty string when the pattern matches\n\
+		    # nothing, and the replace_range() below would then erase the entire file.\n\
+		    trimmed = replace_in_string(original, "[ \\t]+$", "", "regex", "copy")\n\
+		\n\
+		    if (trimmed != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, trimmed)\n\
+		\n\
+		        # The buffer just got shorter, so the old offset may now be past the\n\
+		        # end. Belt and braces: set_cursor_pos() clamps to the end of the\n\
+		        # buffer itself, on XNEdit and on NEdit 5.7 alike, so no test can reach\n\
+		        # the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		\n\
+		    # Count the lines that had blanks on the end of them, in the text as it\n\
+		    # came in. "$" anchors to the end of a line rather than the end of the\n\
+		    # string, so every match is one line, and $search_end is past the blanks it\n\
+		    # matched, which is what makes the search walk forward.\n\
+		    pos = search_string(original, "[ \\t]+$", 0, "regex")\n\
+		    while (pos != -1) {\n\
+		        n_trimmed++\n\
+		        pos = search_string(original, "[ \\t]+$", $search_end, "regex")\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report -----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("trim: " $file_name ": nothing changed\\n")\n\
+		} else if (n_trimmed == 0) {\n\
+		    t_print("trim: " $file_name ": nothing to trim\\n")\n\
+		} else {\n\
+		    t_print("trim: " $file_name ": " n_trimmed " line(s) trimmed\\n")\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+	}\n
+
+nedit.bgMenuCommands: \
+	NED>Pipe at Columns:::: {\n\
+		# --- prologue: ask which columns, and how -----------------------------------\n\
+		\n\
+		mode = "overwrite"\n\
+		cols = $empty_array\n\
+		ncols = 0\n\
+		ok = 0\n\
+		msg = ""\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		#\n\
+		# It goes here rather than in the shared block below, because the prompt is in\n\
+		# between: asking which columns to pipe and then refusing to pipe any of them\n\
+		# is worse than not asking.\n\
+		if ($read_only == 1) {\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		} else {\n\
+		    # string_dialog() takes no default text, so the message is the only place\n\
+		    # to put the current column.\n\
+		    prompt = "Which columns should get a pipe?\\n\\n"\n\
+		    prompt = prompt "Type the numbers separated by spaces or commas. They "\n\
+		    prompt = prompt "count from 0, the way the C: field of the statistics line "\n\
+		    prompt = prompt "counts, and the cursor is in column " $column " right "\n\
+		    prompt = prompt "now.\\n\\n"\n\
+		    prompt = prompt "Overwrite writes a pipe over the character at each "\n\
+		    prompt = prompt "column, and only where that character is a space.\\n\\n"\n\
+		    prompt = prompt "Insert puts the pipe in and pushes the rest of the line "\n\
+		    prompt = prompt "right, which loses nothing but widens every row it "\n\
+		    prompt = prompt "touches."\n\
+		\n\
+		    answer = string_dialog(prompt, "Overwrite", "Insert", "Cancel")\n\
+		\n\
+		    # Button 3 is Cancel and button 0 is the window manager's close button.\n\
+		    # Both leave ok at 0, and so does anything else the dialog might return.\n\
+		    if ($string_dialog_button == 1) {\n\
+		        mode = "overwrite"\n\
+		        ok = 1\n\
+		    } else if ($string_dialog_button == 2) {\n\
+		        mode = "insert"\n\
+		        ok = 1\n\
+		    }\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    # Dedupe through an associative array, then insertion-sort. for (k in arr)\n\
+		    # walks the keys as strings, where "10" sorts before "9", so it cannot do\n\
+		    # the sorting.\n\
+		    tokens = split(answer, "[ ,\\t]+", "regex")\n\
+		    n_tokens = tokens[]\n\
+		    seen = $empty_array\n\
+		\n\
+		    for (t = 0; t < n_tokens; t++) {\n\
+		        word = tokens[t]\n\
+		\n\
+		        # split() yields an empty token wherever a separator sits at either end\n\
+		        # of the answer, and "" passes valid_number(), so drop those first.\n\
+		        if (word != "") {\n\
+		            if (valid_number(word) == 0) {\n\
+		                ok = 0\n\
+		                msg = "\\"" word "\\" is not a column number.\\n\\nType the columns "\n\
+		                msg = msg "as plain numbers separated by spaces or commas, like "\n\
+		                msg = msg "this: 10 23"\n\
+		                break\n\
+		            }\n\
+		\n\
+		            v = word + 0\n\
+		            if (v < 1) {\n\
+		                ok = 0\n\
+		                msg = "Column " v " is not a place a pipe can go.\\n\\nColumns "\n\
+		                msg = msg "count from 0, and a pipe in column 0 would open the "\n\
+		                msg = msg "table with an empty field, so the first column that "\n\
+		                msg = msg "can take one is 1."\n\
+		                break\n\
+		            }\n\
+		\n\
+		            if ((v in seen) == 0) {\n\
+		                seen[v] = 1\n\
+		                m = ncols\n\
+		                while (m > 0 && cols[m - 1] > v) {\n\
+		                    cols[m] = cols[m - 1]\n\
+		                    m--\n\
+		                }\n\
+		                cols[m] = v\n\
+		                ncols++\n\
+		            }\n\
+		        }\n\
+		    }\n\
+		}\n\
+		\n\
+		# An answer with no numbers in it at all is a change of mind rather than a\n\
+		# mistake, so it does nothing and says nothing about it.\n\
+		if (ok == 1 && ncols == 0) {\n\
+		    ok = 0\n\
+		}\n\
+		\n\
+		# --- shared: column arithmetic ---\n\
+		#\n\
+		# Everything down to the end marker is byte-identical in\n\
+		# pipe-at-cursor-column.nm and pipe-at-columns.nm, and tests/test_conventions.py\n\
+		# keeps it that way. Change something here and paste the whole block into the\n\
+		# other file.\n\
+		#\n\
+		# The prologue above settles five things:\n\
+		#\n\
+		#   cols[0..ncols-1]  display columns to pipe, ascending, deduped, all >= 1\n\
+		#   ncols             how many\n\
+		#   mode              "overwrite" or "insert"\n\
+		#   ok                1 to go ahead, 0 if the prologue already refused\n\
+		#   msg               "" or the reason it refused\n\
+		\n\
+		n_rows = 0\n\
+		piped = 0\n\
+		occupied = 0\n\
+		first_occupied = 0\n\
+		too_short = 0\n\
+		first_too_short = 0\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		\n\
+		    # split() on "\\n" yields one element per line plus a trailing empty element\n\
+		    # when the buffer ends in a newline, so joining the elements back with "\\n"\n\
+		    # reproduces the buffer exactly. That is what lets the no-change case below\n\
+		    # be a plain string comparison.\n\
+		    lines = split(original, "\\n", "case")\n\
+		    n_lines = lines[]\n\
+		\n\
+		    # A tab is one byte wide and any number of columns wide, so a buffer with\n\
+		    # one in it cannot be reasoned about a column at a time. Refusing here is\n\
+		    # what keeps tab stops out of every calculation that follows.\n\
+		    if (search_string(original, "\\t", 0, "case") != -1) {\n\
+		        ok = 0\n\
+		        msg = $file_name " has a tab in it, so there is no telling which column "\n\
+		        msg = msg "anything is in: a tab is one character and however many "\n\
+		        msg = msg "columns it takes to reach the next tab stop.\\n\\nRun NED>"\n\
+		        msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "\n\
+		        msg = msg "so the columns stay where they sit on screen. Normalize "\n\
+		        msg = msg "Characters takes tabs out too, but it writes one space for "\n\
+		        msg = msg "each, which usually closes the columns up."\n\
+		    }\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    out = ""\n\
+		    chunk = ""\n\
+		\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        line = lines[i]\n\
+		\n\
+		        stripped = replace_in_string(line, "^[ \\t]+", "", "regex", "copy")\n\
+		        stripped = replace_in_string(stripped, "[ \\t]+$", "", "regex", "copy")\n\
+		\n\
+		        # Blank lines and header lines are copied through verbatim, so the\n\
+		        # ##refcode block at the top of a NED file goes through untouched.\n\
+		        if (stripped != "" && substring(stripped, 0, 1) != "#") {\n\
+		            n_rows++\n\
+		\n\
+		            # Resolve every target column to a byte offset in one left-to-right\n\
+		            # walk, because byte offsets and display columns only agree while\n\
+		            # the line is ASCII. An en dash is three bytes and one column.\n\
+		            #\n\
+		            # "[ -~]+" is every printable ASCII character, so a run of them is\n\
+		            # as many characters as it is bytes and resolves in a single step.\n\
+		            # Anything else advances one character at a time through a bare\n\
+		            # ".", which is UTF-8 aware. Repetition is not: ".{n}", ".*" and\n\
+		            # ".+" all count bytes, so none of them can appear here.\n\
+		            off = $empty_array\n\
+		            p = 0\n\
+		            col = 0\n\
+		            j = 0\n\
+		\n\
+		            while (j < ncols && p < length(line)) {\n\
+		                s = search_string(line, "[ -~]+", p, "regex")\n\
+		                if (s == p) {\n\
+		                    run = $search_end - p\n\
+		                    while (j < ncols && cols[j] < col + run) {\n\
+		                        off[j] = p + (cols[j] - col)\n\
+		                        j++\n\
+		                    }\n\
+		                    col = col + run\n\
+		                    p = $search_end\n\
+		                } else {\n\
+		                    # "." matches everything except a newline, and split() has\n\
+		                    # already taken every newline out, so this always advances.\n\
+		                    search_string(line, ".", p, "regex")\n\
+		                    if (j < ncols && cols[j] == col) {\n\
+		                        off[j] = p\n\
+		                        j++\n\
+		                    }\n\
+		                    col++\n\
+		                    p = $search_end\n\
+		                }\n\
+		            }\n\
+		\n\
+		            # A column the walk never reached is one past the end of this line.\n\
+		            # Apply right to left, so inserting a pipe never shifts an offset\n\
+		            # that has not been used yet.\n\
+		            occupied_here = 0\n\
+		            short_here = 0\n\
+		\n\
+		            for (k = ncols - 1; k >= 0; k--) {\n\
+		                if (k in off) {\n\
+		                    o = off[k]\n\
+		                    here = substring(line, o, o + 1)\n\
+		\n\
+		                    # A pipe already in place is left alone, which is what\n\
+		                    # makes a second run over the same columns do nothing.\n\
+		                    if (here != "|") {\n\
+		                        if (mode == "insert") {\n\
+		                            line = replace_substring(line, o, o, "|")\n\
+		                            piped++\n\
+		                        } else if (here == " ") {\n\
+		                            # A space is one byte whatever else is on the line,\n\
+		                            # so writing over one never has to ask how wide the\n\
+		                            # character was.\n\
+		                            line = replace_substring(line, o, o + 1, "|")\n\
+		                            piped++\n\
+		                        } else {\n\
+		                            occupied_here = 1\n\
+		                        }\n\
+		                    }\n\
+		                } else {\n\
+		                    short_here = 1\n\
+		                }\n\
+		            }\n\
+		\n\
+		            if (occupied_here == 1) {\n\
+		                if (occupied == 0) {\n\
+		                    first_occupied = i + 1\n\
+		                }\n\
+		                occupied++\n\
+		            }\n\
+		            if (short_here == 1) {\n\
+		                if (too_short == 0) {\n\
+		                    first_too_short = i + 1\n\
+		                }\n\
+		                too_short++\n\
+		            }\n\
+		        }\n\
+		\n\
+		        chunk = chunk line\n\
+		        if (i < n_lines - 1) {\n\
+		            chunk = chunk "\\n"\n\
+		        }\n\
+		\n\
+		        # Appending every line straight onto one growing string is quadratic:\n\
+		        # each append copies everything written so far. Flushing a chunk every\n\
+		        # 200 lines keeps a few thousand rows instant instead of a visible\n\
+		        # stall.\n\
+		        if (i % 200 == 199) {\n\
+		            out = out chunk\n\
+		            chunk = ""\n\
+		        }\n\
+		    }\n\
+		    out = out chunk\n\
+		\n\
+		    if (out != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, out)\n\
+		\n\
+		        # Inserting lengthens the buffer and overwriting leaves it the same\n\
+		        # length, but clamp rather than reason about which happened. Belt and\n\
+		        # braces: set_cursor_pos() clamps to the end of the buffer itself, on\n\
+		        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report ----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("pipe: " $file_name ": nothing changed\\n")\n\
+		} else if (n_rows == 0) {\n\
+		    t_print("pipe: " $file_name ": no data rows, nothing to pipe\\n")\n\
+		} else {\n\
+		    t_print("pipe: " $file_name ": " piped " pipe(s) into " n_rows " row(s)\\n")\n\
+		}\n\
+		\n\
+		if (occupied > 0) {\n\
+		    if (msg != "") {\n\
+		        msg = msg "\\n\\n"\n\
+		    }\n\
+		    msg = msg $file_name " has " occupied " row(s) holding something other than "\n\
+		    msg = msg "a space at one of those columns, and they were left as they are. "\n\
+		    msg = msg "The first is on line " first_occupied ".\\n\\nOverwriting there "\n\
+		    msg = msg "would have destroyed a character. Either the column is a place "\n\
+		    msg = msg "or two off, or those rows are wider than the rest, so read them "\n\
+		    msg = msg "before this file goes any further."\n\
+		}\n\
+		\n\
+		if (too_short > 0) {\n\
+		    if (msg != "") {\n\
+		        msg = msg "\\n\\n"\n\
+		    }\n\
+		    msg = msg $file_name " has " too_short " row(s) that end before one of those "\n\
+		    msg = msg "columns, so no pipe went in at that column. The first is on line "\n\
+		    msg = msg first_too_short ".\\n\\nNothing was padded out to reach it, because a "\n\
+		    msg = msg "padded row invents data. If those rows should have carried a "\n\
+		    msg = msg "value there, it went missing upstream."\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+		# --- end shared ---\n\
+	}\n\
+	NED>Pipe at Cursor Column:::: {\n\
+		# --- prologue: the single column the cursor is sitting in -------------------\n\
+		\n\
+		mode = "overwrite"\n\
+		cols = $empty_array\n\
+		ncols = 0\n\
+		ok = 1\n\
+		msg = ""\n\
+		\n\
+		# A locked buffer takes no writes. replace_range() on one does nothing and says\n\
+		# nothing, so everything below would be computed and thrown away and the\n\
+		# summary would name an edit that never happened. $read_only is the test and\n\
+		# not $locked: $locked misses a file with no write permission, while $read_only\n\
+		# is the same condition replace_range() itself refuses on.\n\
+		#\n\
+		# $column is the display column counting from 0, the same number the C: field\n\
+		# of the statistics line shows.\n\
+		if ($read_only == 1) {\n\
+		    ok = 0\n\
+		    msg = $file_name " is locked, so nothing was changed.\\n\\nXNEdit locks a "\n\
+		    msg = msg "file it cannot read as UTF-8, which is the usual reason. "\n\
+		    msg = msg "File > Read Only locks a buffer too, and so does a file with "\n\
+		    msg = msg "no write permission."\n\
+		} else if ($column == 0) {\n\
+		    ok = 0\n\
+		    msg = "The cursor is in column 0, at the very start of the line.\\n\\nA pipe "\n\
+		    msg = msg "there would open the table with an empty field. Put the cursor "\n\
+		    msg = msg "in the column you want the pipe to land in and run this again."\n\
+		} else {\n\
+		    cols[0] = $column\n\
+		    ncols = 1\n\
+		}\n\
+		\n\
+		# --- shared: column arithmetic ---\n\
+		#\n\
+		# Everything down to the end marker is byte-identical in\n\
+		# pipe-at-cursor-column.nm and pipe-at-columns.nm, and tests/test_conventions.py\n\
+		# keeps it that way. Change something here and paste the whole block into the\n\
+		# other file.\n\
+		#\n\
+		# The prologue above settles five things:\n\
+		#\n\
+		#   cols[0..ncols-1]  display columns to pipe, ascending, deduped, all >= 1\n\
+		#   ncols             how many\n\
+		#   mode              "overwrite" or "insert"\n\
+		#   ok                1 to go ahead, 0 if the prologue already refused\n\
+		#   msg               "" or the reason it refused\n\
+		\n\
+		n_rows = 0\n\
+		piped = 0\n\
+		occupied = 0\n\
+		first_occupied = 0\n\
+		too_short = 0\n\
+		first_too_short = 0\n\
+		\n\
+		if (ok == 1) {\n\
+		    original = get_range(0, $text_length)\n\
+		\n\
+		    # split() on "\\n" yields one element per line plus a trailing empty element\n\
+		    # when the buffer ends in a newline, so joining the elements back with "\\n"\n\
+		    # reproduces the buffer exactly. That is what lets the no-change case below\n\
+		    # be a plain string comparison.\n\
+		    lines = split(original, "\\n", "case")\n\
+		    n_lines = lines[]\n\
+		\n\
+		    # A tab is one byte wide and any number of columns wide, so a buffer with\n\
+		    # one in it cannot be reasoned about a column at a time. Refusing here is\n\
+		    # what keeps tab stops out of every calculation that follows.\n\
+		    if (search_string(original, "\\t", 0, "case") != -1) {\n\
+		        ok = 0\n\
+		        msg = $file_name " has a tab in it, so there is no telling which column "\n\
+		        msg = msg "anything is in: a tab is one character and however many "\n\
+		        msg = msg "columns it takes to reach the next tab stop.\\n\\nRun NED>"\n\
+		        msg = msg "Expand Tabs first. It writes the spaces each tab stands for, "\n\
+		        msg = msg "so the columns stay where they sit on screen. Normalize "\n\
+		        msg = msg "Characters takes tabs out too, but it writes one space for "\n\
+		        msg = msg "each, which usually closes the columns up."\n\
+		    }\n\
+		}\n\
+		\n\
+		if (ok == 1) {\n\
+		    out = ""\n\
+		    chunk = ""\n\
+		\n\
+		    for (i = 0; i < n_lines; i++) {\n\
+		        line = lines[i]\n\
+		\n\
+		        stripped = replace_in_string(line, "^[ \\t]+", "", "regex", "copy")\n\
+		        stripped = replace_in_string(stripped, "[ \\t]+$", "", "regex", "copy")\n\
+		\n\
+		        # Blank lines and header lines are copied through verbatim, so the\n\
+		        # ##refcode block at the top of a NED file goes through untouched.\n\
+		        if (stripped != "" && substring(stripped, 0, 1) != "#") {\n\
+		            n_rows++\n\
+		\n\
+		            # Resolve every target column to a byte offset in one left-to-right\n\
+		            # walk, because byte offsets and display columns only agree while\n\
+		            # the line is ASCII. An en dash is three bytes and one column.\n\
+		            #\n\
+		            # "[ -~]+" is every printable ASCII character, so a run of them is\n\
+		            # as many characters as it is bytes and resolves in a single step.\n\
+		            # Anything else advances one character at a time through a bare\n\
+		            # ".", which is UTF-8 aware. Repetition is not: ".{n}", ".*" and\n\
+		            # ".+" all count bytes, so none of them can appear here.\n\
+		            off = $empty_array\n\
+		            p = 0\n\
+		            col = 0\n\
+		            j = 0\n\
+		\n\
+		            while (j < ncols && p < length(line)) {\n\
+		                s = search_string(line, "[ -~]+", p, "regex")\n\
+		                if (s == p) {\n\
+		                    run = $search_end - p\n\
+		                    while (j < ncols && cols[j] < col + run) {\n\
+		                        off[j] = p + (cols[j] - col)\n\
+		                        j++\n\
+		                    }\n\
+		                    col = col + run\n\
+		                    p = $search_end\n\
+		                } else {\n\
+		                    # "." matches everything except a newline, and split() has\n\
+		                    # already taken every newline out, so this always advances.\n\
+		                    search_string(line, ".", p, "regex")\n\
+		                    if (j < ncols && cols[j] == col) {\n\
+		                        off[j] = p\n\
+		                        j++\n\
+		                    }\n\
+		                    col++\n\
+		                    p = $search_end\n\
+		                }\n\
+		            }\n\
+		\n\
+		            # A column the walk never reached is one past the end of this line.\n\
+		            # Apply right to left, so inserting a pipe never shifts an offset\n\
+		            # that has not been used yet.\n\
+		            occupied_here = 0\n\
+		            short_here = 0\n\
+		\n\
+		            for (k = ncols - 1; k >= 0; k--) {\n\
+		                if (k in off) {\n\
+		                    o = off[k]\n\
+		                    here = substring(line, o, o + 1)\n\
+		\n\
+		                    # A pipe already in place is left alone, which is what\n\
+		                    # makes a second run over the same columns do nothing.\n\
+		                    if (here != "|") {\n\
+		                        if (mode == "insert") {\n\
+		                            line = replace_substring(line, o, o, "|")\n\
+		                            piped++\n\
+		                        } else if (here == " ") {\n\
+		                            # A space is one byte whatever else is on the line,\n\
+		                            # so writing over one never has to ask how wide the\n\
+		                            # character was.\n\
+		                            line = replace_substring(line, o, o + 1, "|")\n\
+		                            piped++\n\
+		                        } else {\n\
+		                            occupied_here = 1\n\
+		                        }\n\
+		                    }\n\
+		                } else {\n\
+		                    short_here = 1\n\
+		                }\n\
+		            }\n\
+		\n\
+		            if (occupied_here == 1) {\n\
+		                if (occupied == 0) {\n\
+		                    first_occupied = i + 1\n\
+		                }\n\
+		                occupied++\n\
+		            }\n\
+		            if (short_here == 1) {\n\
+		                if (too_short == 0) {\n\
+		                    first_too_short = i + 1\n\
+		                }\n\
+		                too_short++\n\
+		            }\n\
+		        }\n\
+		\n\
+		        chunk = chunk line\n\
+		        if (i < n_lines - 1) {\n\
+		            chunk = chunk "\\n"\n\
+		        }\n\
+		\n\
+		        # Appending every line straight onto one growing string is quadratic:\n\
+		        # each append copies everything written so far. Flushing a chunk every\n\
+		        # 200 lines keeps a few thousand rows instant instead of a visible\n\
+		        # stall.\n\
+		        if (i % 200 == 199) {\n\
+		            out = out chunk\n\
+		            chunk = ""\n\
+		        }\n\
+		    }\n\
+		    out = out chunk\n\
+		\n\
+		    if (out != original) {\n\
+		        saved_cursor = $cursor\n\
+		        replace_range(0, $text_length, out)\n\
+		\n\
+		        # Inserting lengthens the buffer and overwriting leaves it the same\n\
+		        # length, but clamp rather than reason about which happened. Belt and\n\
+		        # braces: set_cursor_pos() clamps to the end of the buffer itself, on\n\
+		        # XNEdit and on NEdit 5.7 alike, so no test can reach the line below.\n\
+		        if (saved_cursor > $text_length) {\n\
+		            saved_cursor = $text_length\n\
+		        }\n\
+		        set_cursor_pos(saved_cursor)\n\
+		    }\n\
+		}\n\
+		\n\
+		# --- report ----------------------------------------------------------------\n\
+		\n\
+		if (ok == 0) {\n\
+		    t_print("pipe: " $file_name ": nothing changed\\n")\n\
+		} else if (n_rows == 0) {\n\
+		    t_print("pipe: " $file_name ": no data rows, nothing to pipe\\n")\n\
+		} else {\n\
+		    t_print("pipe: " $file_name ": " piped " pipe(s) into " n_rows " row(s)\\n")\n\
+		}\n\
+		\n\
+		if (occupied > 0) {\n\
+		    if (msg != "") {\n\
+		        msg = msg "\\n\\n"\n\
+		    }\n\
+		    msg = msg $file_name " has " occupied " row(s) holding something other than "\n\
+		    msg = msg "a space at one of those columns, and they were left as they are. "\n\
+		    msg = msg "The first is on line " first_occupied ".\\n\\nOverwriting there "\n\
+		    msg = msg "would have destroyed a character. Either the column is a place "\n\
+		    msg = msg "or two off, or those rows are wider than the rest, so read them "\n\
+		    msg = msg "before this file goes any further."\n\
+		}\n\
+		\n\
+		if (too_short > 0) {\n\
+		    if (msg != "") {\n\
+		        msg = msg "\\n\\n"\n\
+		    }\n\
+		    msg = msg $file_name " has " too_short " row(s) that end before one of those "\n\
+		    msg = msg "columns, so no pipe went in at that column. The first is on line "\n\
+		    msg = msg first_too_short ".\\n\\nNothing was padded out to reach it, because a "\n\
+		    msg = msg "padded row invents data. If those rows should have carried a "\n\
+		    msg = msg "value there, it went missing upstream."\n\
+		}\n\
+		\n\
+		if (msg != "") {\n\
+		    dialog(msg, "OK")\n\
+		}\n\
+		# --- end shared ---\n\
+	}\n

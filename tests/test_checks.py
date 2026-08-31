@@ -28,12 +28,15 @@ from nedkit.checks import (
     check_library_prefix,
     check_read_only_guard,
     check_replace_in_string_copy,
+    check_resource_fields,
     check_search_type,
     find_calls,
     find_definitions,
     split_args,
 )
-from nedkit.macro import MacroFile, parse, slug
+from nedkit.macro import MacroFile, command_files, parse, slug
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _macro(body: str) -> MacroFile:
@@ -449,3 +452,24 @@ def test_a_file_that_is_all_header_is_left_to_the_header_check(tmp_path: Path) -
     """``check_header()`` already says a command has no body. Saying it twice,
     in two voices, buries the one finding that names the real problem."""
     assert check_header_separated(parse(written(tmp_path, HEADER))) == []
+
+
+def test_a_colon_in_a_resource_field_is_reported(tmp_path: Path) -> None:
+    """It shifts every field after it along, and one bad entry fails the whole
+    ``docs/nedkit-macros.rc`` rather than only its own command."""
+    header = HEADER.replace("NED>Example", "NED>RA: to NED Form")
+    findings = check_resource_fields(parse(written(tmp_path, header + "\nx = 1\n")))
+    assert len(findings) == 1, findings
+    assert "'Menu Entry' cannot contain a colon" in findings[0].message
+
+
+def test_a_multi_letter_mnemonic_is_reported(tmp_path: Path) -> None:
+    header = HEADER.replace("Mnemonic:           (none)", "Mnemonic:           Ex")
+    findings = check_resource_fields(parse(written(tmp_path, header + "\nx = 1\n")))
+    assert len(findings) == 1, findings
+    assert "one letter or none" in findings[0].message
+
+
+def test_the_shipped_headers_have_nothing_wrong_with_their_fields() -> None:
+    for path in command_files(REPO_ROOT):
+        assert check_resource_fields(parse(path)) == [], path.name

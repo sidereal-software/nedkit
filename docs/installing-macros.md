@@ -120,17 +120,29 @@ reinstall after an edit, delete the old block first.
 ## Install several commands at once
 
 Rather than paste a dozen commands through the dialog, XNEdit can read them
-from a file:
+from a file. Every command in this repo is in one:
+[nedkit-macros.rc](nedkit-macros.rc){ download }.
 
 ```sh
-xnedit -import ned-macros.rc
+xnedit -import ~/Downloads/nedkit-macros.rc
 ```
 
 Then **Preferences > Save Defaults** in the window that opens. The imported
-commands are *merged* into whatever you already have, so this will not clobber
-your own macros.
+commands are *merged* into whatever you already have, matched on the menu path,
+so this will not clobber your own macros. [Getting
+started](getting-started.md) uses this route and nothing else.
 
-The file holds a single `nedit.macroCommands` resource listing every command:
+Re-importing is safe for the same reason. An entry whose menu path already
+exists is replaced rather than added, so importing a regenerated file updates
+the commands in place instead of leaving you with two of each. Do it after
+every change to the macros. A subroutine library behaves the opposite way:
+appending one to `autoload.nm` a second time defines everything in it twice.
+
+The file holds two resources rather than one, `nedit.macroCommands` for the
+**Macro** menu and `nedit.bgMenuCommands` for the right-click menu, in the
+identical format. One `-import` reads both, which is how Pipe at Columns and
+Pipe at Cursor Column reach both menus in a single pass. An entry looks like
+this:
 
 ```
 nedit.macroCommands: \
@@ -153,13 +165,16 @@ The format is unforgiving:
 | Indentation | Tabs, not spaces |
 | Backslashes | They double. A macro containing `"[ \t]+$"` is written `"[ \\t]+$"` here, and `"\\w"` becomes `"\\\\w"` |
 
-Background menu commands sit in a second resource, `nedit.bgMenuCommands`, in
-the identical format. One `-import` reads both, so a file carrying both
-resources installs a command into both menus in one go.
+Because of that backslash rule especially, don't hand-write these.
+`tools/gen_docs.py` writes `docs/nedkit-macros.rc` from the macro files, which
+is why the download stays in step with them, and a test fails if the committed
+copy drifts.
 
-Because of that backslash rule especially, don't hand-write these. Install the
-command through the dialog, run Save Defaults, then copy the entry XNEdit
-generated out of `~/.xnedit/nedit.rc`.
+Writing the same resource straight into `~/.xnedit/nedit.rc` looks like the
+same thing and is not. Preferences are read from one source per setting, so a
+file naming `nedit.macroCommands` replaces XNEdit's own built-in macro
+commands, Complete Word and the Comments submenu among them, rather than
+joining them. Only `-import` merges.
 
 ## Where XNEdit keeps things
 
@@ -198,6 +213,8 @@ antialiased text.
 
 | What you see | Why, and what to do |
 | --- | --- |
+| The dialog will not take a paste | Use **Ctrl+V**, not Cmd+V. XNEdit binds Ctrl+V to paste on every text field in the program, through a fallback resource rather than through any menu, so it works in dialogs that have no Edit menu of their own. Or skip the dialog and import the file |
+| The **Accelerator** field will not take a paste either, or any typing | That one is deliberate. XNEdit strips the field of its ordinary key handling so it can record the keystroke you press, which is why the way to fill it in is to press the keys themselves |
 | The command is not in the menu | It went into `autoload.nm` instead. That file defines subroutines and creates no menu entries |
 | It is in the Macro menu but not on right-click | Those are two dialogs, not one. Customize Menus > Macro Menu... fills the Macro menu, Customize Menus > Window Background Menu... fills the right-click menu, and a command belonging in both is pasted into both |
 | It was there yesterday and now it is gone | Save Defaults was skipped |
