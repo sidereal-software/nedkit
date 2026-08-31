@@ -138,6 +138,13 @@ the commands in place instead of leaving you with two of each. Do it after
 every change to the macros. A subroutine library behaves the opposite way:
 appending one to `autoload.nm` a second time defines everything in it twice.
 
+A renamed command is the exception, and it is worth knowing before you rename
+one. Entries are matched on the menu path and nothing else, so a command whose
+**Menu Entry** changed arrives as a new one and the old name stays in the menu
+running the body it had. Save Defaults then writes both out. Delete the old
+entry through **Preferences > Default Settings > Customize Menus > Macro
+Menu**, since no import can do it for you.
+
 The file holds two resources rather than one, `nedit.macroCommands` for the
 **Macro** menu and `nedit.bgMenuCommands` for the right-click menu, in the
 identical format. One `-import` reads both, which is how Pipe at Columns and
