@@ -52,16 +52,38 @@
   margin: 0 0.4rem 0.4rem 0;
 }
 
-/* An outline button draws its text in the primary colour, which is chosen to
- * carry white on top of it and so is far too dark to sit on the slate ground:
- * 2.86:1. The filled variant is fine, because its text is on the primary
- * rather than beside it, so only the outline one moves to the link colour. */
-[data-md-color-scheme="slate"] .md-typeset .md-button {
-  color: var(--md-typeset-a-color);       /* 7.35:1 on the slate ground */
+/* Teal reads well on one ground only, so like the primary it needs a value per
+ * scheme. The bright teal is 6.58:1 on slate and 2.38:1 on white, and Material
+ * paints every hover and focus with it, so in the light scheme it was failing
+ * on every link and button the pointer touched. */
+[data-md-color-accent="teal"] {
+  --md-accent-fg-color: #00796b;                /* white on it, 5.32:1 */
+  --md-accent-fg-color--transparent: #00796b1a;
+  --md-accent-bg-color: #fff;
 }
 
-[data-md-color-scheme="slate"] .md-typeset .md-button--primary {
-  color: var(--md-primary-bg-color);      /* white on #c62828, 5.62:1 */
-  background-color: var(--md-primary-fg-color);
-  border-color: var(--md-primary-fg-color);
+[data-md-color-scheme="slate"][data-md-color-accent="teal"] {
+  --md-accent-fg-color: #00bda4;                /* on the slate ground, 6.58:1 */
+  --md-accent-fg-color--transparent: #00bda41a;
+  --md-accent-bg-color: #21232b;                /* dark on teal, 6.58:1 */
+}
+
+/* Dark mode inverts the button pair onto the light red: filled for the primary
+ * and drawn for the outline, so the two read as siblings. The primary colour
+ * cannot do this job, because it is chosen to carry white on top of it and so
+ * is far too dark to sit beside the slate ground: 2.86:1.
+ *
+ * Scoped away from :hover and :focus. Without that, this rule out-specifies
+ * Material's accent styling and leaves the label its resting colour on the
+ * accent background, which measured 1.09:1. */
+[data-md-color-scheme="slate"] .md-typeset .md-button:not(:hover):not(:focus) {
+  color: var(--md-typeset-a-color);             /* on the slate ground, 7.35:1 */
+}
+
+[data-md-color-scheme="slate"]
+  .md-typeset
+  .md-button--primary:not(:hover):not(:focus) {
+  background-color: var(--md-typeset-a-color);
+  border-color: var(--md-typeset-a-color);
+  color: var(--md-default-bg-color);            /* dark on light red, 7.16:1 */
 }
