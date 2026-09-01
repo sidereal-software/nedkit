@@ -8,8 +8,12 @@ come out the other end.
 | `A13L.mod.before` | An SDSS table pasted straight out of the paper, tab separated, with en dashes standing in for minus signs |
 | `A13L.mod.after` | The finished NED file for the same data |
 
-Neither file is wired into a test. `tests/test_pipeline.py` works from inline
-bytes, so nothing fails if these two go stale. They are here to be read.
+Both files are wired into `tests/test_worked_example.py`, which runs the
+documented sequence over `A13L.mod.before` through a real editor and checks the
+result against what
+[cleaning up a pasted table](https://nedkit.sidereal.software/cleaning-pdf-tables/)
+prints. Editing either file without editing that page fails the suite, which is
+the point: the page once claimed `A13L.mod.after` was the sequence's output.
 
 ## What the commands already do
 

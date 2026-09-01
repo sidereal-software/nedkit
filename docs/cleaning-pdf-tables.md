@@ -131,9 +131,9 @@ though it takes seven, and a column holding an accented name comes out as wide
 as it looks on screen.
 
 Every column is padded, the last one included, so each row ends in the same
-place. `samples/A13L.mod.after` is laid out that way. A row whose field count
-differs from the first data row is padded as far as it goes and then reported,
-by count and first line number; no empty field is invented to make it fit.
+place. A row whose field count differs from the first data row is padded as far
+as it goes and then reported, by count and first line number; no empty field is
+invented to make it fit.
 
 Run it last. It measures the widest value in each column, and that measurement
 holds only until the next edit, whether the edit comes from a command or from
@@ -205,10 +205,8 @@ The file to run this on is
 [A13L.mod.before](samples/A13L.mod.before){ download }, a real paste, tab
 separated, with an en dash standing in for the minus sign on the southern
 declinations. It is 14 rows long, and the blocks below show the first three of
-them. [A13L.mod.after](samples/A13L.mod.after){ download } is what the sequence
-produces, to check your own run against. A
-[clone of the repository](getting-started.md#getting-the-repository) has both
-under `samples/`.
+them. A [clone of the repository](getting-started.md#getting-the-repository)
+has it under `samples/`.
 
 Download it rather than copying the listing. A rendered web page holds no tab
 characters at all, so a copy of the block below arrives with spaces where the
@@ -297,6 +295,35 @@ alone, since every redshift here is six characters and the last column needed
 no padding. It says `trim: A13L.mod.before: nothing to trim`, where a run that
 did something would say `N line(s) trimmed`.
 
+### What is still done by hand
+
+The buffer now holds 16 lines: the `##refcode` line, the blank line under it,
+and 14 data rows of four fields, each 38 characters wide. The listing above is
+the thing to check your own run against.
+
+It is not a NED file yet.
+[A13L.mod.after](samples/A13L.mod.after){ download } is the finished file for
+the same data, 23 lines with five columns where this has four, and getting from
+one to the other is work no command here attempts:
+
+| Still to do | Why no command does it |
+| --- | --- |
+| `2026A+A...707A..13L` → `2026A&A...707A..13L` | A blanket `+` to `&` would destroy every positive declination in the file |
+| Seven `##` lines under the refcode, and the blank line goes: `##type1`, `##coordx_unit1`, `##coordy_unit1`, `##coord_equinox1`, `##coord_system1`, `##vz_flag1`, `##vz_unit1` | Nothing in the paste says what belongs in them |
+| A column heading row above the data | Same |
+| `SDSS001009` becomes the full designation, filling two columns where the paste has one short name | The designation has to be looked up |
+
+The heading row names one column each: `ap_name1`, `name1`, `coordx1`,
+`coordy1`, `vz1`. The first two both take the designation, and looking it up is
+the step that cannot come out of the file. Row 2 is named
+`SDSS J004054.31+153409.8` while its `coordx1` is `004054.33`: different
+digits, not a rounding of them, because the designation comes from SDSS's own
+astrometry and the paper's measured position is a separate quantity landing
+nearby. A name built from the coordinates would be a plausible identifier for
+the wrong object.
+
+`samples/README.md` in a clone is the repo's own version of that list.
+
 ## What Normalize Characters will not do
 
 It replaces characters that have an unambiguous ASCII spelling and leaves the
@@ -356,8 +383,9 @@ and a line in the terminal where the count normally goes:
 trim: A13L.mod.before: nothing changed
 ```
 
-All six say it, under their own prefix: `normalize:`, `fold:`, `pipe:`, `pad:`,
-`trim:`. The buffer was not touched, so there is nothing to undo.
+All nine commands say it, under eight prefixes: `dec:`, `expand:`, `fold:`,
+`normalize:`, `pad:`, `pipe:`, `ra:` and `trim:`, the two pipe commands sharing
+`pipe:`. The buffer was not touched, so there is nothing to undo.
 
 NED's data files are not reliably UTF-8, so the encoding lock is the one you
 will meet. XNEdit read a byte it could not decode, put U+FFFD REPLACEMENT
