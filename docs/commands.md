@@ -18,48 +18,6 @@ cannot drift away from what the macros actually do.
 
 ## Dec to NED Form
 
-| Setting | Value |
-| --- | --- |
-| Menu entry | `NED>Dec to NED Form` |
-| Installed in | Macro Menu |
-| Accelerator | (none) |
-| Requires a selection | yes |
-| Source | [`macros/commands/dec-to-ned-form.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/dec-to-ned-form.nm) |
-
-Rewrites the declinations in the selection the way a ptable wants them: the
-colons come out and the sign is always written.
-
-    -00:46:03.66        -004603.66
-    15:34:09.66    ->   +153409.66
-    +01:55:50.7         +015550.7
-
-There is no arithmetic here and no rounding. Every digit is the one the source
-published, because the precision differs between sources and picking a number
-of decimal places would be wrong for one of them whichever number was picked.
-
-The sign is the part worth care. A declination between 0 and -1 degrees has
-00 in its degrees field, so the sign is the only thing telling north from
-south, and sources are not consistent about writing + on a positive value.
-This writes one when it is missing rather than passing the value through.
-
-Select the declination column first. A rectangular selection is the way to
-take one column out of a table: hold Ctrl while dragging, or Alt on some
-window managers. An ordinary selection works too and is read a line at a
-time. Lines the rectangle does not reach are left alone, so the ## header
-block above a table comes to no harm.
-
-The values get shorter, so anything to the right of them shifts left. Run
-Pad Columns afterwards to square the file back up, which is the order it
-expects anyway.
-
-It converts nothing unless it can convert everything. A value that is not a
-declination stops the whole command and is named, because a column half in
-one format and half in another is worse than a column that was never touched.
-
-It refuses a locked buffer, since nothing written to one lands. XNEdit locks
-a file it cannot read as UTF-8; File > Read Only and a file you cannot write
-lock one too.
-
 ??? example "Macro body, only if you are installing this one command by hand"
 
     ```{ .text .copy title="Paste into Macro Command to Execute" }
@@ -170,52 +128,49 @@ lock one too.
     }
     ```
 
-## Expand Tabs
-
 | Setting | Value |
 | --- | --- |
-| Menu entry | `NED>Expand Tabs` |
+| Menu entry | `NED>Dec to NED Form` |
 | Installed in | Macro Menu |
 | Accelerator | (none) |
-| Requires a selection | no |
-| Source | [`macros/commands/expand-tabs.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/expand-tabs.nm) |
+| Requires a selection | yes |
+| Source | [`macros/commands/dec-to-ned-form.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/dec-to-ned-form.nm) |
 
-Replaces every tab with the spaces it stands for, so the columns you see on
-screen are the columns in the file.
+Rewrites the declinations in the selection the way a ptable wants them: the
+colons come out and the sign is always written.
 
-    name→ra→dec
-    NGC 4151→12:10:32.6→+39:24:21
+    -00:46:03.66        -004603.66
+    15:34:09.66    ->   +153409.66
+    +01:55:50.7         +015550.7
 
-becomes, at a tab width of 8,
+There is no arithmetic here and no rounding. Every digit is the one the source
+published, because the precision differs between sources and picking a number
+of decimal places would be wrong for one of them whichever number was picked.
 
-    name    ra      dec
-    NGC 4151        12:10:32.6      +39:24:21
+The sign is the part worth care. A declination between 0 and -1 degrees has
+00 in its degrees field, so the sign is the only thing telling north from
+south, and sources are not consistent about writing + on a positive value.
+This writes one when it is missing rather than passing the value through.
 
-Nothing moves on screen. A tab carries the text to the next tab stop, and the
-spaces written here carry it to the same place.
+Select the declination column first. A rectangular selection is the way to
+take one column out of a table: hold Ctrl while dragging, or Alt on some
+window managers. An ordinary selection works too and is read a line at a
+time. Lines the rectangle does not reach are left alone, so the ## header
+block above a table comes to no harm.
 
-This is the command to reach for first on a table pasted out of a paper or a
-spreadsheet, because those arrive tab separated and Pad Columns, Pipe at
-Columns and Pipe at Cursor Column all refuse a buffer with a tab in it. They
-refuse because a tab is one character and however many columns it takes to
-reach the next stop, so no width measured on a line holding one is a width.
-Run this and they will take the file.
+The values get shorter, so anything to the right of them shifts left. Run
+Pad Columns afterwards to square the file back up, which is the order it
+expects anyway.
 
-The tab width is the editor's own, from Preferences > Tab Stops, so the
-spaces land where the tabs looked. It reports which width it used, since a
-file that arrived from somewhere else was very likely written against 8.
-
-Columns are counted in characters rather than bytes, so an accented name
-carries the following tab to the stop it appears to reach. Balázs is six
-columns though it takes seven bytes.
-
-Only tabs change. Spaces already in the file are left exactly where they are,
-so this will not tidy up a file that was never tabbed, and a second run finds
-no tabs and leaves the buffer alone.
+It converts nothing unless it can convert everything. A value that is not a
+declination stops the whole command and is named, because a column half in
+one format and half in another is worse than a column that was never touched.
 
 It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
+
+## Expand Tabs
 
 ??? example "Macro body, only if you are installing this one command by hand"
 
@@ -373,63 +328,52 @@ lock one too.
     }
     ```
 
-## Fold Letters to ASCII
-
 | Setting | Value |
 | --- | --- |
-| Menu entry | `NED>Fold Letters to ASCII` |
+| Menu entry | `NED>Expand Tabs` |
 | Installed in | Macro Menu |
 | Accelerator | (none) |
 | Requires a selection | no |
-| Source | [`macros/commands/fold-letters-to-ascii.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/fold-letters-to-ascii.nm) |
+| Source | [`macros/commands/expand-tabs.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/expand-tabs.nm) |
 
-Turns accented Latin letters and Greek letters into the plain ASCII letters
-nearest to them, keeping upper and lower case as they were. Run it after
-Normalize Characters, which handles the dashes, quotes and spaces and then
-names the letters it left behind.
+Replaces every tab with the spaces it stands for, so the columns you see on
+screen are the columns in the file.
 
-Accented letters lose the accent, so Balázs becomes Balazs and Ångström
-becomes Angstrom. Ten letters have no one-letter answer and get longer
-instead: Weiß becomes Weiss, Ærø becomes AEro. Those are the only ones that
-change a line's width.
+    name→ra→dec
+    NGC 4151→12:10:32.6→+39:24:21
 
-Greek letters become a single Latin letter, so α becomes a and Δ becomes D.
-Five readings collide:
+becomes, at a tab width of 8,
 
-| Letters | Both give |
-| --- | --- |
-| ε η | e |
-| ο ω | o |
-| σ ς | s |
-| τ θ | t |
-| υ μ | u |
+    name    ra      dec
+    NGC 4151        12:10:32.6      +39:24:21
 
-The capitals collide the same way, apart from the sigmas. Nothing can tell a
-pair apart afterwards, so every Greek letter gets listed in a dialog with the
-line and column it was on, and the cursor lands on the first one. Read that
-list before the file goes any further.
+Nothing moves on screen. A tab carries the text to the next tab stop, and the
+spaces written here carry it to the same place.
 
-μ, Μ and the micro sign µ give u rather than m, so that 24 µm stays a
-wavelength instead of turning into 24 mm.
+This is the command to reach for first on a table pasted out of a paper or a
+spreadsheet, because those arrive tab separated and Pad Columns, Pipe at
+Columns and Pipe at Cursor Column all refuse a buffer with a tab in it. They
+refuse because a tab is one character and however many columns it takes to
+reach the next stop, so no width measured on a line holding one is a width.
+Run this and they will take the file.
 
-An accent fold gets no dialog, only the terminal summary, since there is
-nothing ambiguous to decide. It is still data loss: nothing in the file
-records that the accent was ever there, so keep the original if the spelling
-of a name matters.
+The tab width is the editor's own, from Preferences > Tab Stops, so the
+spaces land where the tabs looked. It reports which width it used, since a
+file that arrived from somewhere else was very likely written against 8.
 
-Anything else non-ASCII is left exactly as it was, accented Greek and the
-degree sign included. Run Normalize Characters to get those counted.
+Columns are counted in characters rather than bytes, so an accented name
+carries the following tab to the stop it appears to reach. Balázs is six
+columns though it takes seven bytes.
 
-A run that finds nothing leaves the buffer, the undo history and the modified
-flag untouched.
+Only tabs change. Spaces already in the file are left exactly where they are,
+so this will not tidy up a file that was never tabbed, and a second run finds
+no tabs and leaves the buffer alone.
 
 It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
 
-A buffer with any accented letter in it gets scanned once per accented entry
-in the table, so a file of several megabytes stalls. A job that size belongs
-in Python rather than in the editor.
+## Fold Letters to ASCII
 
 ??? example "Macro body, only if you are installing this one command by hand"
 
@@ -897,34 +841,63 @@ in Python rather than in the editor.
     }
     ```
 
-## Normalize Characters
-
 | Setting | Value |
 | --- | --- |
-| Menu entry | `NED>Normalize Characters` |
+| Menu entry | `NED>Fold Letters to ASCII` |
 | Installed in | Macro Menu |
 | Accelerator | (none) |
 | Requires a selection | no |
-| Source | [`macros/commands/normalize-characters.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/normalize-characters.nm) |
+| Source | [`macros/commands/fold-letters-to-ascii.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/fold-letters-to-ascii.nm) |
 
-Rewrites the characters that ride along with text pasted out of a PDF: the
-dashes that are not "-", the quotes that are not "'" or '"', the spaces that
-are not " ", the ff/fi/fl ligatures PDFs store as single characters, and the
-zero-width characters that stay invisible until something downstream chokes
-on them. Tabs become single spaces and stray carriage returns become
-newlines.
+Turns accented Latin letters and Greek letters into the plain ASCII letters
+nearest to them, keeping upper and lower case as they were. Run it after
+Normalize Characters, which handles the dashes, quotes and spaces and then
+names the letters it left behind.
 
-Non-ASCII characters with no safe ASCII spelling - degree signs, Greek
-letters, accented names - are deliberately left alone. Rather than mangle
-them, the macro counts what is left, parks the cursor on the first one, and
-lists them in a dialog.
+Accented letters lose the accent, so Balázs becomes Balazs and Ångström
+becomes Angstrom. Ten letters have no one-letter answer and get longer
+instead: Weiß becomes Weiss, Ærø becomes AEro. Those are the only ones that
+change a line's width.
 
-A run that finds nothing leaves the buffer, the undo history and the
-modified flag untouched.
+Greek letters become a single Latin letter, so α becomes a and Δ becomes D.
+Five readings collide:
+
+| Letters | Both give |
+| --- | --- |
+| ε η | e |
+| ο ω | o |
+| σ ς | s |
+| τ θ | t |
+| υ μ | u |
+
+The capitals collide the same way, apart from the sigmas. Nothing can tell a
+pair apart afterwards, so every Greek letter gets listed in a dialog with the
+line and column it was on, and the cursor lands on the first one. Read that
+list before the file goes any further.
+
+μ, Μ and the micro sign µ give u rather than m, so that 24 µm stays a
+wavelength instead of turning into 24 mm.
+
+An accent fold gets no dialog, only the terminal summary, since there is
+nothing ambiguous to decide. It is still data loss: nothing in the file
+records that the accent was ever there, so keep the original if the spelling
+of a name matters.
+
+Anything else non-ASCII is left exactly as it was, accented Greek and the
+degree sign included. Run Normalize Characters to get those counted.
+
+A run that finds nothing leaves the buffer, the undo history and the modified
+flag untouched.
 
 It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
+
+A buffer with any accented letter in it gets scanned once per accented entry
+in the table, so a file of several megabytes stalls. A job that size belongs
+in Python rather than in the editor.
+
+## Normalize Characters
 
 ??? example "Macro body, only if you are installing this one command by hand"
 
@@ -1242,62 +1215,34 @@ lock one too.
     }
     ```
 
-## Pad Columns
-
 | Setting | Value |
 | --- | --- |
-| Menu entry | `NED>Pad Columns` |
+| Menu entry | `NED>Normalize Characters` |
 | Installed in | Macro Menu |
 | Accelerator | (none) |
 | Requires a selection | no |
-| Source | [`macros/commands/pad-columns.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/pad-columns.nm) |
+| Source | [`macros/commands/normalize-characters.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/normalize-characters.nm) |
 
-Squares up a pipe-delimited table. Trims the spaces around every field, then
-pads it back out to the width of the widest value in its column, so each row
-comes out the same length and the pipes line up down the file.
+Rewrites the characters that ride along with text pasted out of a PDF: the
+dashes that are not "-", the quotes that are not "'" or '"', the spaces that
+are not " ", the ff/fi/fl ligatures PDFs store as single characters, and the
+zero-width characters that stay invisible until something downstream chokes
+on them. Tabs become single spaces and stray carriage returns become
+newlines.
 
-    Griffin        |12:29:46.7
-    Smith         |12:36:44.0
+Non-ASCII characters with no safe ASCII spelling - degree signs, Greek
+letters, accented names - are deliberately left alone. Rather than mangle
+them, the macro counts what is left, parks the cursor on the first one, and
+lists them in a dialog.
 
-becomes
+A run that finds nothing leaves the buffer, the undo history and the
+modified flag untouched.
 
-    Griffin|12:29:46.7
-    Smith  |12:36:44.0
+It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+lock one too.
 
-Run it last, because every edit before it changes a width: a ligature becomes
-the two letters it stands for, ß becomes ss, and a value fixed by hand is
-whatever length you typed. So fix the characters, put the pipes in, read the
-file through, and pad at the end.
-
-It splits on "|" and nothing else. A line with no pipe in it is not a table
-row: it passes through verbatim, along with blank lines and the ##refcode
-header block, and none of them count towards a column width. Nothing here
-reads a boundary out of a run of spaces, so a file nobody has piped yet comes
-back untouched.
-
-Widths are counted in characters rather than bytes, so a field measures what
-it prints. Balázs is six wide, though it takes seven bytes.
-
-Every column is padded, the last one included, so each row ends in the same
-place. Run Trim Trailing Blanks afterwards if you would rather the lines
-stopped at the last real character.
-
-It refuses a buffer with a tab anywhere in it. A tab is one character and
-however many columns it takes to reach the next tab stop, so every width
-measured on a line holding one would be wrong. Run NED>Expand Tabs first,
-which writes the spaces each tab stands for and leaves the columns where they
-sit on screen.
-
-It refuses a locked buffer too, since nothing written to one lands. XNEdit
-locks a file it cannot read as UTF-8; File > Read Only and a file you cannot
-write lock one too.
-
-Rows whose field count differs from the first data row are padded as far as
-they go and then reported, by count and first line number. No empty field is
-invented to make a row fit, because a short row usually means a value went
-missing upstream.
-
-A second run finds the file already square and leaves it alone.
+## Pad Columns
 
 ??? example "Macro body, only if you are installing this one command by hand"
 
@@ -1514,82 +1459,62 @@ A second run finds the file already square and leaves it alone.
     }
     ```
 
-## Pipe at Columns
-
 | Setting | Value |
 | --- | --- |
-| Menu entry | `NED>Pipe at Columns` |
-| Installed in | Macro Menu, Window Background Menu |
+| Menu entry | `NED>Pad Columns` |
+| Installed in | Macro Menu |
 | Accelerator | (none) |
 | Requires a selection | no |
-| Source | [`macros/commands/pipe-at-columns.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/pipe-at-columns.nm) |
+| Source | [`macros/commands/pad-columns.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/pad-columns.nm) |
 
-Puts a "|" at each of several columns on every line of the file. It asks
-which columns and how, then does the lot in one pass.
+Squares up a pipe-delimited table. Trims the spaces around every field, then
+pads it back out to the width of the widest value in its column, so each row
+comes out the same length and the pipes line up down the file.
 
-    NGC 4472   12:29:46.7   0.003326
-    IC 3583    12:36:44.0   0.001155
+    Griffin        |12:29:46.7
+    Smith         |12:36:44.0
 
-Answering "10, 23" and choosing Overwrite gives
+becomes
 
-    NGC 4472  |12:29:46.7  |0.003326
-    IC 3583   |12:36:44.0  |0.001155
+    Griffin|12:29:46.7
+    Smith  |12:36:44.0
 
-Get the characters right first: a replacement that changes how many
-characters are on a line moves every column to its right, so Normalize
-Characters and Fold Letters to ASCII belong before this. Nothing here pads
-the fields either; Pad Columns does that, last.
+Run it last, because every edit before it changes a width: a ligature becomes
+the two letters it stands for, ß becomes ss, and a value fixed by hand is
+whatever length you typed. So fix the characters, put the pipes in, read the
+file through, and pad at the end.
 
-Type the columns separated by spaces or commas, in any order; repeats are
-ignored. They count from 0, the numbering the C: field of the statistics line
-uses, and the prompt names the column the cursor is in so you can read one
-straight off the screen.
+It splits on "|" and nothing else. A line with no pipe in it is not a table
+row: it passes through verbatim, along with blank lines and the ##refcode
+header block, and none of them count towards a column width. Nothing here
+reads a boundary out of a run of spaces, so a file nobody has piped yet comes
+back untouched.
 
-Two buttons, two ways of putting the pipe in:
+Widths are counted in characters rather than bytes, so a field measures what
+it prints. Balázs is six wide, though it takes seven bytes.
 
-| What happens to | Overwrite | Insert |
-| --- | --- | --- |
-| Needs a space at the column | yes | no |
-| Row width | unchanged | one character wider per pipe |
-| A second run | leaves the pipe alone | puts in more pipes |
+Every column is padded, the last one included, so each row ends in the same
+place. Run Trim Trailing Blanks afterwards if you would rather the lines
+stopped at the last real character.
 
-So overwrite is the one for a table already laid out in fixed-width columns,
-since it cannot move anything, and it is the one that repeats safely. Insert
-loses nothing, so it reaches rows with no blank column to spare. It works
-through the columns right to left, so every pipe lands at the column you
-named rather than each one shifting the next along.
+It refuses a buffer with a tab anywhere in it. A tab is one character and
+however many columns it takes to reach the next tab stop, so every width
+measured on a line holding one would be wrong. Run NED>Expand Tabs first,
+which writes the spaces each tab stands for and leaves the columns where they
+sit on screen.
 
-A second insert run does not settle. The leftmost pipe is found and left
-alone, but every column after it has slid along by then, so each of those
-gets a fresh pipe beside the one already there.
+It refuses a locked buffer too, since nothing written to one lands. XNEdit
+locks a file it cannot read as UTF-8; File > Read Only and a file you cannot
+write lock one too.
 
-Five things it refuses rather than guesses at:
+Rows whose field count differs from the first data row are padded as far as
+they go and then reported, by count and first line number. No empty field is
+invented to make a row fit, because a short row usually means a value went
+missing upstream.
 
-| What it refuses | Why |
-| --- | --- |
-| A locked buffer | Nothing written to one lands |
-| Column 0 | A pipe there opens the table with an empty field |
-| A tab anywhere in the buffer | One byte wide, any number of columns wide |
-| Overwriting anything but a space | It would destroy that character |
-| A row that ends before a column | Padding it out invents data |
+A second run finds the file already square and leaves it alone.
 
-The first three stop the command before it writes anything, and the locked
-check runs before the prompt, so it does not ask which columns to pipe first.
-The last two are per row: the rest of the file is piped, and the rows that
-were skipped are counted with the first of them named. So read the report
-before you go on. A skipped row usually means a column is a place or two off,
-and a column that is blank on most rows can land inside a name like NGC 4472
-on the one row where it is not.
-
-XNEdit locks a file it cannot read as UTF-8; File > Read Only and a file you
-cannot write lock one too. For tabs, run NED>Expand Tabs first, which writes
-the spaces each tab stands for and leaves the columns where they sit on
-screen.
-
-Columns are counted as they are displayed, so an en dash counts as one column
-though it takes three bytes.
-
-For one column with no dialog in the way, use Pipe at Cursor Column.
+## Pipe at Columns
 
 ??? example "Macro body, only if you are installing this one command by hand"
 
@@ -1910,37 +1835,52 @@ For one column with no dialog in the way, use Pipe at Cursor Column.
     # --- end shared ---
     ```
 
-## Pipe at Cursor Column
-
 | Setting | Value |
 | --- | --- |
-| Menu entry | `NED>Pipe at Cursor Column` |
+| Menu entry | `NED>Pipe at Columns` |
 | Installed in | Macro Menu, Window Background Menu |
 | Accelerator | (none) |
 | Requires a selection | no |
-| Source | [`macros/commands/pipe-at-cursor-column.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/pipe-at-cursor-column.nm) |
+| Source | [`macros/commands/pipe-at-columns.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/pipe-at-columns.nm) |
 
-Puts a "|" at the cursor's column on every line of the file, over the space
-that is already there. Point at a boundary in a fixed-width table, run this,
-and every line gets a delimiter at that column.
+Puts a "|" at each of several columns on every line of the file. It asks
+which columns and how, then does the lot in one pass.
 
     NGC 4472   12:29:46.7   0.003326
     IC 3583    12:36:44.0   0.001155
 
-with the cursor on the blank column in front of 12:29 becomes
+Answering "10, 23" and choosing Overwrite gives
 
-    NGC 4472  |12:29:46.7   0.003326
-    IC 3583   |12:36:44.0   0.001155
+    NGC 4472  |12:29:46.7  |0.003326
+    IC 3583   |12:36:44.0  |0.001155
 
-Run it once per boundary, and get the characters right first: a replacement
-that changes how many characters are on a line moves every column to its
-right, so Normalize Characters and Fold Letters to ASCII belong before this.
-Nothing here pads the fields either; Pad Columns does that, last.
+Get the characters right first: a replacement that changes how many
+characters are on a line moves every column to its right, so Normalize
+Characters and Fold Letters to ASCII belong before this. Nothing here pads
+the fields either; Pad Columns does that, last.
 
-The column is the one the statistics line calls C:, counting from 0.
-Preferences > Statistics Line puts that number on screen while you aim.
-Right-clicking does not move the cursor, so left-click the column first when
-you run this from the background menu.
+Type the columns separated by spaces or commas, in any order; repeats are
+ignored. They count from 0, the numbering the C: field of the statistics line
+uses, and the prompt names the column the cursor is in so you can read one
+straight off the screen.
+
+Two buttons, two ways of putting the pipe in:
+
+| What happens to | Overwrite | Insert |
+| --- | --- | --- |
+| Needs a space at the column | yes | no |
+| Row width | unchanged | one character wider per pipe |
+| A second run | leaves the pipe alone | puts in more pipes |
+
+So overwrite is the one for a table already laid out in fixed-width columns,
+since it cannot move anything, and it is the one that repeats safely. Insert
+loses nothing, so it reaches rows with no blank column to spare. It works
+through the columns right to left, so every pipe lands at the column you
+named rather than each one shifting the next along.
+
+A second insert run does not settle. The leftmost pipe is found and left
+alone, but every column after it has slid along by then, so each of those
+gets a fresh pipe beside the one already there.
 
 Five things it refuses rather than guesses at:
 
@@ -1949,15 +1889,16 @@ Five things it refuses rather than guesses at:
 | A locked buffer | Nothing written to one lands |
 | Column 0 | A pipe there opens the table with an empty field |
 | A tab anywhere in the buffer | One byte wide, any number of columns wide |
-| A row with anything but a space there | Overwriting destroys a character |
-| A row that ends before the column | Padding it out invents data |
+| Overwriting anything but a space | It would destroy that character |
+| A row that ends before a column | Padding it out invents data |
 
-The first three stop the command before it writes anything. The last two are
-per row: the rest of the file is piped, and the rows that were skipped are
-counted with the first of them named. So read the report before you go on. A
-skipped row usually means the column is a place or two off, and a column that
-is blank on most rows can land inside a name like NGC 4472 on the one row
-where it is not.
+The first three stop the command before it writes anything, and the locked
+check runs before the prompt, so it does not ask which columns to pipe first.
+The last two are per row: the rest of the file is piped, and the rows that
+were skipped are counted with the first of them named. So read the report
+before you go on. A skipped row usually means a column is a place or two off,
+and a column that is blank on most rows can land inside a name like NGC 4472
+on the one row where it is not.
 
 XNEdit locks a file it cannot read as UTF-8; File > Read Only and a file you
 cannot write lock one too. For tabs, run NED>Expand Tabs first, which writes
@@ -1967,8 +1908,9 @@ screen.
 Columns are counted as they are displayed, so an en dash counts as one column
 though it takes three bytes.
 
-For several columns at once, or to push the line right instead of writing
-over the space, use Pipe at Columns.
+For one column with no dialog in the way, use Pipe at Cursor Column.
+
+## Pipe at Cursor Column
 
 ??? example "Macro body, only if you are installing this one command by hand"
 
@@ -2220,49 +2162,65 @@ over the space, use Pipe at Columns.
     # --- end shared ---
     ```
 
-## RA to NED Form
-
 | Setting | Value |
 | --- | --- |
-| Menu entry | `NED>RA to NED Form` |
-| Installed in | Macro Menu |
+| Menu entry | `NED>Pipe at Cursor Column` |
+| Installed in | Macro Menu, Window Background Menu |
 | Accelerator | (none) |
-| Requires a selection | yes |
-| Source | [`macros/commands/ra-to-ned-form.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/ra-to-ned-form.nm) |
+| Requires a selection | no |
+| Source | [`macros/commands/pipe-at-cursor-column.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/pipe-at-cursor-column.nm) |
 
-Rewrites the right ascensions in the selection the way a ptable wants them,
-which means taking the colons out and changing nothing else.
+Puts a "|" at the cursor's column on every line of the file, over the space
+that is already there. Point at a boundary in a fixed-width table, run this,
+and every line gets a delimiter at that column.
 
-    03:28:45.99        032845.99
-    20:31:06.360  ->   203106.360
-    13:40:25.49        134025.49
+    NGC 4472   12:29:46.7   0.003326
+    IC 3583    12:36:44.0   0.001155
 
-There is no arithmetic here and no rounding. Every digit is the one the source
-published, because the precision differs between sources and picking a number
-of decimal places would be wrong for one of them whichever number was picked.
+with the cursor on the blank column in front of 12:29 becomes
 
-A right ascension is never signed, so a value with a leading + or - stops the
-command. That almost always means the declination column was selected by
-mistake, or that the two columns are the other way round from what you
-expected, and both are worth knowing before the file goes anywhere.
+    NGC 4472  |12:29:46.7   0.003326
+    IC 3583   |12:36:44.0   0.001155
 
-Select the right ascension column first. A rectangular selection is the way to
-take one column out of a table: hold Ctrl while dragging, or Alt on some
-window managers. An ordinary selection works too and is read a line at a
-time. Lines the rectangle does not reach are left alone, so the ## header
-block above a table comes to no harm.
+Run it once per boundary, and get the characters right first: a replacement
+that changes how many characters are on a line moves every column to its
+right, so Normalize Characters and Fold Letters to ASCII belong before this.
+Nothing here pads the fields either; Pad Columns does that, last.
 
-The values get shorter, so anything to the right of them shifts left. Run
-Pad Columns afterwards to square the file back up, which is the order it
-expects anyway.
+The column is the one the statistics line calls C:, counting from 0.
+Preferences > Statistics Line puts that number on screen while you aim.
+Right-clicking does not move the cursor, so left-click the column first when
+you run this from the background menu.
 
-It converts nothing unless it can convert everything. A value that is not a
-right ascension stops the whole command and is named, because a column half
-in one format and half in another is worse than one that was never touched.
+Five things it refuses rather than guesses at:
 
-It refuses a locked buffer, since nothing written to one lands. XNEdit locks
-a file it cannot read as UTF-8; File > Read Only and a file you cannot write
-lock one too.
+| What it refuses | Why |
+| --- | --- |
+| A locked buffer | Nothing written to one lands |
+| Column 0 | A pipe there opens the table with an empty field |
+| A tab anywhere in the buffer | One byte wide, any number of columns wide |
+| A row with anything but a space there | Overwriting destroys a character |
+| A row that ends before the column | Padding it out invents data |
+
+The first three stop the command before it writes anything. The last two are
+per row: the rest of the file is piped, and the rows that were skipped are
+counted with the first of them named. So read the report before you go on. A
+skipped row usually means the column is a place or two off, and a column that
+is blank on most rows can land inside a name like NGC 4472 on the one row
+where it is not.
+
+XNEdit locks a file it cannot read as UTF-8; File > Read Only and a file you
+cannot write lock one too. For tabs, run NED>Expand Tabs first, which writes
+the spaces each tab stands for and leaves the columns where they sit on
+screen.
+
+Columns are counted as they are displayed, so an en dash counts as one column
+though it takes three bytes.
+
+For several columns at once, or to push the line right instead of writing
+over the space, use Pipe at Columns.
+
+## RA to NED Form
 
 ??? example "Macro body, only if you are installing this one command by hand"
 
@@ -2383,23 +2341,49 @@ lock one too.
     }
     ```
 
-## Trim Trailing Blanks
-
 | Setting | Value |
 | --- | --- |
-| Menu entry | `NED>Trim Trailing Blanks` |
+| Menu entry | `NED>RA to NED Form` |
 | Installed in | Macro Menu |
 | Accelerator | (none) |
-| Requires a selection | no |
-| Source | [`macros/commands/trim-trailing-blanks.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/trim-trailing-blanks.nm) |
+| Requires a selection | yes |
+| Source | [`macros/commands/ra-to-ned-form.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/ra-to-ned-form.nm) |
 
-Removes trailing spaces and tabs from every line in the buffer. Leaves the
-file and the undo history alone when there is nothing to trim. Either way it
-says what it did in the terminal xnedit was launched from.
+Rewrites the right ascensions in the selection the way a ptable wants them,
+which means taking the colons out and changing nothing else.
+
+    03:28:45.99        032845.99
+    20:31:06.360  ->   203106.360
+    13:40:25.49        134025.49
+
+There is no arithmetic here and no rounding. Every digit is the one the source
+published, because the precision differs between sources and picking a number
+of decimal places would be wrong for one of them whichever number was picked.
+
+A right ascension is never signed, so a value with a leading + or - stops the
+command. That almost always means the declination column was selected by
+mistake, or that the two columns are the other way round from what you
+expected, and both are worth knowing before the file goes anywhere.
+
+Select the right ascension column first. A rectangular selection is the way to
+take one column out of a table: hold Ctrl while dragging, or Alt on some
+window managers. An ordinary selection works too and is read a line at a
+time. Lines the rectangle does not reach are left alone, so the ## header
+block above a table comes to no harm.
+
+The values get shorter, so anything to the right of them shifts left. Run
+Pad Columns afterwards to square the file back up, which is the order it
+expects anyway.
+
+It converts nothing unless it can convert everything. A value that is not a
+right ascension stops the whole command and is named, because a column half
+in one format and half in another is worse than one that was never touched.
 
 It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
+
+## Trim Trailing Blanks
 
 ??? example "Macro body, only if you are installing this one command by hand"
 
@@ -2468,5 +2452,21 @@ lock one too.
         dialog(msg, "OK")
     }
     ```
+
+| Setting | Value |
+| --- | --- |
+| Menu entry | `NED>Trim Trailing Blanks` |
+| Installed in | Macro Menu |
+| Accelerator | (none) |
+| Requires a selection | no |
+| Source | [`macros/commands/trim-trailing-blanks.nm`](https://github.com/sidereal-software/nedkit/blob/main/macros/commands/trim-trailing-blanks.nm) |
+
+Removes trailing spaces and tabs from every line in the buffer. Leaves the
+file and the undo history alone when there is nothing to trim. Either way it
+says what it did in the terminal xnedit was launched from.
+
+It refuses a locked buffer, since nothing written to one lands. XNEdit locks
+a file it cannot read as UTF-8; File > Read Only and a file you cannot write
+lock one too.
 
 <!-- END GENERATED: commands -->

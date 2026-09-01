@@ -146,6 +146,19 @@ def gen_commands():
         macro = parse(path)
         out.append("## %s" % macro.title)
         out.append("")
+        # Directly under the heading, because a collapsed block emitted after
+        # the prose renders hard against the *next* command's heading, and a
+        # reader reasonably reads it as belonging to that one.
+        out.append(
+            collapsed(
+                "Macro body, only if you are installing this one command by hand",
+                macro.body,
+                language="text",
+                classes=("copy",),
+                title="Paste into Macro Command to Execute",
+            )
+        )
+        out.append("")
         out.append("| Setting | Value |")
         out.append("| --- | --- |")
         out.append("| Menu entry | `%s` |" % macro.menu_entry)
@@ -160,16 +173,6 @@ def gen_commands():
         out.append("| Source | %s |" % source_link(macro))
         out.append("")
         out.append(as_prose(macro.prose))
-        out.append("")
-        out.append(
-            collapsed(
-                "Macro body, only if you are installing this one command by hand",
-                macro.body,
-                language="text",
-                classes=("copy",),
-                title="Paste into Macro Command to Execute",
-            )
-        )
         out.append("")
     return "\n".join(out).strip("\n")
 

@@ -25,17 +25,43 @@
 
 /* --- contrast ------------------------------------------------------------ */
 
-/* Material's `red` primary is #ef5552, which is 3.45:1 against white. That is
- * under the 4.5:1 WCAG AA needs for normal text, and it lands on two surfaces
- * at once: the header and buttons put white text on it, and Material wires
- * --md-typeset-a-color to the primary, so every inline link is drawn in it.
- * Contrast is symmetric, so one darker red fixes both. Red 800 measures
- * 5.62:1 and keeps the palette recognisably the same colour.
+/* Material's `red` primary is #ef5552, and it is set by the primary attribute
+ * rather than by the scheme, so both light and dark inherit it. It is 3.45:1
+ * against the white text the header and buttons put on it, under the 4.5:1
+ * WCAG AA wants for normal text. Material also wires --md-typeset-a-color to
+ * the primary for this palette, so inline links fail with it: 3.45:1 on white
+ * and 3.79:1 on the slate ground.
  *
- * Scoped to the light scheme. Slate already ships its own link colour at
- * 4.77:1, and darkening the primary there would make it worse, not better. */
-[data-md-color-scheme="default"] {
-  --md-primary-fg-color: #c62828;
+ * One darker red fixes the header in both schemes, because white text needs a
+ * dark ground either way. Links cannot share it. On a dark background a link
+ * has to get lighter rather than darker, so slate names its own. */
+[data-md-color-primary="red"] {
+  --md-primary-fg-color: #c62828;         /* white on it, 5.62:1 */
   --md-primary-fg-color--light: #e53734;
   --md-primary-fg-color--dark: #8e0000;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-typeset-a-color: #f79490;          /* on the slate ground, 5.96:1 */
+}
+
+/* Material gives .md-button no margin, so a row of them is held apart only by
+ * the whitespace between inline-blocks. That disappears the moment they wrap,
+ * which on a phone is always, and the buttons end up edge to edge. */
+.md-typeset .md-button {
+  margin: 0 0.4rem 0.4rem 0;
+}
+
+/* An outline button draws its text in the primary colour, which is chosen to
+ * carry white on top of it and so is far too dark to sit on the slate ground:
+ * 2.86:1. The filled variant is fine, because its text is on the primary
+ * rather than beside it, so only the outline one moves to the link colour. */
+[data-md-color-scheme="slate"] .md-typeset .md-button {
+  color: var(--md-typeset-a-color);       /* 7.35:1 on the slate ground */
+}
+
+[data-md-color-scheme="slate"] .md-typeset .md-button--primary {
+  color: var(--md-primary-bg-color);      /* white on #c62828, 5.62:1 */
+  background-color: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
 }
