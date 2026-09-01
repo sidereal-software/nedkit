@@ -5,8 +5,9 @@ and easy to get subtly wrong, and a macro does the same edit the same way every
 time. Python utilities live here too, for the jobs too big to run inside the
 editor.
 
-New here? [Getting started](getting-started.md) has the install: one download
-and one command puts all nine commands in the **Macro** menu.
+New here? [Getting started](getting-started.md) has the install in four steps.
+XNEdit itself is built from source, once ever. After that the nine commands are
+a download and a command.
 
 [Install the commands](getting-started.md){ .md-button .md-button--primary }
 [Clean up a pasted table](cleaning-pdf-tables.md){ .md-button }
@@ -124,7 +125,7 @@ tree and the Jira ticket. It loads nothing and chooses nothing.
 Written for [XNEdit](https://github.com/unixwork/xnedit). They are ordinary
 NEdit macros, so classic NEdit 5.7 runs them too.
 
-| | XNEdit | NEdit 5.7 |
+| Compared on | XNEdit | NEdit 5.7 |
 | --- | --- | --- |
 | Tested against | every week | every week |
 | Settings live in | `~/.xnedit/` | `~/.nedit/` |

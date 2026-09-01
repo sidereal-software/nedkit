@@ -4,7 +4,7 @@ Reusable subroutines from `macros/lib/`. These are appended to
 `~/.xnedit/autoload.nm` rather than installed as menu commands, so they are
 available to every macro from startup onward and add nothing to any menu:
 
-```sh
+```{ .sh .copy }
 cat macros/lib/text.nm >> "${XNEDIT_HOME:-$HOME/.xnedit}/autoload.nm"
 ```
 

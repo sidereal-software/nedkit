@@ -22,3 +22,20 @@
 .md-typeset details.example {
   margin-top: 1.2rem;
 }
+
+/* --- contrast ------------------------------------------------------------ */
+
+/* Material's `red` primary is #ef5552, which is 3.45:1 against white. That is
+ * under the 4.5:1 WCAG AA needs for normal text, and it lands on two surfaces
+ * at once: the header and buttons put white text on it, and Material wires
+ * --md-typeset-a-color to the primary, so every inline link is drawn in it.
+ * Contrast is symmetric, so one darker red fixes both. Red 800 measures
+ * 5.62:1 and keeps the palette recognisably the same colour.
+ *
+ * Scoped to the light scheme. Slate already ships its own link colour at
+ * 4.77:1, and darkening the primary there would make it worse, not better. */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #c62828;
+  --md-primary-fg-color--light: #e53734;
+  --md-primary-fg-color--dark: #8e0000;
+}

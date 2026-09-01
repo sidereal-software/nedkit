@@ -599,13 +599,13 @@ Letters to ASCII was split off in the first place.
 
 Get the bytes with:
 
-```sh
+```{ .sh .copy }
 python3 -c 'print("".join("\\x%02x" % b for b in chr(0x2013).encode()))'
 ```
 
 Then regenerate this page:
 
-```sh
+```{ .sh .copy }
 uv run python tools/gen_docs.py
 ```
 

@@ -60,9 +60,9 @@ It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     ok = 1
     msg = ""
     n_done = 0
@@ -217,9 +217,9 @@ It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     ok = 1
     msg = ""
     n_tabs = 0
@@ -431,9 +431,9 @@ A buffer with any accented letter in it gets scanned once per accented entry
 in the table, so a file of several megabytes stalls. A job that size belongs
 in Python rather than in the editor.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     fixed = ""
     ok = 1
     msg = ""
@@ -926,9 +926,9 @@ It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     fixed = ""
     ok = 1
     msg = ""
@@ -1299,9 +1299,9 @@ missing upstream.
 
 A second run finds the file already square and leaves it alone.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     # Arrays have to exist before "in" is used on them.
     keep = $empty_array
     cell = $empty_array
@@ -1547,7 +1547,7 @@ straight off the screen.
 
 Two buttons, two ways of putting the pipe in:
 
-| | Overwrite | Insert |
+| What happens to | Overwrite | Insert |
 | --- | --- | --- |
 | Needs a space at the column | yes | no |
 | Row width | unchanged | one character wider per pipe |
@@ -1591,9 +1591,9 @@ though it takes three bytes.
 
 For one column with no dialog in the way, use Pipe at Cursor Column.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     # --- prologue: ask which columns, and how -----------------------------------
 
     mode = "overwrite"
@@ -1970,9 +1970,9 @@ though it takes three bytes.
 For several columns at once, or to push the line right instead of writing
 over the space, use Pipe at Columns.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     # --- prologue: the single column the cursor is sitting in -------------------
 
     mode = "overwrite"
@@ -2264,9 +2264,9 @@ It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     ok = 1
     msg = ""
     n_done = 0
@@ -2401,9 +2401,9 @@ It refuses a locked buffer, since nothing written to one lands. XNEdit locks
 a file it cannot read as UTF-8; File > Read Only and a file you cannot write
 lock one too.
 
-??? example "The macro body, ready to paste"
+??? example "Macro body, only if you are installing this one command by hand"
 
-    ```
+    ```{ .text .copy title="Paste into Macro Command to Execute" }
     ok = 1
     msg = ""
     n_trimmed = 0

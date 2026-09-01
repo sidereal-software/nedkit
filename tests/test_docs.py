@@ -9,6 +9,7 @@ build.
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 
 import pytest
@@ -78,3 +79,100 @@ def test_generated_headings_are_only_the_ones_the_generator_writes() -> None:
         if line.startswith("#") and not line.startswith("<!--")
     }
     assert headings == expected, "unexpected heading in the generated command reference"
+
+
+# --------------------------------------------------------------------------
+# What a copy button means
+#
+# ``content.code.copy`` is off in mkdocs.yml, so Material hangs a copy button
+# only on a block that carries ``.copy`` itself. That turns the button into a
+# claim: this block is meant to leave the page. Most blocks on this site are
+# output listings, and a button on one of those tells a reader to paste their
+# own expected output somewhere.
+
+DOCS = REPO_ROOT / "docs"
+
+#: The info string of every fenced block that has one. A closing fence carries
+#: nothing after the backticks, so anything matching here opened a block.
+FENCE_INFO = re.compile(r"^[ \t]*```(\S[^\n]*)$", re.M)
+
+#: ``sh`` as a language, written either bare or as a class in the brace form.
+SHELL = re.compile(r"(?:^|[.\s{])sh\b")
+
+
+@pytest.mark.parametrize("page", sorted(DOCS.glob("*.md")), ids=lambda p: p.name)
+def test_every_shell_block_offers_a_copy_button(page: Path) -> None:
+    """A block of commands is the one kind that always wants copying."""
+    for info in FENCE_INFO.findall(page.read_text(encoding="utf-8")):
+        if not SHELL.search(info):
+            continue
+        assert ".copy" in info, (
+            f"{page.name} has a shell block written ```{info}, which renders "
+            "without a copy button. Write it ```{ .sh .copy } instead."
+        )
+
+
+def theme_features() -> list[str]:
+    """``theme.features`` from mkdocs.yml, read as text rather than as YAML.
+
+    The file carries ``!!python/name:`` tags that ``yaml.safe_load`` refuses,
+    and pyyaml is in the docs dependency group, which the ``not xnedit`` run in
+    CI does not install. This is one list of scalars; a regex reads it.
+    """
+    text = (REPO_ROOT / "mkdocs.yml").read_text(encoding="utf-8")
+    block = re.search(r"^(\s*)features:\n((?:\1[ \t]+.*\n|[ \t]*\n)+)", text, re.M)
+    assert block, "mkdocs.yml has no theme.features block"
+    return re.findall(r"^\s*-\s*(\S+)\s*$", block.group(2), re.M)
+
+
+def test_the_copy_button_is_not_on_by_default() -> None:
+    """With the feature on, every block gets a button and ``.copy`` says nothing."""
+    features = theme_features()
+    assert "navigation.tabs" in features, (
+        f"theme.features parsed as {features}, which is not the list in mkdocs.yml"
+    )
+    assert "content.code.copy" not in features, (
+        "content.code.copy puts a copy button on every fenced block, including "
+        "the output listings, which is what the per-block .copy class replaces"
+    )
+
+
+# --------------------------------------------------------------------------
+# The quickstart's success check
+
+#: A report a command prints: a count, then a noun the count might pluralise.
+REPORT = re.compile(r"`(\d+ [^`]*\(s\)[^`]*)`")
+
+
+def reports(page: Path) -> set[str]:
+    """The report strings a page quotes inline, unwrapped.
+
+    Markdown wraps a long span across a line break, and the two halves are one
+    string to anyone reading the rendered page.
+    """
+    return {
+        re.sub(r"\s+", " ", found)
+        for found in REPORT.findall(page.read_text(encoding="utf-8"))
+    }
+
+
+def test_the_quickstart_checks_against_a_report_the_suite_runs() -> None:
+    """Step 4 tells a first-time reader what the terminal will say.
+
+    Nothing here drives an editor, so this file cannot check that claim. What it
+    can check is that the string is one ``docs/cleaning-pdf-tables.md`` also
+    quotes, because ``tests/test_worked_example.py`` runs that page against a
+    live XNEdit and fails on a report no command made. Quoting a string from
+    there borrows the proof; inventing a new one has nothing behind it.
+    """
+    quickstart = reports(DOCS / "getting-started.md")
+    assert quickstart, (
+        "getting-started.md quotes no command report, so its final step no "
+        "longer gives the reader anything to check their run against"
+    )
+    worked = reports(DOCS / "cleaning-pdf-tables.md")
+    for report in sorted(quickstart):
+        assert report in worked, (
+            f"getting-started.md promises {report!r}, which the worked example "
+            "never quotes, so no test watches an editor say it"
+        )

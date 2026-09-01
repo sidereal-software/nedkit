@@ -13,8 +13,8 @@ Python utilities live here too, for the jobs too big to run inside the editor.
 Every command is in one file that XNEdit imports in a single pass. The import
 calls `xnedit`, so build one and put it on your `$PATH` first:
 [Requirements](#requirements) below has the build, and
-[getting started](https://nedkit.sidereal.software/getting-started/) walks it
-with the `PATH` line spelled out.
+[getting started](https://nedkit.sidereal.software/getting-started/) walks the
+whole install a step at a time, with something to check after each one.
 
 ```sh
 curl -O https://nedkit.sidereal.software/nedkit-macros.rc
@@ -150,28 +150,31 @@ rather than `~/.nedit/`, so if a macro here misbehaves, check which editor is
 running before you start debugging the macro.
 
 There are no prebuilt macOS binaries, so XNEdit gets built from source. The
-dependencies are all in Homebrew:
+dependencies are all in Homebrew. XQuartz goes first and on its own, because
+Homebrew installs it from a pkg and stops to ask for your password, and
+anything pasted underneath would be read as the answer:
 
 ```sh
 brew install --cask xquartz
+```
+
+The rest is one paste:
+
+```sh
 brew install openmotif
-
-cd ~
-git clone https://github.com/unixwork/xnedit.git
-cd xnedit
-git checkout v1.6.3
-make macos
-
+git clone https://github.com/unixwork/xnedit.git ~/xnedit
+cd ~/xnedit && git checkout v1.6.3 && make macos
+echo 'export PATH="$HOME/xnedit/source:$PATH"' >> ~/.zshrc
 export PATH="$HOME/xnedit/source:$PATH"
 ```
 
-`v1.6.3` is the release the tests and CI are pinned to. Checking a tag out
-makes git answer with a paragraph about being in "detached HEAD" state, which
-it says for any tag and which means nothing has gone wrong. `make macos` leaves
-the binary at `source/xnedit` and puts nothing on your `$PATH`, hence the
-`export`, and the `cd ~` is what makes that line name the right directory. It
-lasts until you close the terminal, so put the same line in `~/.zshrc` to keep
-`xnedit` past this shell.
+The compile takes seconds; XQuartz is the long part. `v1.6.3` is the release
+the tests and CI are pinned to, and checking a tag out makes git answer with a
+paragraph about being in "detached HEAD" state, which it says for any tag and
+which means nothing has gone wrong. `make macos` leaves the binary at
+`~/xnedit/source` and puts nothing on your `$PATH`, hence the last two lines:
+the same `export` written into `~/.zshrc` for every terminal from now on, and
+run once for the terminal you are in.
 
 3.9 is the newest interpreter on the team's machines, so no `match` statements,
 no `X | Y` unions in annotations, and nothing that needs an install the team

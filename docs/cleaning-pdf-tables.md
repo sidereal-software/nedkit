@@ -62,7 +62,7 @@ statistics line.
 Pipe at Columns offers both, on the two buttons of its prompt. Pipe at Cursor
 Column always overwrites.
 
-| | Overwrite | Insert |
+| What happens to | Overwrite | Insert |
 | --- | --- | --- |
 | The character at that column | Written over, and only where it is a space | Pushed right, along with the rest of the line |
 | A row holding something else there | Left as it is, counted and reported | Piped anyway |
@@ -205,7 +205,7 @@ The file to run this on is
 [A13L.mod.before](samples/A13L.mod.before){ download }, a real paste, tab
 separated, with an en dash standing in for the minus sign on the southern
 declinations. It is 14 rows long, and the blocks below show the first three of
-them. A [clone of the repository](getting-started.md#getting-the-repository)
+them. A [clone of the repository](installing-macros.md#getting-the-repository)
 has it under `samples/`.
 
 Download it rather than copying the listing. A rendered web page holds no tab

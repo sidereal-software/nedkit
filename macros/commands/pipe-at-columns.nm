@@ -23,7 +23,7 @@
 #
 # Two buttons, two ways of putting the pipe in:
 #
-# | | Overwrite | Insert |
+# | What happens to | Overwrite | Insert |
 # | --- | --- | --- |
 # | Needs a space at the column | yes | no |
 # | Row width | unchanged | one character wider per pipe |

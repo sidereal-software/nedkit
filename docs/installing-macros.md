@@ -20,8 +20,10 @@ one: [nedkit-macros.rc](nedkit-macros.rc){ download }. Downloading it and
 importing it installs the lot, and it is the route
 [getting started](getting-started.md) uses.
 
-```sh
-xnedit -import ~/Downloads/nedkit-macros.rc
+```{ .sh .copy }
+cd ~
+curl -O https://nedkit.sidereal.software/nedkit-macros.rc
+xnedit -import nedkit-macros.rc
 ```
 
 Then **Preferences > Save Defaults** in the window that opens. The imported
@@ -57,7 +59,7 @@ identical format. One `-import` reads both, which is how Pipe at Columns and
 Pipe at Cursor Column reach both menus in a single pass. An entry looks like
 this:
 
-```
+```{ .text .no-copy title="What the file looks like inside. Nothing here is to be copied." }
 nedit.macroCommands: \
 	NED>Trim Trailing Blanks:::: {\n\
 		original = get_range(0, $text_length)\n\
@@ -181,14 +183,38 @@ Worth knowing before running Pipe at Cursor Column that way. Posting the
 background menu leaves the insert cursor wherever it already was, so left-click
 the column you mean first, then right-click.
 
+## Getting the repository
+
+The import file is one way in, and it carries the menu commands and nothing
+else. The other is a clone, which is what the rest of this site assumes
+whenever it names a path like `macros/lib/text.nm`:
+
+```{ .sh .copy }
+cd ~
+git clone https://github.com/sidereal-software/nedkit.git
+cd nedkit
+```
+
+| Route | What it gets you |
+| --- | --- |
+| The [nedkit-macros.rc](nedkit-macros.rc){ download } download | The nine menu commands, installed in one import |
+| A clone | The same nine as `macros/commands/*.nm`, plus the subroutine libraries, the sample files the guides work through, and `ned-transients` |
+
+There is nothing to build or install. The macros are text files XNEdit reads,
+and `python/ned-transients` is standard-library Python 3.9 you hand to
+`python3` where it sits. A command on these pages that names a path without
+saying where to run it means from the top of the clone, `~/nedkit` above.
+
 ## Install a subroutine library
 
 Files in `macros/lib/` define subroutines that other macros call. They add
-nothing to any menu, and they install by being appended to `autoload.nm`, which
-XNEdit runs at startup. Run it from the top of a clone, which
-[getting started](getting-started.md#getting-the-repository) covers:
+nothing to any menu, they are not in the import file, and no command shipped
+here calls one, so the install on [getting started](getting-started.md) needs
+none of this. They go in by being appended to `autoload.nm`, which XNEdit runs
+at startup. Run it from the top of a clone, which [getting the
+repository](#getting-the-repository) covers:
 
-```sh
+```{ .sh .copy }
 cat macros/lib/text.nm >> ~/.xnedit/autoload.nm
 ```
 
@@ -213,7 +239,7 @@ macro changes](#updating-or-reinstalling-after-a-macro-changes) has that case.
 
 Setting `XNEDIT_HOME` moves the whole directory:
 
-```sh
+```{ .sh .copy }
 echo "${XNEDIT_HOME:-$HOME/.xnedit}"
 ```
 
@@ -227,7 +253,7 @@ Nothing here involves a remote host.
 XNEdit uses NEdit 5.7's preferences format and the same `nedit` X resource
 app-name, so existing settings transfer as they are:
 
-```sh
+```{ .sh .copy }
 cp -r ~/.nedit/. ~/.xnedit/
 ```
 

@@ -1,142 +1,137 @@
 # Getting started
 
-One download and one command installs all nine commands. Building XNEdit comes
-first, if you do not have it already.
+Four steps, from a Mac with nothing on it to a macro that has just changed a
+real file. Step 1 is a one-off. After that the nine commands are a download and
+a command.
 
-## 1. Install XNEdit
+| Step | What it is | Skip it if |
+| --- | --- | --- |
+| 1. Build XNEdit | a from-source build, once ever | `xnedit -version` already prints a version |
+| 2. Import the commands | a download and one command | never, redo it whenever the macros change |
+| 3. Save Defaults | one click in the window that opened | never, skipping it discards the install with no error |
+| 4. Run one on a real file | the check that any of it worked | never |
 
-There are no prebuilt macOS binaries, so XNEdit is built from source. Its
-makefile has a `macos` build configuration and the dependencies are in
-Homebrew:
+A block with a copy button is meant to leave this page: run it, or paste it
+where the caption says. A block without one is something to look at.
 
-```sh
+## 1. Build XNEdit
+
+macOS is the only platform nedkit targets, and there are no prebuilt macOS
+binaries, so XNEdit gets compiled from source. That reads worse than it is. The
+compile takes seconds, not minutes, and the long part of this step is XQuartz,
+a large installer that comes down from xquartz.org.
+
+Start with XQuartz on its own. Homebrew installs it from a pkg and stops to ask
+for your password, and anything pasted underneath would be read as the answer:
+
+```{ .sh .copy }
 brew install --cask xquartz
+```
+
+The rest is one paste:
+
+```{ .sh .copy }
 brew install openmotif
-
-cd ~
-git clone https://github.com/unixwork/xnedit.git
-cd xnedit
-git checkout v1.6.3
-make macos
-```
-
-`v1.6.3` is the release the macros are tested against, here and in CI. The
-checkout answers with a paragraph beginning `You are in 'detached HEAD' state`.
-Git says that whenever you check out a tag rather than a branch, so it is
-correct here and nothing has gone wrong. The `cd ~` puts the clone at
-`~/xnedit`, which matters in a moment: the permanent `PATH` line has to name
-that directory in full.
-
-That leaves the binary at `source/xnedit`, and nothing puts it on your `$PATH`.
-Everything below calls it as `xnedit`, so add it for this shell:
-
-```sh
-export PATH="$PWD/source:$PATH"
-```
-
-That one works because you are still in the directory you built in, and it
-lasts until you close the terminal. To keep `xnedit` past that, write the path
-out in full in `~/.zshrc`:
-
-```sh
+git clone https://github.com/unixwork/xnedit.git ~/xnedit
+cd ~/xnedit && git checkout v1.6.3 && make macos
+echo 'export PATH="$HOME/xnedit/source:$PATH"' >> ~/.zshrc
 export PATH="$HOME/xnedit/source:$PATH"
 ```
 
-The `$PWD` version cannot go in `~/.zshrc`. That file runs at the start of
-every shell, and `$PWD` is then wherever that shell opened, which for a new
-Terminal window is your home directory: the line quietly becomes
-`$HOME/source`, and there is no such directory. Nothing reports it either.
-`xnedit` is simply not found, in some later terminal rather than in the one
-where the line was written.
+`v1.6.3` is the release the macros are tested against, here and in CI. The
+build leaves the binary at `~/xnedit/source` and puts nothing on your `$PATH`,
+which is what the last two lines are for: the same `export` written into
+`~/.zshrc` for every terminal you open from now on, and run once for the one
+you are in.
 
-macOS is the only platform nedkit targets.
+Check:
+
+```{ .sh .copy }
+xnedit -version
+```
+
+It answers `XNEdit 1.6.3` on the first line, then several lines of build and
+display detail.
 
 ## 2. Import the commands
 
-Download [nedkit-macros.rc](nedkit-macros.rc){ download }, then hand it to
-XNEdit:
+All nine commands are in one file, and XNEdit reads it in a single pass:
 
-```sh
-xnedit -import ~/Downloads/nedkit-macros.rc
+```{ .sh .copy }
+cd ~
+curl -O https://nedkit.sidereal.software/nedkit-macros.rc
+xnedit -import nedkit-macros.rc
 ```
 
-In the window that opens, run **Preferences > Save Defaults** and click **OK**.
-After an import the confirmation is not the usual one: it ends
+An editor window opens and the terminal stays busy until you close it. Leave
+the window open. Step 3 happens in it.
+
+## 3. Save Defaults
+
+**Preferences > Save Defaults**, then **OK**.
+
+After an import the confirmation is not the usual one. It ends
 `SAVING WILL INCORPORATE SETTINGS FROM FILE`, in capitals, naming the file you
 just handed it.
 
-That is the whole install. The file carries all nine commands, and the two that
-belong on the right-click menu as well are in it twice, once for each menu.
-Importing merges into whatever you already have rather than replacing it, and
-[installing macros](installing-macros.md#install-every-command-at-once) says
-why that matters and why re-importing later is safe.
+Skipping this looks fine. The commands are in the menu of the running program
+whether you click it or not, and quitting then throws them away without asking
+or warning. This click is what writes them to `~/.xnedit/nedit.rc`.
 
-Prefer to install one command at a time, or want to see what the dialog is
-doing? [Installing macros](installing-macros.md) walks through it with
-screenshots, and each command's page in the [command
-reference](commands.md) carries the values the dialog asks for.
+## 4. Run one on a real file
 
-### Subroutine libraries are not in that file
+Looking at the menu now would prove nothing, since `-import` took effect the
+moment you ran it in step 2. So quit XNEdit, and start it again on something to
+work on:
 
-Files in `macros/lib/` define subroutines that other macros call. Nothing on
-this page depends on them: they are not in the import file, and no command
-shipped here calls one. Installing one means appending the file to
-`autoload.nm`, which needs [a clone](#getting-the-repository) rather than a
-download. [Installing macros](installing-macros.md#install-a-subroutine-library)
-has the steps.
+```{ .sh .copy }
+cd ~
+curl -O https://nedkit.sidereal.software/samples/A13L.mod.before
+xnedit A13L.mod.before
+```
 
-`XNEDIT_HOME` overrides the configuration directory those files live in. Note
-the leading `X`: XNEdit ignores NEdit's `NEDIT_HOME`.
+That is a real table pasted out of a paper, with tabs between the columns. Run
+**Macro > NED > Expand Tabs**. The tabs become the spaces they were already
+showing, and the terminal you launched from says
+`42 tab(s) expanded at width 8`.
 
-## 3. Check that it worked
+That checks two things at once. Finding the submenu after a restart is step 3
+having stuck, and the report is the macro having actually run.
 
-Open a file and look under **Macro** in the menu bar. The commands are in a
-`NED` submenu:
-
-| What you see | Why |
-| --- | --- |
-| No `NED` submenu at all | **Save Defaults** was skipped, so the import lasted only until you quit, and quitting discarded it silently rather than asking |
-| Some commands in the submenu, others missing | One entry would not parse, which costs that entry and the ones following it. The ones read before it were already installed, which is what makes the menu look half built |
-| `XNEdit: Parse error in user defined menu item` in the terminal | The reason for the row above, and the only place XNEdit reports it. The file was edited or truncated on the way here. Download it again |
-| The submenu, but a command is greyed out | It requires a selection and there isn't one |
-
-!!! warning "Before you run one on something you care about"
+!!! warning "Before you point one at something you care about"
 
     A macro writes straight to the buffer with no confirmation step, so a
     pattern that matches more than you meant takes the file with it. Undo
     works, but try each command on a copy first.
 
-## Getting the repository
+## Next
 
-The import file is one way in, and it carries the menu commands and nothing
-else. The other is a clone, which is what the rest of this site assumes
-whenever it names a path like `macros/lib/text.nm`:
+The file you just downloaded is the one the next page works through.
+[Cleaning up a pasted table](cleaning-pdf-tables.md) runs every command over it
+in the order they are meant to go in, quotes what each one reports, and ends at
+a squared-up `.mod` file.
 
-```sh
-cd ~
-git clone https://github.com/sidereal-software/nedkit.git
-cd nedkit
-```
+The [command reference](commands.md) is one entry per command, for looking up
+what a particular one does and what it refuses to do.
 
-| Route | What it gets you |
+## If something went wrong
+
+| What you see | Why |
 | --- | --- |
-| The [nedkit-macros.rc](nedkit-macros.rc){ download } download | The nine menu commands, installed in one import |
-| A clone | The same nine as `macros/commands/*.nm`, plus the subroutine libraries, the sample files the guides work through, and `ned-transients` |
+| `You are in 'detached HEAD' state` | Normal. Git says it for any tag checkout |
+| `fatal: destination path ... already exists` | You already cloned; skip to `cd ~/xnedit` |
+| `command not found: xnedit` in a new Terminal | The `~/.zshrc` line did not get written, or your shell is not zsh |
+| No `NED` submenu after restarting XNEdit | Save Defaults was skipped |
+| Some commands present, others missing | One entry would not parse, costing it and everything after it. Download the file again |
+| `XNEdit: Parse error in user defined menu item` | The reason for the row above, and the only place it is reported |
+| A command is greyed out | It requires a selection and there isn't one |
+| A command runs and the terminal says nothing | XNEdit was not launched from that terminal |
 
-There is nothing to build or install. The macros are text files XNEdit reads,
-and `python/ned-transients` is standard-library Python 3.9 you hand to
-`python3` where it sits. A command on these pages that names a path without
-saying where to run it means from the top of the clone, `~/nedkit` above.
+## Other ways in
 
-## Then clean up a table
-
-That is what the commands are for, and they are meant to run in a particular
-order. [Cleaning up a pasted table](cleaning-pdf-tables.md) takes a real paste
-out of a paper, tab separated with en dashes for minus signs, and works it
-through every command to a squared-up `.mod` file, with the report each one
-prints along the way.
-
-Two pages to keep beside it: the [command reference](commands.md), which is one
-entry per command, and [character replacements](character-replacements.md),
-which lists every character the two rewriting commands touch and every one they
-deliberately leave alone.
+[Installing macros](installing-macros.md) has the routes this page skipped:
+installing one command at a time through the dialog, with screenshots of every
+field; putting a command on the right-click menu as well; the subroutine
+libraries in `macros/lib/`, which are not in the import file; and cloning the
+repository, which is what the rest of this site assumes whenever it names a
+path like `macros/lib/text.nm`.

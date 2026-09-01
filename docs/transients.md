@@ -25,7 +25,7 @@ parts that help and do the rest your way.
 There is also `refcodes`, which only prints the strings and writes nothing,
 which is why it is the one command taking no `--root` or `--batch`:
 
-```sh
+```{ .sh .copy }
 python3 $NT refcodes --obtained 2026-03-31
 ```
 
@@ -34,14 +34,14 @@ batch was registered under.
 
 Nothing needs installing. The tool is standard-library Python 3.9, so copying
 the `python/` directory out of a
-[clone of the repository](getting-started.md#getting-the-repository) onto a
+[clone of the repository](installing-macros.md#getting-the-repository) onto a
 machine is the whole setup. There is no `ned-transients` on your `PATH` to run,
 though: you hand the file to `python3` where it sits, so the examples here keep
 its path in `$NT` and set that first.
 
 Run the steps one at a time:
 
-```sh
+```{ .sh .copy }
 NT=~/nedkit/python/ned-transients      # wherever you copied python/ to
 cd /nedefs/Project/Production/dev/data.tables
 
@@ -54,7 +54,7 @@ python3 $NT jira       --root . --batch a
 
 Or all at once, which is the same five functions in the same order:
 
-```sh
+```{ .sh .copy }
 python3 $NT prepare --root . --batch a --since 2025-08-01 --until 2026-02-05
 ```
 
@@ -81,14 +81,14 @@ no window recorded for this batch. Run 'fetch' first, or pass --since / --month.
 
 `fetch` takes the range, and every other step picks it up from there.
 
-| Flag | |
+| Flag | What it means |
 | --- | --- |
 | `--since` | Window start, `YYYY-MM-DD` |
 | `--until` | Window end, `YYYY-MM-DD`. Defaults to today |
 | `--month` | Shorthand for a whole calendar month, `YYYY-MM` |
 | `--obtained` | The download date. Defaults to today |
 
-```sh
+```{ .sh .copy }
 python3 $NT fetch --root . --batch a --since 2025-08-01 --until 2026-02-05
 python3 $NT fetch --root . --batch a --month 2026-01
 ```
@@ -97,7 +97,7 @@ python3 $NT fetch --root . --batch a --month 2026-01
 being told. Passing `--since` to `ptable` overrides that, which is how you cut
 a narrower ptable out of a wider fetch:
 
-```sh
+```{ .sh .copy }
 python3 $NT fetch  --root . --batch a --since 2025-08-01 --until 2026-02-05
 python3 $NT ptable --root . --batch a --since 2026-01-01   # last month only
 ```
@@ -107,7 +107,7 @@ sets the refcode month. See [below](#the-window-is-not-a-month).
 
 ## The other flags
 
-| Flag | |
+| Flag | What it means |
 | --- | --- |
 | `--root` | The `data.tables` directory |
 | `--batch` | Batch letter, `a` for the year's first load. Load sequence, not month |
@@ -205,7 +205,7 @@ file before loading, and if you find one, it belongs in
 Both sources publish sexagesimal positions, and the conversion only strips the
 colons and makes the declination's sign explicit:
 
-| | From the source | In the ptable |
+| Source | From the source | In the ptable |
 | --- | --- | --- |
 | TNS | `20:31:06.360` | `203106.360` |
 | TNS | `+53:50:56.40` | `+535056.40` |
@@ -226,7 +226,7 @@ TNS answers **403** to some clients, and it is worth being precise about which,
 because the obvious conclusion is wrong. Measured against the live search
 endpoint:
 
-| `User-Agent` | |
+| `User-Agent` | What TNS answers |
 | --- | --- |
 | `curl/8.7.1` | 403 |
 | `python-requests/2.32` | 403 |
@@ -297,7 +297,7 @@ smaller change than it sounds: a different `fetch`, the same parser.
 
 ### Libraries that already do this
 
-| | |
+| Library | Why it does not fit |
 | --- | --- |
 | [`transientNamer`](https://github.com/thespacedoctor/transientNamer) | Scrapes the same `/search` endpoint. Maintained, last release February 2025 |
 | [`tns-api`](https://github.com/temuller/Tns_api) | Wraps the official API. Needs bot credentials, single-object lookups |
@@ -344,7 +344,7 @@ Without a bot account the only way to get the list is to read the site, so the
 guard against TNS changing is knowing two ways in rather than one. `fetch`
 tries them in order:
 
-| | Route | |
+| Order | Route | What it costs |
 | --- | --- | --- |
 | 1 | The CSV export, `&format=csv` | Structured, and about 50 KB for a month |
 | 2 | The ordinary results page | Same query, same rows, about 3.9 MB |

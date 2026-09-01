@@ -5,7 +5,7 @@ byte for byte, against a file saying what it should have been. A macro rewrites
 the buffer with no confirmation step, so the only convincing test is one that
 runs it on a file and checks what came back.
 
-```sh
+```{ .sh .copy }
 uv run pytest
 ```
 
@@ -13,7 +13,7 @@ uv run pytest
 
 The suite splits in two, and only one half needs an editor.
 
-| | What it covers | Needs XNEdit |
+| Half | What it covers | Needs XNEdit |
 | --- | --- | --- |
 | Conventions | Header comments, filenames, the `replace_in_string()` trap, formatting | No |
 | Macros | What each command actually does to a file | Yes |
@@ -21,7 +21,7 @@ The suite splits in two, and only one half needs an editor.
 Without XNEdit installed, the second half **skips** and the run still goes
 green. That result says the macros are tidy, not that they work.
 
-```sh
+```{ .sh .copy }
 uv run pytest -m "not xnedit"   # just the conventions, deliberately
 ```
 
@@ -33,7 +33,7 @@ responses out of `tests/fixtures/transients/` and never touch the network.
 `tests/test_sources_live.py` checks the live TNS and Swift sites. It skips
 unless you ask for it:
 
-```sh
+```{ .sh .copy }
 NEDKIT_NETWORK=1 uv run pytest -m network
 ```
 
@@ -74,7 +74,7 @@ invocation can override.
 There are no prebuilt macOS binaries, so this is a one-time build from source.
 XQuartz is the X server it runs on, and openmotif is the widget toolkit.
 
-```sh
+```{ .sh .copy }
 brew install --cask xquartz
 brew install openmotif
 
@@ -87,7 +87,7 @@ make macos
 The binary lands at `source/xnedit`. Point the suite at it and tell it to
 insist:
 
-```sh
+```{ .sh .copy }
 export NEDKIT_XNEDIT=/path/to/xnedit/source/xnedit
 export NEDKIT_REQUIRE_XNEDIT=1
 uv run pytest
@@ -128,7 +128,7 @@ Both editor jobs run under Xvfb with `NEDKIT_REQUIRE_XNEDIT=1`, so a build that
 produced nothing comes back red instead of green. Start the workflow by hand
 from the Actions tab, or:
 
-```sh
+```{ .sh .copy }
 gh workflow run macros.yml
 ```
 

@@ -93,14 +93,28 @@ def parse_subroutines(text):
 # writing the generated regions
 
 
-def fence(body, language=""):
-    return "```%s\n%s\n```" % (language, body)
+def fence(body, language="", classes=(), title=None):
+    """A fenced block, in pymdownx's brace form when it carries attributes.
+
+    ``classes`` and ``title`` reach the rendered page through ``attr_list``:
+    the classes land on the wrapping ``div.highlight``, which is where Material
+    looks for ``.copy`` when deciding whether to hang a copy button on a block,
+    and the title becomes the block's caption.
+    """
+    info = language
+    if classes or title is not None:
+        parts = ["." + name for name in (language, *classes) if name]
+        if title is not None:
+            parts.append('title="%s"' % title)
+        info = "{ %s }" % " ".join(parts)
+    return "```%s\n%s\n```" % (info, body)
 
 
-def collapsed(summary, body, language=""):
+def collapsed(summary, body, language="", classes=(), title=None):
     """A pymdownx.details block, so long macro bodies start folded away."""
     indented = "\n".join(
-        ("    " + line).rstrip() for line in fence(body, language).split("\n")
+        ("    " + line).rstrip()
+        for line in fence(body, language, classes, title).split("\n")
     )
     return '??? example "%s"\n\n%s' % (summary, indented)
 
@@ -147,7 +161,15 @@ def gen_commands():
         out.append("")
         out.append(as_prose(macro.prose))
         out.append("")
-        out.append(collapsed("The macro body, ready to paste", macro.body))
+        out.append(
+            collapsed(
+                "Macro body, only if you are installing this one command by hand",
+                macro.body,
+                language="text",
+                classes=("copy",),
+                title="Paste into Macro Command to Execute",
+            )
+        )
         out.append("")
     return "\n".join(out).strip("\n")
 

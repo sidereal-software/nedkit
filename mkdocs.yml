@@ -37,7 +37,11 @@ theme:
     - navigation.tabs
     - navigation.sections
     - navigation.top
-    - content.code.copy
+    # content.code.copy is deliberately absent. Most blocks on this site are
+    # output listings, and a copy button on one is an instruction to paste it
+    # somewhere. Material attaches the button to a block carrying `.copy` even
+    # with the feature off, so the button now means "this is meant to leave the
+    # page" rather than "this is monospaced".
     - content.action.edit
     - search.suggest
     - toc.follow
@@ -61,7 +65,15 @@ markdown_extensions:
       permalink: true
 
 plugins:
-  - search
+  # The default separator splits on whitespace and hyphens only, which makes
+  # every identifier here one indivisible token: a reader searching
+  # `read_only` or `macro_menu_command` or `XNEDIT` finds nothing, because the
+  # index holds `$read_only` and `macro_menu_command` whole. This is Material's
+  # own separator for code-heavy sites, splitting on underscores, on a dot not
+  # followed by a digit so `v1.6.3` survives, and on case changes so
+  # `macroCommands` is reachable from `Commands`.
+  - search:
+      separator: '[\s\-,:!=\[\]()"/_]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
   # The API reference comes from the docstrings rather than being written out
   # again by hand, the same principle tools/gen_docs.py applies to the macros.
   - mkdocstrings:
