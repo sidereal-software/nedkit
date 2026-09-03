@@ -156,5 +156,14 @@ if (ok == 0) {
 }
 
 if (msg != "") {
-    dialog(msg, "OK")
+    t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+    # The report is the terminal block above. A dialog is nicer to read but a
+    # modal Motif one crashes the X server on some macOS and XQuartz
+    # combinations, taking every open window with it, so it is off unless the
+    # environment that launched xnedit asks for it. An unset variable reads as
+    # "" here, which is what makes off the default.
+    if (getenv("NEDKIT_DIALOGS") == "1") {
+        dialog(msg, "OK")
+    }
 }

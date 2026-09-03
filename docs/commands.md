@@ -124,7 +124,16 @@ cannot drift away from what the macros actually do.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     ```
 
@@ -324,7 +333,16 @@ lock one too.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     ```
 
@@ -748,7 +766,8 @@ lock one too.
             ch = substring(cleaned, pos, stop)
             if (ch in grk) {
                 # Positions are kept for the first 20 only, which is as much as a
-                # dialog can usefully hold. The count below is of all of them.
+                # reader will work through in one go. The count below is of all of
+                # them.
                 if (n_shown < 20) {
                     gpos[n_shown] = pos - shrink
                     gch[n_shown] = ch
@@ -805,8 +824,9 @@ lock one too.
         }
     }
 
-    # Report. t_print() goes to the terminal that launched xnedit, so the routine
-    # case stays quiet; the dialog is reserved for the case that wants a human.
+    # Report. t_print() goes to the terminal that launched xnedit. The routine
+    # case is one line; the marked block is for the case that wants a human, and is
+    # marked so it can be picked out of a scrolled-past terminal.
     if (ok == 0) {
         t_print("fold: " $file_name ": nothing changed\n")
     } else if (fixed == "" && n_greek == 0) {
@@ -837,7 +857,16 @@ lock one too.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     ```
 
@@ -871,14 +900,14 @@ Five readings collide:
 | υ μ | u |
 
 The capitals collide the same way, apart from the sigmas. Nothing can tell a
-pair apart afterwards, so every Greek letter gets listed in a dialog with the
-line and column it was on, and the cursor lands on the first one. Read that
-list before the file goes any further.
+pair apart afterwards, so every Greek letter gets listed in the terminal with
+the line and column it was on, and the cursor lands on the first one. Read
+that list before the file goes any further.
 
 μ, Μ and the micro sign µ give u rather than m, so that 24 µm stays a
 wavelength instead of turning into 24 mm.
 
-An accent fold gets no dialog, only the terminal summary, since there is
+An accent fold gets no such list, only the one-line summary, since there is
 nothing ambiguous to decide. It is still data loss: nothing in the file
 records that the accent was ever there, so keep the original if the spelling
 of a name matters.
@@ -1179,8 +1208,9 @@ in Python rather than in the editor.
         }
     }
 
-    # Report. t_print() goes to the terminal that launched xnedit, so the routine
-    # case stays quiet; the dialog is reserved for the case that wants a human.
+    # Report. t_print() goes to the terminal that launched xnedit. The routine
+    # case is one line; the marked block is for the case that wants a human, and is
+    # marked so it can be picked out of a scrolled-past terminal.
     if (ok == 0) {
         t_print("normalize: " $file_name ": nothing changed\n")
     } else if (fixed == "") {
@@ -1211,7 +1241,16 @@ in Python rather than in the editor.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     ```
 
@@ -1233,7 +1272,7 @@ newlines.
 Non-ASCII characters with no safe ASCII spelling - degree signs, Greek
 letters, accented names - are deliberately left alone. Rather than mangle
 them, the macro counts what is left, parks the cursor on the first one, and
-lists them in a dialog.
+lists them in the terminal.
 
 A run that finds nothing leaves the buffer, the undo history and the
 modified flag untouched.
@@ -1455,7 +1494,16 @@ lock one too.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     ```
 
@@ -1830,7 +1878,16 @@ A second run finds the file already square and leaves it alone.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     # --- end shared ---
     ```
@@ -2157,7 +2214,16 @@ For one column with no dialog in the way, use Pipe at Cursor Column.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     # --- end shared ---
     ```
@@ -2337,7 +2403,16 @@ over the space, use Pipe at Columns.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     ```
 
@@ -2449,7 +2524,16 @@ lock one too.
     }
 
     if (msg != "") {
-        dialog(msg, "OK")
+        t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+        # The report is the terminal block above. A dialog is nicer to read but a
+        # modal Motif one crashes the X server on some macOS and XQuartz
+        # combinations, taking every open window with it, so it is off unless the
+        # environment that launched xnedit asks for it. An unset variable reads as
+        # "" here, which is what makes off the default.
+        if (getenv("NEDKIT_DIALOGS") == "1") {
+            dialog(msg, "OK")
+        }
     }
     ```
 

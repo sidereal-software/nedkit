@@ -352,11 +352,28 @@ Three things about the mechanism are worth knowing first:
 - **A failing macro hangs.** The error goes into a modal dialog and waits
   forever, so every run has a timeout and the harness appends a sentinel to
   prove the macro reached its last line.
-- **`dialog()` is shadowed.** A user-defined subroutine wins over the built-in
-  of the same name, so the harness redefines `dialog()` in `autoload.nm` to
-  print instead of block. `MacroRun.dialogs` is what the macro would have
-  shown. Anything else interactive needs the same treatment before it can be
-  tested.
+- **No command raises a dialog unless `NEDKIT_DIALOGS=1` is in the
+  environment.** A modal Motif dialog crashes the X server on some macOS and
+  XQuartz combinations, taking every window with it, so a command prints its
+  report to the terminal between `=== nedkit ===` and `=== end ===` instead.
+  `MacroRun.reports` is the list of those blocks, and `MacroRun.messages`
+  excludes them so a summary assertion cannot pass on report text.
+
+    The dialog is switched off, not deleted, so it can come back when XQuartz
+    is fixed. `getenv()` returns `""` for an unset variable rather than
+    raising, which is what makes off the default and keeps the check
+    self-contained: a `$global` would need `autoload.nm`, and that would cost
+    every command its one-step `xnedit -import` install.
+    `XNEditRunner.env` clears `NEDKIT_DIALOGS` so a developer who has it set
+    cannot change what the suite measures, and `run_on_file(env=...)` is how
+    the two tests that cover both states set it.
+- **`string_dialog()` is shadowed.** Pipe at Columns still has to ask which
+  columns, and a real prompt would block forever with no one to answer it. A
+  user-defined subroutine wins over the built-in of the same name, so the
+  harness redefines it in `autoload.nm` to print instead, with the answer and
+  button coming from globals a fixture sets. `dialog()` is shadowed the same
+  way, as a backstop rather than for any command that calls it. Anything else
+  interactive needs the same treatment before it can be tested.
 - **Fixtures are bytes.** `tests/fixtures/<command>/<case>/` holds `input.txt`
   and `expected.txt`, compared without decoding, and `.gitattributes` marks the
   tree `-text` so git cannot normalise the whitespace under test. Every command

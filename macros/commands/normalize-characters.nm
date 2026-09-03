@@ -10,7 +10,7 @@
 # Non-ASCII characters with no safe ASCII spelling - degree signs, Greek
 # letters, accented names - are deliberately left alone. Rather than mangle
 # them, the macro counts what is left, parks the cursor on the first one, and
-# lists them in a dialog.
+# lists them in the terminal.
 #
 # A run that finds nothing leaves the buffer, the undo history and the
 # modified flag untouched.
@@ -306,8 +306,9 @@ if (ok == 1) {
     }
 }
 
-# Report. t_print() goes to the terminal that launched xnedit, so the routine
-# case stays quiet; the dialog is reserved for the case that wants a human.
+# Report. t_print() goes to the terminal that launched xnedit. The routine
+# case is one line; the marked block is for the case that wants a human, and is
+# marked so it can be picked out of a scrolled-past terminal.
 if (ok == 0) {
     t_print("normalize: " $file_name ": nothing changed\n")
 } else if (fixed == "") {
@@ -338,5 +339,14 @@ if (n_left > 0) {
 }
 
 if (msg != "") {
-    dialog(msg, "OK")
+    t_print("\n=== nedkit ===\n" msg "\n=== end ===\n")
+
+    # The report is the terminal block above. A dialog is nicer to read but a
+    # modal Motif one crashes the X server on some macOS and XQuartz
+    # combinations, taking every open window with it, so it is off unless the
+    # environment that launched xnedit asks for it. An unset variable reads as
+    # "" here, which is what makes off the default.
+    if (getenv("NEDKIT_DIALOGS") == "1") {
+        dialog(msg, "OK")
+    }
 }

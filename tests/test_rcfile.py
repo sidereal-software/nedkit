@@ -180,7 +180,7 @@ def test_a_broken_entry_would_be_noticed(runner: XNEditRunner, tmp_path: Path) -
 
 def reported(run) -> str:
     """Everything the command said, whether printed or put in a dialog."""
-    return (run.messages.strip() + " ".join(run.dialogs)).strip()
+    return (run.messages.strip() + " ".join(run.reports)).strip()
 
 
 @pytest.mark.xnedit

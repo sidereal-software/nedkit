@@ -2,11 +2,12 @@
 
 The fixtures in ``test_commands.py`` settle what lands in the buffer. This
 covers the other half: the ``t_print()`` summary and, for the cases that need a
-human to look at something, the dialog.
+human to look at something, the marked report.
 
-A real dialog would block forever with no one to click OK, so the harness
-shadows ``dialog()`` with a subroutine that prints instead. See
-``nedkit.runner.DIALOG_STUB``.
+Reports go to the terminal rather than through a dialog, because a modal Motif
+dialog crashes the X server on some macOS and XQuartz combinations and takes
+every window with it. ``MacroRun.reports`` collects the blocks between
+``=== nedkit ===`` and ``=== end ===``.
 """
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ def test_normalize_characters_is_quiet_when_there_is_nothing_to_do(
     )
     assert run.ok, run.describe()
     assert "nothing to change" in run.messages
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_normalize_characters_names_what_it_changed(
@@ -84,9 +85,9 @@ def test_normalize_characters_reports_what_it_left_alone(
         tmp_path,
     )
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "1 kind(s) of non-ASCII character left, 2 in all" in message
     # The character as well as the count. A bare "2x" is also what a message
     # saying 12x or 22x of something else contains, and it says nothing about
@@ -94,10 +95,51 @@ def test_normalize_characters_reports_what_it_left_alone(
     assert "2x  α" in message
 
 
+#: A buffer every command's reporting path can be exercised from: one Greek
+#: letter that no table maps to ASCII, so Normalize Characters has something to
+#: report and something to leave alone.
+REPORTS_SOMETHING = "T = 15000 K, \u03b1 = 2.1\n".encode("utf-8")
+
+
+def test_a_report_does_not_raise_a_dialog(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The default has to be silent, because on some macOS and XQuartz
+    combinations a modal Motif dialog crashes the X server and takes every open
+    window with it. A command with something to say says it in the terminal."""
+    run = runner.run_on_bytes(
+        body("normalize-characters"), REPORTS_SOMETHING, tmp_path
+    )
+    assert run.ok, run.describe()
+    assert run.reports, "the command had nothing to report, so this proves nothing"
+    assert run.dialogs == [], f"a dialog was raised with the flag unset: {run.dialogs}"
+
+
+def test_nedkit_dialogs_puts_the_report_back_in_a_dialog(
+    runner: XNEditRunner, tmp_path: Path
+) -> None:
+    """The dialog is switched off, not deleted, so it can come back when the
+    XQuartz bug is fixed without anyone reconstructing it.
+
+    Asserting the dialog carries the same text as the terminal report is what
+    keeps the two from drifting while only one of them is ever looked at.
+    """
+    run = runner.run_on_bytes(
+        body("normalize-characters"),
+        REPORTS_SOMETHING,
+        tmp_path,
+        env={"NEDKIT_DIALOGS": "1"},
+    )
+    assert run.ok, run.describe()
+    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
+    assert flattened(run.dialogs[0]) == flattened(run.reports[0])
+
+
 def test_normalize_characters_leaves_the_cursor_on_the_first_character_it_kept(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
-    """The dialog says the cursor is on the first one, so it has to be there.
+    """The report says the cursor is on the first one, so it has to be there.
 
     The offset is into the buffer the command just wrote, not the one it was
     handed. The en dash here is one character on the way in and shorter on the
@@ -123,7 +165,7 @@ def test_normalize_characters_reports_nothing_left_when_all_is_mapped(
         body("normalize-characters"), "NGC 4472 – 4486\n".encode("utf-8"), tmp_path
     )
     assert run.ok, run.describe()
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 FOLD = "fold-letters-to-ascii"
@@ -135,7 +177,7 @@ def test_fold_letters_is_quiet_when_there_is_nothing_to_do(
     run = runner.run_on_bytes(body(FOLD), b"NGC 4472 z=0.003326\n", tmp_path)
     assert run.ok, run.describe()
     assert "nothing to change" in run.messages
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_fold_letters_names_each_accent_it_folded(
@@ -150,7 +192,7 @@ def test_fold_letters_names_each_accent_it_folded(
 def test_fold_letters_does_not_put_an_accent_in_front_of_anyone(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
-    """The dialog is for the readings that collide, and an accent has none.
+    """The report is for the readings that collide, and an accent has none.
 
     Dropping an accent is still data loss, and it goes in the terminal summary
     for that reason. It does not stop the person running the command, because
@@ -158,7 +200,7 @@ def test_fold_letters_does_not_put_an_accent_in_front_of_anyone(
     """
     run = runner.run_on_bytes(body(FOLD), "Balázs and Löwe\n".encode(), tmp_path)
     assert run.ok, run.describe()
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_fold_letters_gives_the_line_and_column_of_each_greek_letter(
@@ -174,8 +216,8 @@ def test_fold_letters_gives_the_line_and_column_of_each_greek_letter(
         body(FOLD), "NGC 4472\nT = 15000 K, α = 2.1\n".encode(), tmp_path
     )
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
-    assert "line 2, column 13    α -> a" in run.dialogs[0]
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
+    assert "line 2, column 13    α -> a" in run.reports[0]
 
 
 def test_fold_letters_counts_the_column_after_an_expansion_on_the_same_line(
@@ -189,9 +231,9 @@ def test_fold_letters_counts_the_column_after_an_expansion_on_the_same_line(
     """
     run = runner.run_on_bytes(body(FOLD), "Weiß 24 µm α=2.1 Löwe\n".encode(), tmp_path)
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "line 1, column 9    µ -> u" in message
     assert "line 1, column 12    α -> a" in message
 
@@ -214,13 +256,13 @@ def test_fold_letters_counts_the_column_past_a_character_it_left_alone(
 
     run = runner.run_on_bytes(body(FOLD), "25° α end\n".encode(), tmp_path)
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
-    assert "line 1, column 4    α -> a" in run.dialogs[0]
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
+    assert "line 1, column 4    α -> a" in run.reports[0]
 
 
 #: The five readings more than one Greek letter folds to, and what each of them
 #: could have started as. ``tests/test_character_table.py`` derives this set
-#: from the table; the dialog is the only place a person ever sees it, and a
+#: from the table; the report is the only place a person ever sees it, and a
 #: pair missing from it is a pair somebody will assume is still recoverable.
 COLLISIONS = (
     "e epsilon, eta",
@@ -232,7 +274,7 @@ COLLISIONS = (
 
 
 def flattened(message: str) -> str:
-    """A dialog with its runs of whitespace and its escaped newlines squashed.
+    """A report with its runs of whitespace and its escaped newlines squashed.
 
     Lets a row be matched on what it says rather than on how it is laid out.
     """
@@ -244,17 +286,17 @@ def test_fold_letters_names_every_reading_two_greek_letters_share(
 ) -> None:
     """Which Greek letter was there is unrecoverable once the file is folded.
 
-    So the dialog names every reading more than one letter produces, whether or
+    So the report names every reading more than one letter produces, whether or
     not this particular file happened to hold the pair: the person reading it
     is deciding whether to go back to the original.
     """
     run = runner.run_on_bytes(body(FOLD), "θ τ σ ς\n".encode(), tmp_path)
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = flattened(run.dialogs[0])
+    message = flattened(run.reports[0])
     missing = [collision for collision in COLLISIONS if collision not in message]
-    assert missing == [], f"readings the dialog does not warn about: {missing}"
+    assert missing == [], f"readings the report does not warn about: {missing}"
 
 
 def test_fold_letters_lists_twenty_greek_letters_without_saying_there_are_more(
@@ -262,9 +304,9 @@ def test_fold_letters_lists_twenty_greek_letters_without_saying_there_are_more(
 ) -> None:
     run = runner.run_on_bytes(body(FOLD), ("α" * 20 + "\n").encode(), tmp_path)
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "had 20 Greek letter(s)" in message
     assert "line 1, column 19    α -> a" in message
     assert "...and" not in message, "twenty is the whole list, so nothing is left"
@@ -275,14 +317,14 @@ def test_fold_letters_says_how_many_greek_letters_it_did_not_list(
 ) -> None:
     """The count is of every occurrence; only the positions are capped.
 
-    A dialog of hundreds of rows is unreadable, and a count that stopped at the
+    A report of hundreds of rows is unreadable, and a count that stopped at the
     cap would understate what the command just did.
     """
     run = runner.run_on_bytes(body(FOLD), ("α" * 21 + "\n").encode(), tmp_path)
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "had 21 Greek letter(s)" in message
     assert "...and 1 more" in message
     assert "column 20" not in message, "the twenty-first position is not listed"
@@ -291,7 +333,7 @@ def test_fold_letters_says_how_many_greek_letters_it_did_not_list(
 def test_fold_letters_leaves_the_cursor_on_the_first_greek_letter(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
-    """The dialog says the cursor is there, so it has to be there.
+    """The report says the cursor is there, so it has to be there.
 
     Two Greek letters, because working out each one's line and column means
     parking the cursor on it, which leaves the cursor on the last one. The
@@ -331,7 +373,7 @@ def test_pipe_at_cursor_column_reports_the_pipes_and_the_rows(
     )
     assert run.ok, run.describe()
     assert "2 pipe(s) into 2 row(s)" in run.messages
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_pipe_at_cursor_column_does_not_count_header_lines_as_rows(
@@ -365,8 +407,8 @@ def test_pipe_at_cursor_column_refuses_column_zero_and_says_why(
     )
     assert run.ok, run.describe()
     assert "nothing changed" in run.messages
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
-    assert "column 0" in run.dialogs[0]
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
+    assert "column 0" in run.reports[0]
 
 
 def test_pipe_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them(
@@ -386,9 +428,9 @@ def test_pipe_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them(
     )
     assert run.ok, run.describe()
     assert "nothing changed" in run.messages
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "has a tab in it" in message
     assert "Expand Tabs" in message
 
@@ -404,9 +446,9 @@ def test_pipe_reports_the_rows_it_could_not_overwrite(
         tmp_path,
     )
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "1 row(s) holding something other than a space" in message
     assert "The first is on line 2" in message
 
@@ -422,17 +464,17 @@ def test_pipe_reports_the_rows_that_end_before_the_column(
         tmp_path,
     )
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "1 row(s) that end before" in message
     assert "The first is on line 2" in message
 
 
-def test_pipe_puts_both_kinds_of_skipped_row_in_one_dialog(
+def test_pipe_puts_both_kinds_of_skipped_row_in_one_report(
     runner: XNEditRunner, tmp_path: Path
 ) -> None:
-    """One dialog, however many things went wrong. Two would mean clicking OK
+    """One report, however many things went wrong. Two would mean reading
     twice for one run of one command."""
     run = runner.run_on_bytes(
         with_setup("pipe-at-cursor-column", AT_COLUMN_10),
@@ -440,9 +482,9 @@ def test_pipe_puts_both_kinds_of_skipped_row_in_one_dialog(
         tmp_path,
     )
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "1 row(s) holding something other than a space" in message
     assert "1 row(s) that end before" in message
 
@@ -464,7 +506,7 @@ def test_pipe_at_columns_asks_once_and_names_the_column_the_cursor_is_in(
     prompt = run.prompts[0]
     assert "the cursor is in column 12 right now" in prompt
     assert "They count from 0" in prompt
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_pipe_at_columns_says_nothing_when_the_answer_names_no_columns(
@@ -476,7 +518,7 @@ def test_pipe_at_columns_says_nothing_when_the_answer_names_no_columns(
     )
     assert run.ok, run.describe()
     assert "nothing changed" in run.messages
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_pipe_at_columns_names_the_word_it_could_not_read_as_a_column(
@@ -487,8 +529,8 @@ def test_pipe_at_columns_names_the_word_it_could_not_read_as_a_column(
     )
     assert run.ok, run.describe()
     assert "nothing changed" in run.messages
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
-    assert '"twelve" is not a column number' in run.dialogs[0]
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
+    assert '"twelve" is not a column number' in run.reports[0]
 
 
 def test_pipe_at_columns_refuses_column_zero_without_piping_the_rest(
@@ -501,8 +543,8 @@ def test_pipe_at_columns_refuses_column_zero_without_piping_the_rest(
     )
     assert run.ok, run.describe()
     assert "nothing changed" in run.messages
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
-    assert "Column 0 is not a place a pipe can go" in run.dialogs[0]
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
+    assert "Column 0 is not a place a pipe can go" in run.reports[0]
 
 
 PAD = "pad-columns"
@@ -517,7 +559,7 @@ def test_pad_columns_counts_the_rows_and_the_columns(
     run = runner.run_on_bytes(body(PAD), TWO_PIPED_ROWS, tmp_path)
     assert run.ok, run.describe()
     assert "2 row(s), 3 column(s)" in run.messages
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_pad_columns_does_not_count_header_or_blank_lines_as_rows(
@@ -547,7 +589,7 @@ def test_pad_columns_says_so_when_no_line_has_a_pipe_in_it(
     )
     assert run.ok, run.describe()
     assert "no rows with a | in them" in run.messages
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_pad_columns_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them(
@@ -563,9 +605,9 @@ def test_pad_columns_refuses_a_buffer_with_a_tab_and_says_how_to_get_rid_of_them
     )
     assert run.ok, run.describe()
     assert "nothing changed" in run.messages
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "has a tab in it" in message
     assert "Expand Tabs" in message
 
@@ -590,9 +632,9 @@ def test_pad_columns_reports_the_ragged_rows_by_count_and_first_line(
         tmp_path,
     )
     assert run.ok, run.describe()
-    assert len(run.dialogs) == 1, f"expected one dialog, got {run.dialogs}"
+    assert len(run.reports) == 1, f"expected one report, got {run.reports}"
 
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert "2 row(s) whose field count differs" in message
     assert "which has 3" in message
     assert "The first one is on line 3" in message
@@ -641,7 +683,7 @@ def test_trim_trailing_blanks_says_so_when_there_is_nothing_to_trim(
     run = runner.run_on_bytes(body(TRIM), b"NGC 4472 z=0.003326\n", tmp_path)
     assert run.ok, run.describe()
     assert "nothing to trim" in run.messages
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_trim_trailing_blanks_counts_the_lines_it_trimmed(
@@ -661,7 +703,7 @@ def test_trim_trailing_blanks_counts_the_lines_it_trimmed(
     )
     assert run.ok, run.describe()
     assert "3 line(s) trimmed" in run.messages
-    assert run.dialogs == []
+    assert run.reports == []
 
 
 def test_trim_trailing_blanks_counts_a_line_that_is_nothing_but_blanks(

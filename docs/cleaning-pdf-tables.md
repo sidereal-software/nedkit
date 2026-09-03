@@ -88,15 +88,15 @@ IC3583 | 12:36:44.0
 ### Read the report
 
 Both commands print a line per run in the terminal that launched `xnedit`, and
-raise a dialog when some rows did not get their pipe. Two cases are counted and
-left alone rather than guessed at:
+print a marked report there when some rows did not get their pipe. Two cases
+are counted and left alone rather than guessed at:
 
 | The row | Why it was skipped |
 | --- | --- |
 | Holds something other than a space where an overwrite would go | Writing there would destroy a character |
 | Ends before the column | Padding it out would invent data |
 
-The dialog gives a count and the line number of the first one, and either case
+The report gives a count and the line number of the first one, and either case
 usually means the column is a place or two off.
 
 Watch the first one. A column that is blank on almost every row can land inside
@@ -334,7 +334,7 @@ costs nothing downstream here, since the pipe commands and Pad Columns count
 characters as they are displayed.
 
 Rather than fail silently, the command counts what it left, puts the cursor on
-the first one and lists them in a dialog with a count per character.
+the first one and lists them in the terminal with a count per character.
 [Character replacements](character-replacements.md) has the full table of what
 it does and does not touch.
 
@@ -345,7 +345,7 @@ destroy every positive declination in the file.
 
 ## Flattening the letters
 
-The dialog above is also where you find out whether you want the next command.
+The report above is also where you find out whether you want the next command.
 If it lists accented or Greek letters and you would rather have plain ASCII,
 run **Fold Letters to ASCII**.
 
@@ -360,30 +360,55 @@ answer, `ε` and `η` both giving `e` among them, so once it has run nothing can
 tell which letter was there. The command lists every one it replaced with the
 line and column it was on and parks the cursor on the first.
 
-An accent fold gets no dialog, only a line in the terminal. It is still
+An accent fold gets no such list, only a one-line summary. It is still
 irreversible, and `Balazs` is not a name anyone can put the accent back into,
 so decide before you run it rather than after.
 
 ## When the file is locked
 
 A locked buffer takes no writes, so every command checks for one before it does
-anything else. What you get instead of an edit is a dialog:
-
-```
-A13L.mod.before is locked, so nothing was changed.
-
-XNEdit locks a file it cannot read as UTF-8, which is the usual reason.
-File > Read Only locks a buffer too, and so does a file with no write
-permission.
-```
-
-and a line in the terminal where the count normally goes:
+anything else. What you get instead of an edit is the usual one-line summary
+and a marked report, both in the terminal that launched `xnedit`:
 
 ```
 trim: A13L.mod.before: nothing changed
+
+=== nedkit ===
+A13L.mod.before is locked, so nothing was changed.
+
+XNEdit locks a file it cannot read as UTF-8, which is the usual reason. File > Read Only locks a buffer too, and so does a file with no write permission.
+=== end ===
 ```
 
-All nine commands say it, under eight prefixes: `dec:`, `expand:`, `fold:`,
+The `=== nedkit ===` markers are there so a report can be found again in a
+terminal that has scrolled.
+
+## Turning the dialog back on
+
+A report used to go in a dialog, which is easier to read than terminal output
+you have to go looking for. It is off because a modal Motif dialog crashes the
+X server on some macOS and XQuartz combinations, taking every open window with
+it, and the crash is in XQuartz rather than in anything the macros do.
+
+The dialog is switched off rather than removed. Launch `xnedit` with
+`NEDKIT_DIALOGS=1` in its environment and every report goes to a dialog as well
+as to the terminal:
+
+```{ .sh .copy }
+NEDKIT_DIALOGS=1 xnedit A283R.mod
+```
+
+| `NEDKIT_DIALOGS` | What a report does |
+| --- | --- |
+| unset, or anything but `1` | prints to the terminal only |
+| `1` | prints to the terminal and opens a dialog |
+
+Off is the default because an unset variable reads as empty, so a copy of
+XNEdit started from the Dock, where no shell has set anything, cannot raise a
+dialog by accident. Once the XQuartz bug is fixed, setting the variable in a
+shell profile turns the dialogs back on for good.
+
+All nine commands print the summary line, under eight prefixes: `dec:`, `expand:`, `fold:`,
 `normalize:`, `pad:`, `pipe:`, `ra:` and `trim:`, the two pipe commands sharing
 `pipe:`. The buffer was not touched, so there is nothing to undo.
 

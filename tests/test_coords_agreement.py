@@ -69,7 +69,7 @@ def _convert(runner: XNEditRunner, command: str, values: "list[str]", tmp_path: 
         name="column.txt",
     )
     assert run.ok, run.describe()
-    assert not run.dialogs, f"{command} refused the column: {run.dialogs}"
+    assert not run.reports, f"{command} refused the column: {run.reports}"
     assert run.output is not None, f"{command} left no file behind"
     return run.output.decode("utf-8").splitlines()
 

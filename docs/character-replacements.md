@@ -20,7 +20,7 @@ decision about your data rather than a typographic cleanup, and because one
 table of 313 characters does not fit in the 4096 instructions a macro gets.
 
 Run Normalize Characters on its own and it reports the accented and Greek
-letters in its "no safe ASCII spelling" dialog, which is the nudge toward the
+letters in its "no safe ASCII spelling" report, which is the nudge toward the
 second command.
 
 The tables below are generated from the macros themselves by
@@ -476,7 +476,7 @@ They lengthen rather than fold because they turn up in names, where `Weiß` to
 
 !!! warning "An accent fold is silent"
 
-    A Greek letter gets a dialog. An accented letter does not. `Balázs` becomes
+    A Greek letter gets a report. An accented letter does not. `Balázs` becomes
     `Balazs`, the terminal names U+00E1, and nothing in the file itself records
     that the accent was ever there. Keep the original if the spelling of a name
     matters.
@@ -514,8 +514,8 @@ Five readings collide, and nothing can tell a pair apart afterwards:
 | `t` | tau, theta |
 | `u` | upsilon, mu |
 
-That is why every Greek letter the macro replaces is listed in a dialog with
-the line and column it was on, and why the cursor lands on the first one. Read
+That is why every Greek letter the macro replaces is listed in the terminal
+with the line and column it was on, and why the cursor lands on the first one. Read
 that list before the file goes any further. `σ` and `ς` both giving `s` also
 means word-final position is not recoverable, so do not reach for this macro on
 Greek prose; it is built for a data column.
@@ -547,10 +547,11 @@ character that at least looks wrong.
 | Bytes that are not valid UTF-8 | XNEdit replaces each byte it cannot decode with U+FFFD REPLACEMENT CHARACTER as it reads the file, and locks the buffer, so both commands refuse the file rather than reach the byte. See [when the file is locked](cleaning-pdf-tables.md#when-the-file-is-locked). |
 
 Normalize Characters is the command that reports these. After it runs it counts
-what is left, puts the cursor on the first one, and lists them in a dialog with
-a count per character, so each case can be decided by hand. That count includes
-the accented and Greek letters until you run Fold Letters to ASCII, which is
-what makes the dialog a pointer to the second command rather than a dead end.
+what is left, puts the cursor on the first one, and lists them in the terminal
+with a count per character, so each case can be decided by hand. That count
+includes the accented and Greek letters until you run Fold Letters to ASCII,
+which is what makes the report a pointer to the second command rather than a
+dead end.
 
 Fold Letters to ASCII says nothing about what it left. It only ever reports the
 Greek it replaced, because that is the one thing it does that cannot be
@@ -584,7 +585,7 @@ fix["\xc3\xa9"] = "e"
 
 Either way `fix[]` is where a new character goes. `grk[]` is the second table
 in the fold macro, and it exists because the macro records where each Greek
-letter sits before it replaces it, which is what lets the dialog give a line
+letter sits before it replaces it, which is what lets the report give a line
 and column. That arithmetic assumes every `grk[]` replacement is exactly one
 character, so a character that replaces to more or fewer belongs in `fix[]`
 whatever it is. `fix[]` runs first and nothing measures it.

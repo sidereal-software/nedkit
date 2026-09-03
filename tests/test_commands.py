@@ -360,11 +360,11 @@ def test_a_command_refuses_a_buffer_xnedit_locked_and_says_so(
         f"{run.messages!r}"
     )
 
-    assert len(run.dialogs) == 1, (
+    assert len(run.reports) == 1, (
         f"{command.name} should put the reason in front of whoever ran it, "
-        f"once: {run.dialogs}"
+        f"once: {run.reports}"
     )
-    message = run.dialogs[0]
+    message = run.reports[0]
     assert message.startswith("undecodable.txt is locked, so nothing was changed"), (
         f"{command.name} does not name the file and say nothing changed: {message!r}"
     )

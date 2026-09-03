@@ -214,9 +214,15 @@ Two failures mean something other than a wrong answer:
 | XNEdit did not exit | The macro raised an error. XNEdit puts errors in a dialog and waits for a click that never comes, so the harness times out and kills it. Look for a syntax error first |
 | The macro exited without reaching its last line | The macro died part way through, so the file it was working on is half-rewritten |
 
-A command that needs to tell the person running it something puts that in a
-dialog, which would also wait forever. The harness defines its own `dialog()`
-and `string_dialog()` that print instead, so tests can check what a command
-would have said and choose what it hears back. Any other subroutine that stops
-and waits needs the same treatment before a test can get past it, and a return
-value some test can control before that treatment is worth anything.
+A command that needs to tell the person running it something prints it to the
+terminal between `=== nedkit ===` and `=== end ===`, and `MacroRun.reports` is
+the list of those blocks. A modal dialog is not an option: on some
+macOS/XQuartz builds one crashes the X server outright, and even where it does
+not it waits forever for a click no test can give it.
+
+One dialog is left, because it asks rather than tells: Pipe at Columns needs to
+know which columns. The harness defines its own `string_dialog()` that prints
+instead, so a test can choose what the command hears back. Any other subroutine
+that stops and waits needs the same treatment before a test can get past it,
+and a return value some test can control before that treatment is worth
+anything.

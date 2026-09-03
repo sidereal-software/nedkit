@@ -269,9 +269,9 @@ def sequence(
         extra_args=["-import", str(SHIPPED)],
     )
     assert run.ok, run.describe()
-    assert run.dialogs == [], (
+    assert run.reports == [], (
         "a command stopped to tell the reader something the worked example does "
-        f"not mention: {run.dialogs}"
+        f"not mention: {run.reports}"
     )
 
     lines = run.messages.split("\n")

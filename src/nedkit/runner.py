@@ -41,6 +41,14 @@ PROMPT_MARK = "__NEDKIT_PROMPT__"
 #: Separates whatever the editor printed on startup from the macro's output.
 OUTPUT_MARK = "__NEDKIT_OUTPUT__"
 
+#: Wraps a command's report to the person running it. Reports go to the
+#: terminal rather than through dialog(), because a modal Motif dialog crashes
+#: the X server on some macOS/XQuartz builds and takes every window with it.
+#: Unlike the harness's own marks these are words rather than sentinels, since
+#: a human reads them while scrolling their terminal.
+REPORT_START = "=== nedkit ==="
+REPORT_END = "=== end ==="
+
 #: A user-defined subroutine shadows the built-in of the same name, so a macro
 #: that reports through dialog() can be run without a human to click OK. The
 #: message is flattened onto one line and handed back through stdout instead.
@@ -143,15 +151,52 @@ class MacroRun:
         ]
 
     @property
+    def reports(self) -> list[str]:
+        """What each command told the person running it, in the order printed.
+
+        The block between :data:`REPORT_START` and :data:`REPORT_END`, with its
+        newlines intact: a report is several paragraphs meant to be read, not
+        one line meant to be grepped.
+        """
+        found = []
+        current: list[str] | None = None
+        for line in self.stdout.splitlines():
+            if line.strip() == REPORT_START:
+                current = []
+            elif line.strip() == REPORT_END:
+                if current is not None:
+                    found.append("\n".join(current).strip("\n"))
+                current = None
+            elif current is not None:
+                current.append(line)
+        return found
+
+    @property
     def messages(self) -> str:
-        """Everything the macro printed, minus the harness's own bookkeeping."""
-        return "\n".join(
-            line
-            for line in self.stdout.splitlines()
-            if not line.startswith(DIALOG_MARK)
-            and not line.startswith(PROMPT_MARK)
-            and SENTINEL not in line
-        )
+        """Everything the macro printed, minus the harness's own bookkeeping.
+
+        Report blocks come out too, since :attr:`reports` is where those are
+        asserted and leaving them here would let a summary assertion pass on
+        text that was really part of a report.
+        """
+        kept = []
+        in_report = False
+        for line in self.stdout.splitlines():
+            if line.strip() == REPORT_START:
+                in_report = True
+                continue
+            if line.strip() == REPORT_END:
+                in_report = False
+                continue
+            if in_report:
+                continue
+            if (
+                not line.startswith(DIALOG_MARK)
+                and not line.startswith(PROMPT_MARK)
+                and SENTINEL not in line
+            ):
+                kept.append(line)
+        return "\n".join(kept)
 
     def describe(self) -> str:
         """A failure message worth reading."""
@@ -238,11 +283,17 @@ class XNEditRunner:
         # lets NEDKIT_XNEDIT point at a classic NEdit 5.7 instead: same macro
         # language, same ~/.nedit layout, different variable. CI runs the suite
         # through both.
-        return {
+        base = {
             **os.environ,
             "XNEDIT_HOME": str(self.home),
             "NEDIT_HOME": str(self.home),
         }
+        # NEDKIT_DIALOGS is what turns a command's report into a real dialog,
+        # and a real dialog with no one to click OK hangs the run. A test that
+        # wants one passes it explicitly, so whatever the developer has in
+        # their own shell cannot decide what the suite measures.
+        base.pop("NEDKIT_DIALOGS", None)
+        return base
 
     def run_on_file(
         self,
@@ -251,6 +302,7 @@ class XNEditRunner:
         *,
         save: bool = True,
         extra_args: Sequence[str] = (),
+        env: dict[str, str] | None = None,
     ) -> MacroRun:
         """Run ``macro`` against ``path``, saving afterwards unless told not to.
 
@@ -259,6 +311,11 @@ class XNEditRunner:
         ``extra_args`` goes on the command line ahead of ``-do``, which is how
         an option that has to act before the macro runs gets in: ``-import``
         loads a preferences file, and nothing in the macro language can.
+
+        ``env`` adds to the environment the editor is started with. The only
+        variable the commands read is ``NEDKIT_DIALOGS``; setting it to ``"1"``
+        without also shadowing ``dialog()`` will hang the run, which is the
+        point of it being off by default.
         """
         epilogue = ["save()"] if save else []
         epilogue.append(f't_print("{SENTINEL}\\n")')
@@ -274,7 +331,7 @@ class XNEditRunner:
             [str(self.binary), *extra_args, "-do", full, str(path)],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            env=self.env,
+            env={**self.env, **(env or {})},
             text=True,
             errors="replace",
         )
@@ -304,12 +361,15 @@ class XNEditRunner:
         name: str = "buffer.txt",
         save: bool = True,
         extra_args: Sequence[str] = (),
+        env: dict[str, str] | None = None,
     ) -> MacroRun:
         """Run ``macro`` against a throwaway file holding ``content``."""
         workdir.mkdir(parents=True, exist_ok=True)
         path = workdir / name
         path.write_bytes(content)
-        return self.run_on_file(macro, path, save=save, extra_args=extra_args)
+        return self.run_on_file(
+            macro, path, save=save, extra_args=extra_args, env=env
+        )
 
     def evaluate(self, macro: str, workdir: Path) -> str:
         """Run ``macro`` for its ``t_print()`` output and return that output.
