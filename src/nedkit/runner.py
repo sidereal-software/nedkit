@@ -367,9 +367,7 @@ class XNEditRunner:
         workdir.mkdir(parents=True, exist_ok=True)
         path = workdir / name
         path.write_bytes(content)
-        return self.run_on_file(
-            macro, path, save=save, extra_args=extra_args, env=env
-        )
+        return self.run_on_file(macro, path, save=save, extra_args=extra_args, env=env)
 
     def evaluate(self, macro: str, workdir: Path) -> str:
         """Run ``macro`` for its ``t_print()`` output and return that output.

@@ -101,15 +101,11 @@ def test_normalize_characters_reports_what_it_left_alone(
 REPORTS_SOMETHING = "T = 15000 K, \u03b1 = 2.1\n".encode("utf-8")
 
 
-def test_a_report_does_not_raise_a_dialog(
-    runner: XNEditRunner, tmp_path: Path
-) -> None:
+def test_a_report_does_not_raise_a_dialog(runner: XNEditRunner, tmp_path: Path) -> None:
     """The default has to be silent, because on some macOS and XQuartz
     combinations a modal Motif dialog crashes the X server and takes every open
     window with it. A command with something to say says it in the terminal."""
-    run = runner.run_on_bytes(
-        body("normalize-characters"), REPORTS_SOMETHING, tmp_path
-    )
+    run = runner.run_on_bytes(body("normalize-characters"), REPORTS_SOMETHING, tmp_path)
     assert run.ok, run.describe()
     assert run.reports, "the command had nothing to report, so this proves nothing"
     assert run.dialogs == [], f"a dialog was raised with the flag unset: {run.dialogs}"
